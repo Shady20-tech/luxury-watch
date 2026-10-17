@@ -35,15 +35,15 @@ This ordering exists so each phase continues the real implementation instead of 
 | 0 | Project contract, repository audit and reference analysis | **done** | — |
 | 1 | Foundation: Next.js 15 + TypeScript + Tailwind scaffold, config, tooling, CI | **done** | 0 |
 | 2 | Supabase project, database schema, migrations, RLS, generated types | **done** | 1 |
-| 3 | Authentication, profiles, roles, protected routes | not started | 2 |
-| 4 | Design system, global chrome (top bar, announcement, header, mega menu, footer, age gate) | not started | 1, 2 |
-| 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | not started | 2, 4 |
+| 3 | Design system, global chrome (top bar, announcement, header, mega menu, footer, age gate) | **in progress** | 1, 2 |
+| 4 | Authentication, profiles, roles, protected routes | not started | 2, 3 |
+| 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | not started | 2, 3 |
 | 6 | Product detail page, media gallery, specs, related/recently viewed, wishlist | not started | 5 |
 | 7 | Cart, manual order-request flow, payment-method selection, delivery/pickup, confirmation | not started | 5, 6 |
 | 8 | Resend transactional email, templates, admin notifications | not started | 7 |
-| 9 | Customer account area (orders, wishlist, profile, addresses) | not started | 3, 7 |
-| 10 | Admin platform (products, brands, models, collections, inventory, orders, inquiries, media, pages, announcements, payment methods, settings) | not started | 2, 3, 7 |
-| 11 | Service flows (sell/trade, sourcing, repair), contact, CMS pages, FAQ, testimonials | not started | 4, 8, 10 |
+| 9 | Customer account area (orders, wishlist, profile, addresses) | not started | 4, 7 |
+| 10 | Admin platform (products, brands, models, collections, inventory, orders, inquiries, media, pages, announcements, payment methods, settings) | not started | 2, 4, 7 |
+| 11 | Service flows (sell/trade, sourcing, repair), contact, CMS pages, FAQ, testimonials | not started | 3, 8, 10 |
 | 12 | SEO hardening: dynamic sitemap with real `lastmod`, structured data, robots, canonicals, invalidation | not started | 5, 6, 11 |
 | 13 | Security hardening: headers/CSP, rate limiting, honeypots, audit review, RLS test suite | not started | 10, 11 |
 | 14 | Performance, accessibility and Lighthouse 100/100 pass on key templates | not started | 11, 12 |
@@ -237,30 +237,44 @@ in `KNOWN_ISSUES.md`.
 
 ---
 
-## Phase 3 — Authentication, profiles and roles
+## Phase 3 — Design system and global chrome
 
-**Scope**
-- Supabase Auth with `@supabase/ssr` cookie-based sessions, middleware-refreshed
-- `/login`, `/register`, `/forgot-password`, `/reset-password`, email confirmation
-- `profiles` row auto-created on signup via trigger; role defaults to `customer`
-- `/admin` guarded server-side by role; unauthorised users get a real 403, not a redirect loop
-- Account menu reflecting real auth state
-- Server-side Zod validation on every auth action; generic error messages that do not leak whether
-  an email exists
+> **Status: complete (2026-10-17).** Verified by `npm run verify` (163 tests),
+> `scripts/a11y-audit.mjs` (24 page/viewport combinations plus 2 age-gate passes,
+> no critical or serious axe violations, no horizontal overflow) and a production
+> build of 25 static pages. Two real defects were found and fixed in this phase:
+> a WCAG AA contrast failure on the media placeholder, and a 320px horizontal
+> overflow in the header. Both were invisible to jsdom and were only caught by
+> the real-browser audit. Remaining honest limitations are recorded in
+> `KNOWN_ISSUES.md` as G10–G12 and in the Phase 3 `CHANGELOG.md` entry.
 
-**Acceptance criteria**
-- Register → confirm → login → logout works end to end against real Supabase
-- A `customer` cannot reach any `/admin` route or mutation
-- Session refresh works; no auth flash-of-wrong-state
-- Tests cover the role guard on both route and service level
+> **Ordering note.** The owner's Phase 3 brief covers the design system and shared layout, so
+> this phase and the former Phase 3 (Authentication) were swapped. Authentication is now Phase 4
+> and depends on this phase, because the account menu in the header needs the chrome to exist
+> first. No scope was dropped.
 
----
-
-## Phase 4 — Design system and global chrome
+**Delivered in this phase**
+- Design tokens in `globals.css`: ink/gold/line/surface ramps, semantic aliases, display and body
+  font stacks, `container-page`, `eyebrow`, `glass-panel`, `glass-panel-strong`, a global
+  `prefers-reduced-motion` block and a zoomable viewport.
+- Primitives: `button`, `input`, `badge`, `section` (`Card`, `SectionHeading`), `skeleton`,
+  `states` (`EmptyState`, `ErrorState`), `media-frame`, `accordion`, `drawer`, `dropdown-menu`.
+  (`select`, `textarea`, `dialog` as a general primitive and `breadcrumb` arrive with the phases
+  that need them — Phase 5 forms and Phase 6 breadcrumbs — rather than being built unused here.)
+- Chrome: header, mega menu (Radix NavigationMenu, Brand → Model), mobile drawer (Radix Dialog +
+  accordion), announcement bar, footer, header actions, wordmark.
+- Age gate driven by `site_settings.age_gate_enabled` and `age_gate_minimum_age`, with the
+  environment flag as the fallback when no settings row exists.
+- `src/lib/navigation/` (types, pure assembly, fallback fixture) and
+  `src/server/{repositories,services}/` for chrome data, with `getChrome` cached per request.
+- Fourteen placeholder routes so every navigation link resolves to a real page that names the
+  phase which fills it, plus a `noindex` design-system reference page.
+- Verification tooling: `scripts/a11y-audit.mjs` and a `browser-audit` CI job.
 
 **Scope**
 - Component primitives (button, input, select, textarea, dialog, sheet, accordion, badge, card,
-  breadcrumb, skeleton) built on shadcn/ui + Tailwind tokens
+  breadcrumb, skeleton) built on Tailwind tokens, with Radix primitives for anything that has to
+  trap focus or manage roving tabindex
 - **Top bar**: phone (`tel:`), rotating message, email (`mailto:`), location link, socials
 - **Announcement bar**: database-driven, dismissible, pausable, `prefers-reduced-motion` aware
 - **Header**: logo, search trigger, account, wishlist count, cart count
@@ -277,6 +291,25 @@ in `KNOWN_ISSUES.md`.
 - Keyboard-only pass: skip link → header → mega menu → footer
 - axe reports no critical/serious violations on the shell
 - Mobile drawer behaves correctly at 320px and up
+
+---
+
+## Phase 4 — Authentication, profiles and roles
+
+**Scope**
+- Supabase Auth with `@supabase/ssr` cookie-based sessions, middleware-refreshed
+- `/login`, `/register`, `/forgot-password`, `/reset-password`, email confirmation
+- `profiles` row auto-created on signup via trigger; role defaults to `customer`
+- `/admin` guarded server-side by role; unauthorised users get a real 403, not a redirect loop
+- Account menu reflecting real auth state
+- Server-side Zod validation on every auth action; generic error messages that do not leak whether
+  an email exists
+
+**Acceptance criteria**
+- Register → confirm → login → logout works end to end against real Supabase
+- A `customer` cannot reach any `/admin` route or mutation
+- Session refresh works; no auth flash-of-wrong-state
+- Tests cover the role guard on both route and service level
 
 ---
 
@@ -518,23 +551,33 @@ in `KNOWN_ISSUES.md`.
 
 - **Completed:** Phase 0 (audit and planning documents), Phase 1 (application
   foundation, configuration, quality baseline), Phase 2 (database schema,
-  migrations, RLS and authorisation foundation).
+  migrations, RLS and authorisation foundation), Phase 3 (luxury design system,
+  shared layout and responsive navigation).
 - **Application code:** the Next.js 15 app shell exists — layout, root page, health
   route, robots, sitemap, manifest and middleware — with the Supabase client
   modules, environment validation, error handling, logging and SEO helpers in
-  place. No storefront feature pages yet; those begin in Phase 4.
+  place. Phase 3 added the design tokens, the component primitives, the shared
+  public chrome (header, mega menu, mobile drawer, announcement bar, footer, age
+  gate) under the `(site)` route group, and fourteen honest placeholder routes.
+  Storefront feature pages begin in Phase 5.
 - **Database:** 47 tables, 13 enums, 96 RLS policies and 138 indexes across 8
   migrations, verified from an empty PostgreSQL 17 database. Authorisation proven
   by four test suites; inventory safety proven by a five-scenario concurrency
   proof including a passing negative control. Full reference in
   `DATABASE_SCHEMA.md`.
-- **Test and verification status:** `npm run verify` green (lint, typecheck, 106
+- **Test and verification status:** `npm run verify` green (lint, typecheck, 163
   unit tests, build). `scripts/db-verify.sh` green (8 migrations, 4 RLS suites).
   `scripts/db-concurrency-matrix.py` green (5 of 5 scenarios behave as designed).
-  CI runs both the Node and the database jobs on every push.
-- **Next phase to run:** Phase 3 — Authentication, profiles and roles.
-- **Blockers:** Phase 3 needs a Supabase project (A1) to exercise real auth
-  end to end; the schema itself is already applied and verified locally. Phase 7+
+  `scripts/a11y-audit.mjs` green (24 page/viewport combinations plus 2 age-gate
+  passes, no critical or serious axe violations, no horizontal overflow). CI runs
+  the Node, database and browser-audit jobs on every push.
+- **Next phase to run:** Phase 4 — Authentication, profiles and roles.
+- **Blockers:** Phase 4 needs a Supabase project (A1) to exercise real auth
+  end to end; the schema itself is already applied and verified locally. Phase 8+
   needs a Resend account (A3). Both are owner-side setup, documented in
   `.env.example` and `KNOWN_ISSUES.md`. The most significant open verification gap
   is G1: the RLS suites run against a shim rather than a real Supabase project.
+  Phase 3 added G10: the chrome has no Supabase project to read from yet, so the
+  database-driven navigation is exercised against the seed locally and the
+  fixture is used in the deployed preview. Phase 3 also added G11 and G12, on the
+  age gate and the placeholder routes.

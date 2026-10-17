@@ -32,11 +32,54 @@ npm run dev           # dev server
 ./scripts/db-reset.sh            # drop and recreate the test database
 ./scripts/db-verify.sh           # migrations + RLS suites
 ./scripts/db-concurrency-matrix.py   # inventory oversell proof
+
+# Accessibility and layout. Needs a server already listening:
+#   npm run build && npm run start
+npm run audit:a11y
+CHROMIUM_PATH=/path/to/chrome npm run audit:a11y   # reuse a local Chromium
 ```
 
 `npm run verify` runs the same steps in the same order as CI. If you add a check
 to CI, add it to `verify` in the same commit — these diverging is exactly what
 caused a green local run and a red CI run in Phase 2.
+
+## Accessibility and layout — read this before trusting a green test run
+
+`tests/a11y-shell.test.tsx` runs axe under jsdom, which **cannot lay out a
+document**. axe silently skips every geometry-dependent rule there, and colour
+contrast is the most important one it skips. A green jsdom axe run therefore says
+nothing about contrast or horizontal overflow.
+
+`npm run audit:a11y` drives real Chromium against a real production build and is
+the only check that catches those defects. It found both Phase 3 defects: a
+4.17:1 contrast failure on the media placeholder and a 320px header overflow
+caused by three separate things. Run it after any change to tokens, chrome or
+layout. It also audits the age gate with the modal open, and asserts the dialog
+actually opened, so that pass cannot succeed vacuously.
+
+## Text colour rule
+
+`ink-400` is **not** a text token. It is 4.17:1 on `surface-100`, below the 4.5:1
+WCAG AA minimum for normal text. Use `ink-500` (5.27:1) for secondary text. The
+only permitted exception is the dropdown's `disabled` state, where WCAG exempts
+disabled controls and the lower contrast is the signal.
+
+`tests/design-tokens.test.ts` asserts this and scans `src/` for
+`text-ink-400`, so the class cannot be reintroduced by copy-paste. If that test
+fails, change the class rather than the test.
+
+## The chrome and its cache
+
+`src/app/(site)/layout.tsx` sets `revalidate = 300`. Public pages are prerendered
+and the header/footer data refreshes at most every five minutes, which is why a
+navigation edit is not instantly visible. That is deliberate — the alternative is
+six navigation queries on every request. When the admin is built (Phase 10),
+editing navigation or settings must call `revalidatePath('/', 'layout')` so the
+editor sees their change immediately.
+
+`getChrome()` degrades in three documented states and reports which one it took
+in `source` (`database` or `fallback`). While Supabase is unconfigured (A1) the
+deployed site uses the fallback fixture; this is recorded as G10, not a bug.
 
 ## Database
 

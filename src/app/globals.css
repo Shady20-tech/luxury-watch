@@ -40,6 +40,23 @@
   --color-warning-700: #8a5a00;
   --color-danger-600: #b3261e;
 
+  /* Glass surfaces for the header and drawers.
+     These carry alpha, so they are deliberately NOT hex: the effective colour
+     depends on what is behind them. `tests/design-tokens.test.ts` composites
+     each one over the lightest and darkest plausible backdrop and asserts the
+     resulting text contrast, rather than trusting the nominal value. */
+  --color-glass: rgb(255 255 255 / 0.82);
+  --color-glass-strong: rgb(255 255 255 / 0.96);
+  --color-glass-border: rgb(17 17 17 / 0.08);
+  --color-scrim: rgb(17 17 17 / 0.5);
+
+  /* Elevation. Restrained: luxury retail reads as flat, so shadows are a
+     hint of separation, never decoration. */
+  --shadow-xs: 0 1px 2px rgb(17 17 17 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(17 17 17 / 0.06), 0 1px 2px rgb(17 17 17 / 0.04);
+  --shadow-md: 0 4px 12px rgb(17 17 17 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(17 17 17 / 0.12);
+
   /* Semantic aliases — components reference these, not raw palettes */
   --color-background: var(--color-surface-0);
   --color-background-muted: var(--color-surface-100);
@@ -102,6 +119,32 @@
   margin-inline: auto;
   max-width: var(--container-narrow);
   padding-inline: 1rem;
+}
+
+/* Frosted panel used by the sticky header, mega menu and drawers.
+   `backdrop-filter` is not universally supported; the fallback is the token's
+   own alpha over a solid, so text stays readable when it is unsupported. */
+@utility glass-panel {
+  background-color: var(--color-glass);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
+
+@utility glass-panel-strong {
+  background-color: var(--color-glass-strong);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+}
+
+/* Editorial eyebrow: the small uppercase label above a heading.
+   Used often enough to be worth one definition, so the tracking and size stay
+   identical across every section on the site. */
+@utility eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
 }
 
 /* Visually hidden but available to assistive technology. */

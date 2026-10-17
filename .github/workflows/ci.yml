@@ -128,3 +128,55 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
           PGDATABASE: postgres
+
+  browser-audit:
+    name: Accessibility and responsive audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The audit drives a real Chromium, so the geometry-dependent axe rules
+      # run for real. The jsdom suite cannot check those: without layout, axe
+      # skips colour contrast and anything that depends on element position,
+      # which is exactly where the header overflow and the placeholder contrast
+      # defect in this phase were found.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.com
+          NEXT_PUBLIC_SITE_NAME: Luxury Watch
+          NEXT_PUBLIC_DEFAULT_CURRENCY: USD
+          NEXT_PUBLIC_ENABLE_AGE_GATE: 'true'
+
+      - name: Start server
+        run: |
+          npm run start &
+          for _ in $(seq 1 30); do
+            if curl -sf -o /dev/null http://localhost:3000/; then exit 0; fi
+            sleep 1
+          done
+          echo "Server did not become ready" >&2
+          exit 1
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.com
+          NEXT_PUBLIC_SITE_NAME: Luxury Watch
+          NEXT_PUBLIC_DEFAULT_CURRENCY: USD
+          NEXT_PUBLIC_ENABLE_AGE_GATE: 'true'
+
+      - name: Audit accessibility and responsive layout
+        run: npm run audit:a11y

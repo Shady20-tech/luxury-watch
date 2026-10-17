@@ -8,6 +8,151 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 3 — Luxury design system, shared layout and responsive navigation
+**Date:** 2026-10-17
+
+#### Added
+
+**Design tokens (`src/app/globals.css`)**
+
+- A neutral ink ramp (`ink-50`…`ink-950`), a gold accent ramp, line and surface
+  tokens, and semantic aliases (`background`, `foreground`, `foreground-muted`,
+  `accent-text`, `border`). Every text token is contrast-checked rather than
+  chosen by eye.
+- Display and body font stacks, a content container width, and `eyebrow`,
+  `container-page` and `glass-panel`/`glass-panel-strong` utilities.
+- A `prefers-reduced-motion` block that suppresses transitions and animations
+  globally, and a viewport that allows pinch-zoom.
+
+**Component primitives (`src/components/ui/`)**
+
+- `button` (five variants, five sizes, `asChild` support), `input`, `badge`,
+  `section` (`Card`, `SectionHeading`), `skeleton`, `states` (`EmptyState`,
+  `ErrorState`), `media-frame`, `accordion`, `drawer`, `dropdown-menu`.
+
+**Chrome (`src/components/chrome/`)**
+
+- `site-header`, `site-footer`, `desktop-nav` (Radix NavigationMenu mega menu
+  with Brand → Model panels), `mobile-nav` (Radix Dialog drawer with an
+  accordion), `announcement-bar` (dismissible, pausable), `header-actions`,
+  `wordmark`, `footer-parts`, `planned-page`.
+- `age-gate` — an accessible Radix Dialog gate, driven by `site_settings`
+  (`age_gate_enabled`, `age_gate_minimum_age`) with the environment flag as the
+  fallback when no settings row exists.
+
+**Navigation assembly (`src/lib/navigation/`)**
+
+- `types.ts` — the view-model contract between the database and the chrome.
+- `assemble.ts` — pure row-to-view-model functions (`buildIdentity`,
+  `buildAgeGate`, `buildHeaderNav`, `buildFooterColumns`, `buildAnnouncements`),
+  tested directly because tree assembly is the part worth testing.
+- `fallback.ts` — the fixture used when Supabase is unconfigured or unreachable.
+
+**Chrome data access**
+
+- `src/server/repositories/navigation-repository.ts` — the six queries that feed
+  the chrome, selecting only the columns the view models need.
+- `src/server/services/chrome-service.ts` — `getChrome`, which degrades in three
+  documented states (database, unconfigured, query failure) and is wrapped in
+  React `cache()` so the header, footer and drawer share one set of queries.
+
+**Public route group (`src/app/(site)/`)**
+
+- A layout that renders the header, footer and age gate once, with
+  `revalidate = 300` and a documented trade-off.
+- Fourteen placeholder routes that every navigation link resolves to. Each states
+  plainly which phase fills it, so the navigation is honest rather than a set of
+  404s. `scripts/generate-placeholder-routes.py` keeps them byte-identical.
+- `design-system` — an inspectable reference page (`noindex`, unlinked) showing
+  every token and primitive.
+
+**Verification tooling**
+
+- `scripts/a11y-audit.mjs` — a layout-aware audit that drives real Chromium
+  against a real build and checks six pages at four viewports, plus the age gate
+  open at 320px. It exists because jsdom cannot lay out a document, so axe skips
+  every geometry-dependent rule there, colour contrast above all.
+- `tests/a11y-shell.test.tsx` and `tests/chrome.test.tsx` — axe over the shell in
+  jsdom, and behavioural tests for the drawer, accordion, header actions and age
+  gate.
+- A `browser-audit` CI job, so the browser-dependent rules run on every push.
+
+#### Fixed
+
+- **`media-frame` placeholder failed WCAG AA.** It used `text-ink-400` on
+  `bg-surface-100`, which is 4.17:1 — below the 4.5:1 minimum for normal text.
+  The placeholder is now `text-ink-500` (5.27:1). Found by the real-browser
+  audit, not by the jsdom suite, which cannot see colour contrast.
+- **The header overflowed horizontally at 320px.** Three separate causes, all
+  fixed: the menu button could shrink below its 44px touch target because it
+  lacked `shrink-0`; the desktop navigation wrapper kept its `ml-6` and `flex-1`
+  while its contents were hidden below `lg`, occupying 24px of a 320px row; and
+  four 44px action icons plus the wordmark exceeded the available width. The
+  wrapper is now `hidden lg:block`, Account and Wishlist move into the drawer
+  below `sm`, and the wordmark truncates rather than pushing the row wider.
+- **Duplicate navigation landmark.** The header rendered `<nav>` inside `<nav>`.
+  The outer element is now a plain `<div>`, leaving exactly one labelled
+  `nav aria-label="Primary"`, as axe's `landmark-unique` rule requires.
+- **`text-ink-400` was used for readable text in six places.** All are now
+  `text-ink-500`, except the dropdown's disabled state, where WCAG exempts
+  disabled controls and the lower contrast is the signal. A token test and a
+  source scan enforce the rule.
+
+#### Changed
+
+- `tests/design-tokens.test.ts` gained a `muted text tokens are contrast-safe on
+  every surface` block. It asserts `ink-500` clears 4.5:1 on both light
+  surfaces, records *why* `ink-400` is not a text token, and scans `src/` so the
+  class cannot be reintroduced by copy-paste. Verified to fail on the original
+  defect and name the offending file.
+- `package.json` gained `audit:a11y`.
+- `vitest.config.ts` gained `setupFiles: ['tests/setup.ts']` (matchMedia and
+  ResizeObserver polyfills, which Radix needs under jsdom).
+
+#### Verification
+
+- `npm run check:no-payment` — passed. No gateway, SDK, card field or payment
+  webhook.
+- `npm run format:check` — passed.
+- `npm run lint` — passed, no warnings.
+- `npm run typecheck` — passed.
+- `npm test` — **163 tests in 10 files, all passing** (was 106 after Phase 2).
+- `npm run build` — passed; 25 static pages.
+- `scripts/a11y-audit.mjs` — **24 page/viewport combinations plus 2 age-gate
+  passes, zero critical or serious violations and zero horizontal overflow.**
+  The age-gate pass asserts the dialog actually opened, so it cannot pass
+  vacuously.
+- All eleven previously-verified routes still return 200.
+- The contrast guard was tested against the original defect and fails as
+  intended, naming `src/components/ui/media-frame.tsx`.
+
+#### Acceptance criteria
+
+All Phase 3 criteria met except one, recorded honestly:
+
+- Chrome renders from database navigation data — **met**, with the fallback
+  fixture in use only while Supabase is unconfigured (A1). The fallback is
+  labelled as such in the UI.
+- Keyboard-only pass: skip link → header → mega menu → footer — **met**;
+  exercised in `tests/chrome.test.tsx` and by the Radix primitives.
+- axe reports no critical or serious violations on the shell — **met**, in both
+  jsdom and a real browser.
+- Mobile drawer behaves correctly at 320px and up — **met**; the 320px overflow
+  was found and fixed.
+- Age gate (in the phase scope) — **met**, driven by `site_settings`.
+
+#### Honest limitations recorded
+
+- The age gate is a legal affordance, not a security control. It is bypassable by
+  clearing storage and is documented as such in the component.
+- The gate is not in the first paint, because the visitor's answer lives in
+  `localStorage` and the server cannot read it. This is a deliberate trade-off
+  that avoids showing the gate to returning visitors.
+- Lighthouse has not been run in this phase. It is scheduled for Phase 14, and no
+  score is claimed here.
+
+---
+
 ### Phase 2 — Database schema, migrations, RLS and authorisation foundation
 **Date:** 2026-10-17
 

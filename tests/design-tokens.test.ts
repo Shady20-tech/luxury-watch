@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -122,6 +123,124 @@ describe('text contrast on the light surface', () => {
 
   it('the default border is visible enough to act as a UI boundary', () => {
     expect(contrastRatio(token('color-border'), white)).toBeGreaterThanOrEqual(1.1);
+  });
+});
+
+describe('glass surfaces keep text readable', () => {
+  /**
+   * The glass tokens carry alpha, so their effective colour depends on what is
+   * behind them. Asserting the nominal value would prove nothing. Instead each
+   * token is composited over the lightest and the darkest backdrop it can
+   * realistically sit on, and the resulting text contrast is asserted against
+   * that composited colour.
+   *
+   * The header is sticky over page content, so the worst case is a dark hero
+   * image scrolling underneath it — that is the case worth testing.
+   */
+  function composite(tokenValue: string, backdropHex: string): string {
+    const match = /^rgb\((\d+)\s+(\d+)\s+(\d+)\s*\/\s*([\d.]+)\)$/.exec(tokenValue.trim());
+    if (!match) throw new Error(`Not an rgba token: ${tokenValue}`);
+
+    const [r, g, b, a] = [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
+    const back = backdropHex.replace('#', '');
+    const backdrop = [0, 2, 4].map((offset) => parseInt(back.slice(offset, offset + 2), 16));
+
+    const blended = [r, g, b].map((channel, index) =>
+      Math.round(channel * a + (backdrop[index] ?? 0) * (1 - a)),
+    );
+
+    return `#${blended.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  function rawToken(name: string): string {
+    const declaration = new RegExp(`--${name}:\\s*([^;]+);`).exec(css);
+    if (!declaration?.[1]) throw new Error(`Token --${name} not found`);
+    return declaration[1].trim();
+  }
+
+  const backdrops = [
+    ['a white page', '#ffffff'],
+    ['a mid-grey photograph', '#808080'],
+    ['a dark hero image', '#111111'],
+  ] as const;
+
+  it.each(backdrops)('header glass over %s keeps body text at 4.5:1', (_label, backdrop) => {
+    const surface = composite(rawToken('color-glass'), backdrop);
+    expect(contrastRatio(token('color-ink-900'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(backdrops)('drawer glass over %s keeps body text at 4.5:1', (_label, backdrop) => {
+    // The drawer and mega menu are opaque enough to be readable even over a
+    // dark image, which is why they use the stronger token.
+    const surface = composite(rawToken('color-glass-strong'), backdrop);
+    expect(contrastRatio(token('color-ink-900'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(backdrops)('accent text on glass over %s stays at 4.5:1', (_label, backdrop) => {
+    const surface = composite(rawToken('color-glass-strong'), backdrop);
+    expect(contrastRatio(token('color-gold-700'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('muted text tokens are contrast-safe on every surface', () => {
+  /**
+   * `ink-400` exists as a token but must not be used for readable text. On
+   * `surface-100` it reaches only 4.17:1, which fails WCAG AA for normal text.
+   * A layout-aware axe run caught exactly that on the media-frame placeholder,
+   * which the jsdom suite could not see because jsdom does not lay out the page
+   * and axe skips colour contrast without geometry.
+   *
+   * This asserts the rule numerically so the mistake cannot come back silently:
+   * `ink-500` is the muted text token, and it has to clear 4.5:1 on both light
+   * surfaces. `ink-400` is permitted only where WCAG exempts it — disabled
+   * controls — or where it is not text at all, such as a decorative border.
+   */
+  const surfaces = [
+    ['white', token('color-surface-0')],
+    ['surface-100', token('color-surface-100')],
+  ] as const;
+
+  it.each(surfaces)('ink-500 meets AA on %s', (_label, surface) => {
+    expect(contrastRatio(token('color-ink-500'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('ink-400 is below AA on surface-100, which is why it is not a text token', () => {
+    // Documents the reason rather than the preference. If a future palette
+    // change makes ink-400 AA-safe, this test fails and the comment above can be
+    // revised deliberately instead of drifting.
+    const ratio = contrastRatio(token('color-ink-400'), token('color-surface-100'));
+    expect(ratio).toBeLessThan(4.5);
+  });
+
+  it('no source file uses text-ink-400 outside an explicitly disabled state', () => {
+    // A guard against the class being reintroduced by copy-paste. The only
+    // permitted occurrence is the dropdown disabled state, which carries its
+    // own justification comment.
+    const offenders: string[] = [];
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.(tsx|ts)$/.test(entry.name)) continue;
+
+        const source = readFileSync(full, 'utf8');
+        for (const line of source.split('\n')) {
+          if (!line.includes('text-ink-400')) continue;
+          // Skip the line if it is a disabled-state utility, or a comment
+          // explaining the rule.
+          if (line.includes('data-[disabled]')) continue;
+          if (line.trim().startsWith('*') || line.trim().startsWith('//')) continue;
+          offenders.push(`${full}: ${line.trim()}`);
+        }
+      }
+    };
+
+    walk(join(process.cwd(), 'src'));
+    expect(offenders).toEqual([]);
   });
 });
 
