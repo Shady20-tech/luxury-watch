@@ -2,7 +2,7 @@
 
 Luxury-watch storefront and admin platform. Next.js 15 App Router, TypeScript,
 Tailwind, Supabase (Postgres + Auth + Storage + RLS), Resend for email, deployed
-on Vercel. **No online payments** — customers submit an order *request* and an
+on Vercel. **No online payments** — customers submit an order _request_ and an
 administrator settles payment offline.
 
 This file holds the operational knowledge that is expensive to rediscover. Read
@@ -10,16 +10,16 @@ it before starting work, and keep it current when something here stops being tru
 
 ## Where the truth lives
 
-| Question | Read |
-| --- | --- |
-| What is the schema, exactly? | `DATABASE_SCHEMA.md` — authoritative |
-| Why is it built this way? | `ARCHITECTURE.md` |
-| What phase are we in? | `IMPLEMENTATION_PLAN.md` |
-| What is broken or unverified? | `KNOWN_ISSUES.md` |
-| What changed, and when? | `CHANGELOG.md` |
-| What does the reference site do? | `REFERENCE_ANALYSIS.md` |
+| Question                         | Read                                 |
+| -------------------------------- | ------------------------------------ |
+| What is the schema, exactly?     | `DATABASE_SCHEMA.md` — authoritative |
+| Why is it built this way?        | `ARCHITECTURE.md`                    |
+| What phase are we in?            | `IMPLEMENTATION_PLAN.md`             |
+| What is broken or unverified?    | `KNOWN_ISSUES.md`                    |
+| What changed, and when?          | `CHANGELOG.md`                       |
+| What does the reference site do? | `REFERENCE_ANALYSIS.md`              |
 
-`ARCHITECTURE.md` section 5 describes design *intent* and has been corrected
+`ARCHITECTURE.md` section 5 describes design _intent_ and has been corrected
 where it drifted; `DATABASE_SCHEMA.md` is what the migrations actually build.
 Trust the schema doc when the two disagree.
 
