@@ -1,8 +1,15 @@
 import Link from 'next/link';
 
+import { Button } from '@/components/ui/button';
+
 /**
  * Global not-found UI. Rendered for unmatched routes and for `notFound()` calls
  * in Server Components. Status 404 is set by Next.js.
+ *
+ * The CTAs use the shared `Button` variants rather than hand-rolled classes:
+ * `bg-accent` is the brand gold (gold-500, 3.7:1 on white) and is documented as
+ * safe only for large text, so a normal-size white label on it fails WCAG AA.
+ * The primary variant uses gold-700, which is contrast-checked.
  */
 export default function NotFound() {
   return (
@@ -18,18 +25,12 @@ export default function NotFound() {
       </p>
 
       <nav aria-label="Helpful links" className="mt-8 flex flex-wrap justify-center gap-3">
-        <Link
-          href="/"
-          className="bg-accent text-on-accent hover:bg-ink-900 focus-visible:bg-ink-900 rounded-sm px-6 py-3 text-sm font-semibold transition-colors"
-        >
-          Back to home
-        </Link>
-        <Link
-          href="/collections"
-          className="border-border hover:border-accent-text hover:text-accent-text rounded-sm border px-6 py-3 text-sm font-semibold transition-colors"
-        >
-          Browse the catalogue
-        </Link>
+        <Button asChild>
+          <Link href="/">Back to home</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/collections/all">Browse the catalogue</Link>
+        </Button>
       </nav>
     </main>
   );

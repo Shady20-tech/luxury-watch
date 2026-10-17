@@ -1,6 +1,6 @@
 # Implementation Plan — Luxury Watch E-commerce Platform
 
-Last updated: 2026-10-17 (end of Phase 4)
+Last updated: 2026-10-17 (end of Phase 4; CI audit follow-up)
 Reference: https://carbonwatchcompany.com/ · Deployment: Vercel · Data: Supabase · Email: Resend
 Payments: **manual/offline selection only — no gateway, no online processing**
 
@@ -618,10 +618,10 @@ rather than rounded up.
   `0009_public_availability.sql` (the `product_availability` RPC) and the demo
   homepage seed `supabase/seed/03_homepage_demo.sql`. Full reference in
   `DATABASE_SCHEMA.md`.
-- **Test and verification status:** `npm run verify` green (lint, typecheck, 214
+- **Test and verification status:** `npm run verify` green (lint, typecheck, 217
   unit tests, build). `scripts/db-verify.sh` green (8 migrations, 4 RLS suites).
   `scripts/db-concurrency-matrix.py` green (5 of 5 scenarios behave as designed).
-  `scripts/a11y-audit.mjs` green (28 page/viewport combinations plus 2 age-gate
+  `scripts/a11y-audit.mjs` green (32 page/viewport combinations plus 2 age-gate
   passes, no critical or serious axe violations, no horizontal overflow).
   Lighthouse run against a production build: desktop 100/100/100/100, mobile
   95–97 performance and 100 accessibility/best-practices/SEO. CI runs the Node,

@@ -244,6 +244,46 @@ describe('muted text tokens are contrast-safe on every surface', () => {
   });
 });
 
+describe('the brand gold is never used as a small-text background', () => {
+  /**
+   * The bug this guards against, and why a token test cannot catch it.
+   *
+   * `--color-accent` is gold-500 (3.7:1 on white), which is documented as safe
+   * for large text and decoration only. A `bg-accent` button with a normal-size
+   * white label therefore fails WCAG AA — and it is invisible to jsdom, because
+   * jsdom does not lay out the document so axe skips the colour-contrast rule.
+   * It was found in the browser audit, not the unit suite, so the unit suite
+   * gets a source-level guard: use the shared `Button` primary variant
+   * (`bg-gold-700`) instead of painting the accent by hand.
+   */
+  it('no source file paints a background with bg-accent', () => {
+    const offenders: string[] = [];
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.(tsx|ts)$/.test(entry.name)) continue;
+
+        for (const line of readFileSync(full, 'utf8').split('\n')) {
+          // `bg-accent-text` is a different token and is not matched by the
+          // word boundary here.
+          if (!/\bbg-accent\b/.test(line)) continue;
+          // Comments that document the rule are allowed to name it.
+          if (line.trim().startsWith('*') || line.trim().startsWith('//')) continue;
+          offenders.push(`${full}: ${line.trim()}`);
+        }
+      }
+    };
+
+    walk(join(process.cwd(), 'src'));
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('zoom is never blocked', () => {
   it('globals.css does not disable pinch-zoom', () => {
     // The reference site sets user-scalable=0, which is a WCAG 1.4.4 failure.

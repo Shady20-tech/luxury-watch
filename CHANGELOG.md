@@ -135,6 +135,67 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ---
 
+### Phase 4 follow-up — failing CI audit diagnosed and fixed
+**Date:** 2026-10-17
+
+The `browser-audit` CI job (run `38999968219`) failed on the accessibility step.
+It was **not** the axe rule from the Phase 4 entry above; it was a navigation
+timeout, and the root cause was a real product bug that the audit had surfaced.
+
+#### Fixed
+
+- **The not-found page linked to `/collections`, which is not a route.** The
+  catalogue lives at `/collections/all` and `/collections/[slug]`; the bare path
+  has no page. A visitor clicking "Browse the catalogue" was sent to a 404, and
+  the `next/link` prefetch for that path never settled, so the audit's
+  `networkidle` wait exceeded its 30 s timeout on any page that rendered the
+  template. CI hit it on `/brands/rolex`, which falls back to the not-found
+  template when no database is configured. Corrected to `/collections/all`.
+- **The not-found page's primary CTA failed WCAG AA colour contrast.** It used
+  `bg-accent` — the brand gold `gold-500` (`#a18040`, ~3.4:1), which
+  `globals.css` documents as safe for large text only — under a normal-size
+  white label. The route error boundary (`src/app/error.tsx`) had the same
+  defect. Both now use the contrast-checked `Button` primary variant /
+  `bg-gold-700` (`#806428`, 5.6:1).
+
+#### Added
+
+- `tests/design-tokens.test.ts` — a source-level guard that fails if any file
+  reintroduces `bg-accent` as a background. This class of bug is invisible to
+  jsdom (axe skips colour contrast without layout), so it is asserted against
+  the source rather than the rendered DOM. Verified by reintroducing the bug and
+  watching the guard fail.
+- `scripts/a11y-audit.mjs` now audits `/this-page-does-not-exist` in every
+  configuration, so the not-found template is checked directly. `/brands/rolex`
+  cannot stand in for it: that path renders a real brand page when a database is
+  configured and only reaches the template when one is not, so the template would
+  go unaudited in exactly the configuration CI runs.
+
+#### Verification
+
+- `npm run verify` green: lint, typecheck, **217 tests** (up from 216), build.
+- `npm run audit:a11y` green across **8 pages × 4 viewports** plus the age-gate
+  pass, run against a production build with **Supabase unconfigured** — the
+  configuration that CI uses and the one that reproduces the failure. Three
+  consecutive runs were identical.
+
+#### Known limitations added
+
+- G22 (contrast failure, resolved), G23 (broken link, resolved) and G24 (the
+  sandbox's git-ignored `.env.local` and local database were lost with `/tmp`;
+  no secret lost, recreated from `.env.example`).
+
+#### Process note
+
+A stale `next-server` left over from an earlier session was found to be serving
+a previous build on the audit port. Because Next.js renames its process, the
+`pkill -f "next start"` used to stop it never matched, so early audit runs in
+this session measured the wrong build and produced inconsistent results. The
+audit was re-run against a fresh build on a verified-free port. The pitfall is
+now recorded in `AGENTS.md`.
+
+---
+
 ### Phase 3 — Luxury design system, shared layout and responsive navigation
 **Date:** 2026-10-17
 

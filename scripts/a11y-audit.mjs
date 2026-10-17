@@ -34,6 +34,12 @@ const PAGES = [
   '/contact',
   '/pages/faq',
   '/design-system',
+  // An unmatched path, so the not-found template is audited in every
+  // configuration. `/brands/rolex` cannot stand in for it: it renders a real
+  // brand page when a database is configured and only falls back to the 404
+  // template when one is not, so the template would go unaudited in the very
+  // configuration that CI runs.
+  '/this-page-does-not-exist',
 ];
 
 /** Widths worth checking. 320px is the narrowest phone still in use. */

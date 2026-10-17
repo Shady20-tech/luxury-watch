@@ -48,7 +48,7 @@ export default function ErrorBoundary({
       <button
         type="button"
         onClick={reset}
-        className="bg-accent text-on-accent hover:bg-ink-900 focus-visible:bg-ink-900 mt-8 rounded-sm px-6 py-3 text-sm font-semibold transition-colors"
+        className="bg-gold-700 text-surface-0 hover:bg-ink-900 focus-visible:bg-ink-900 mt-8 rounded-sm px-6 py-3 text-sm font-semibold transition-colors"
       >
         Try again
       </button>

@@ -162,6 +162,17 @@ draft or archived slug 404s through RLS rather than through application code.
   redirectable by a hostile `search_path`.
 - **`submit_order_request` recomputes totals from product rows.** Never trust a
   client-supplied price. The arithmetic is re-checked by a constraint.
+- **`pkill -f "next start"` does not kill a running Next.js server.** Next.js
+  renames its process to `next-server`, so the pattern never matches and the old
+  server keeps serving the previous `.next` build on that port. Restarting with
+  `npx next start -p <port>` then fails to bind or, worse, the audit silently
+  measures a stale build and reports failures that do not exist in the current
+  code (and vice versa). Kill by port or by working directory instead:
+  `for pid in $(pgrep -f next-server); do [ "$(readlink /proc/$pid/cwd)" = "$PWD" ] && kill $pid; done`,
+  and confirm the port is free before starting a new server.
+- **The browser audit needs a fresh build and a free port.** Rebuild before
+  auditing, and never audit while a second server for this repo is still
+  listening; the results are meaningless and inconsistent between runs.
 
 ## Content and licensing
 
