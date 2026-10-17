@@ -138,12 +138,18 @@ RLS** — never by client-side conditionals alone.
 
 Full DDL lands in Phase 2 as versioned SQL migrations under `supabase/migrations/`.
 
+> **As of Phase 2 this section is the design intent, not the reference.**
+> `DATABASE_SCHEMA.md` is authoritative for every table, column, constraint, enum
+> and policy, because it was written by reading the schema back from a running
+> database. This section is kept because it explains *why* the model is shaped the
+> way it is, and it is updated wherever Phase 2 diverged from it — but if the two
+> disagree, believe `DATABASE_SCHEMA.md`.
+
 ### 5.1 Catalogue
 
 - `brands` — id, name, slug, description, logo_url, hero_image_url, seo_*, is_active, sort_order
 - `models` — id, brand_id → brands, name, slug, description, is_active, sort_order
   *(the Brand → Model two-level taxonomy observed in the reference)*
-- `categories` — optional cross-cutting grouping
 - `products` — id, sku, slug, title, brand_id, model_id, reference_number, description, short_description,
   condition (`new`/`pre_owned`/`vintage`), year, case_size_mm, case_material, movement, dial_color,
   bracelet_material, waterproof_m, box_and_papers, **price_cents**, **currency**,
@@ -164,10 +170,11 @@ Full DDL lands in Phase 2 as versioned SQL migrations under `supabase/migrations
 - `carts` — id, user_id (nullable for guests), session_token, currency, created_at, updated_at
 - `cart_items` — id, cart_id, product_id, quantity, unit_price_cents (snapshot at add time)
 - `order_requests` — id, reference (human-readable, unique), user_id (nullable), customer_name,
-  customer_email, customer_phone, fulfilment_type, delivery_address jsonb (nullable),
+  customer_email, customer_phone, fulfilment_type, delivery_address jsonb (nullable), pickup_location,
   payment_method_code, customer_note, admin_note, subtotal_cents, delivery_fee_cents, total_cents,
   currency, status (`submitted`/`under_review`/`confirmed`/`awaiting_payment`/`paid_offline`/
-  `fulfilled`/`cancelled`), status_history jsonb, created_at, updated_at
+  `fulfilled`/`cancelled`/`rejected`), settled_offline_at, settled_offline_by, ip_hash, user_agent,
+  created_at, updated_at
 - `order_request_items` — id, order_request_id, product_id (nullable if product later deleted),
   product_title_snapshot, sku_snapshot, unit_price_cents, quantity
 - `order_request_events` — id, order_request_id, actor, from_status, to_status, note, created_at
@@ -196,11 +203,32 @@ Nothing in the schema stores card numbers, CVV, or any payment credential.
 ### 5.5 Accounts & auth
 
 - Supabase `auth.users` is the identity source.
-- `profiles` — id (= auth.users.id), full_name, phone, default_address jsonb, role
-  (`customer`/`staff`/`admin`), created_at, updated_at
-- `wishlists` — id, user_id, created_at
+- `profiles` — id (= auth.users.id), email, full_name, phone, avatar_url,
+  marketing_opt_in, created_at, updated_at. Created by the `on_auth_user_created`
+  trigger.
+- `user_roles` — id, user_id → profiles, role (`staff_role`), granted_by,
+  granted_at, expires_at. **Roles are deliberately not a column on `profiles`.**
+
+  > Phase 0 planned `profiles.role` with values `customer`/`staff`/`admin`. Phase 2
+  > changed this, and the change is worth understanding rather than glossing over.
+  >
+  > A customer must be able to edit their own profile. RLS cannot restrict
+  > *columns*, only rows, so a policy allowing `UPDATE` on your own profile allows
+  > updating every column of it — including `role`. The usual mitigations (a
+  > `WITH CHECK` comparing against the old value, or a trigger rejecting role
+  > changes) both work, but both are single points of failure guarding the most
+  > valuable column in the schema. Moving roles to a separate table with no write
+  > policy removes the writable surface altogether: there is nothing to protect
+  > because there is nothing a customer can write.
+  >
+  > This also replaced the three-value `role` with a seven-value `staff_role`,
+  > which is what the admin permission model actually needs — see
+  > `DATABASE_SCHEMA.md` §6 for the full reasoning and the permission map.
+
+- `wishlists` — id, user_id, is_default, created_at, updated_at
 - `wishlist_items` — id, wishlist_id, product_id, created_at
-- `newsletter_subscribers` — id, email, is_confirmed, confirmed_at, created_at
+- `newsletter_subscribers` — id, email, is_confirmed, confirmed_at, token,
+  created_at
 
 ---
 
@@ -482,7 +510,7 @@ validates the token against the auth server.
 |---|---|
 | `REFERENCE_ANALYSIS.md` | What the reference site does, and how we improve on it |
 | `ARCHITECTURE.md` | This file — the technical contract |
-| `DATABASE_SCHEMA.md` | Full table/column/RLS reference (created in Phase 2) |
+| `DATABASE_SCHEMA.md` | Full table/column/RLS reference — written in Phase 2, verified against the running database |
 | `IMPLEMENTATION_PLAN.md` | Phase-by-phase plan, current state, dependencies |
 | `CHANGELOG.md` | What changed, when |
 | `KNOWN_ISSUES.md` | Honest open issues, severity, next action |

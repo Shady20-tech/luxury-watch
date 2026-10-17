@@ -55,3 +55,7 @@ Thumbs.db
 .eslintcache
 .cache/
 tmp/
+
+# Python tooling (the verification scripts under scripts/)
+__pycache__/
+*.py[cod]

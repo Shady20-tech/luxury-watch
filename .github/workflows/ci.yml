@@ -64,3 +64,67 @@ jobs:
           NEXT_PUBLIC_SITE_NAME: Luxury Watch
           NEXT_PUBLIC_DEFAULT_CURRENCY: USD
           NEXT_PUBLIC_ENABLE_AGE_GATE: 'true'
+
+  database:
+    name: Migrations, RLS and concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # A real PostgreSQL 17, matching the version Supabase runs, so the
+    # migrations and policies are verified against the same engine that will
+    # serve production. This runs on every push because the schema is the
+    # security boundary: a migration that quietly drops a policy should fail
+    # the build, not be discovered later.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        # Without a health check the steps race the server's first start.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      # The verification scripts shell out to `docker exec` when they detect a
+      # container. On a GitHub runner the Postgres service is reached directly
+      # over TCP, so psql is installed instead and the scripts take the plain
+      # `psql` path.
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      # Applies the Supabase shim, then every migration in order, then the RLS
+      # and authorisation suites. Fails the build on any migration error or any
+      # failed security assertion. The script detects PGHOST and uses the plain
+      # psql client rather than reaching for Docker.
+      - name: Apply migrations and run RLS tests
+        run: ./scripts/db-verify.sh
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+
+      # Proves inventory cannot be oversold under real concurrency, including a
+      # negative control that must fail: with both protections removed, eight
+      # racers all succeed and stock goes negative. If that control ever stops
+      # failing, the test has lost its teeth and this step reports it.
+      - name: Inventory concurrency proof
+        run: ./scripts/db-concurrency-matrix.py
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres

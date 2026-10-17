@@ -57,6 +57,7 @@ const ALLOWED_FILES = new Set([
   'CHANGELOG.md',
   'KNOWN_ISSUES.md',
   'REFERENCE_ANALYSIS.md',
+  'DATABASE_SCHEMA.md',
   '.env.example',
   'README.md',
   'docs/SEO.md',
@@ -64,8 +65,34 @@ const ALLOWED_FILES = new Set([
 ]);
 
 /**
- * Dependency or import specifiers that indicate a payment integration.
+ * A line may opt out of the *content* checks by carrying this marker, either on
+ * the line itself or on the line directly above it:
+ *
+ *     payment-guard:allow
+ *
+ * This exists for lines that name a forbidden term in order to forbid it — a
+ * negative assertion in the database test suite, or a comment stating that no
+ * card field is stored.
+ *
+ * Two deliberate restrictions keep the marker from becoming a way to smuggle a
+ * real integration past the guard:
+ *
+ *   1. It only suppresses the *content* checks. A forbidden dependency or a
+ *      payment webhook route is still reported, because a marker comment is not
+ *      a reason to import a payment SDK.
+ *
+ *   2. It is only honoured in the files listed below. Every other file is
+ *      checked unconditionally, so the marker cannot be introduced into
+ *      application code as an escape hatch. Each entry here is a file that
+ *      discusses card fields in order to rule them out.
  */
+const ALLOW_MARKER = /payment-guard:allow/i;
+
+const MARKER_ELIGIBLE_FILES = new Set([
+  'supabase/migrations/0004_commerce.sql',
+  'supabase/tests/40_order_and_inventory.sql',
+]);
+
 const FORBIDDEN_DEPENDENCIES = [
   '@stripe/',
   'stripe',
@@ -186,14 +213,18 @@ for (const filePath of walk(ROOT)) {
 
   for (const { name, pattern } of FORBIDDEN_CONTENT_PATTERNS) {
     lines.forEach((line, index) => {
-      if (pattern.test(line)) {
-        violations.push({
-          file: relativePath,
-          line: index + 1,
-          rule: name,
-          snippet: line.trim().slice(0, 120),
-        });
+      if (!pattern.test(line)) return;
+      // The marker only works in files that are allowed to carry it, and only
+      // for the content checks. See MARKER_ELIGIBLE_FILES above.
+      if (MARKER_ELIGIBLE_FILES.has(relativePath)) {
+        if (ALLOW_MARKER.test(line) || (index > 0 && ALLOW_MARKER.test(lines[index - 1]))) return;
       }
+      violations.push({
+        file: relativePath,
+        line: index + 1,
+        rule: name,
+        snippet: line.trim().slice(0, 120),
+      });
     });
   }
 }

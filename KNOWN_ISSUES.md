@@ -1,6 +1,6 @@
 # Known Issues
 
-Last updated: 2026-10-17 (end of Phase 1)
+Last updated: 2026-10-17 (end of Phase 2)
 Owner-visible register of everything unresolved. Kept honest on purpose: an issue is removed only
 when it is genuinely fixed, and a phase is not marked complete while a critical item is open.
 
@@ -16,10 +16,10 @@ Until each is done, the dependent phase cannot be fully verified end to end.
 
 | # | Issue | Severity | Status | Next action |
 |---|---|---|---|---|
-| A1 | **No Supabase project exists.** No `NEXT_PUBLIC_SUPABASE_URL`, anon key or service-role key is configured. | critical | open | Owner creates a Supabase project and supplies the values via the Vercel dashboard (and a local `.env.local`, which is gitignored). Blocks Phase 2 onward. |
-| A2 | **No Supabase database exists to migrate.** Schema, RLS and generated types cannot be verified against a real database. | critical | open | Follows A1. Migrations are authored in Phase 2 and applied with the Supabase CLI. |
+| A1 | **No Supabase project exists.** No `NEXT_PUBLIC_SUPABASE_URL`, anon key or service-role key is configured. | critical | open | Owner creates a Supabase project and supplies the values via the Vercel dashboard (and a local `.env.local`, which is gitignored). Blocks Phase 3 onward. |
+| A2 | **No Supabase database to apply the schema to.** The migrations are authored and verified against a local PostgreSQL 17, but have not been applied to a real Supabase project, and `supabase db lint` has not been run. | high | open | Follows A1. Apply with `supabase db push`, then run the RLS suites against the real project (see G1). |
 | A3 | **No Resend account or verified sending domain.** Transactional email cannot be delivered. | high | open | Owner creates a Resend account, verifies the sending domain, and supplies `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_ADMIN_EMAIL`. Blocks Phase 8 verification. |
-| A4 | **No Supabase Storage bucket.** Product media upload and public image serving are not yet possible. | high | open | Created by migration/policy in Phase 2 and Phase 10. |
+| A4 | **No Supabase Storage bucket.** Product media upload and public image serving are not yet possible. Bucket policies are dashboard configuration, not part of the migrations. | high | open | Owner creates the buckets; Phase 10 wires upload, and the policies are documented in `ARCHITECTURE.md` §12. |
 | A5 | **No Vercel project linked.** Deployment and preview QA are not yet possible. | high | open | Owner links the GitHub repo to a Vercel project and sets environment variables per environment. |
 | A6 | **Business content is not supplied.** Legal/brand copy, logo, contact details, address, policies and licensed imagery must come from the owner. | high | open | Owner supplies branding, policy text and image licensing. Until then, seed/demo content is used and is clearly labelled as demo. |
 
@@ -58,14 +58,14 @@ Recorded so no future phase claims to have verified something it did not.
 
 | # | Issue | Severity | Status | Next action |
 |---|---|---|---|---|
-| D1 | No RLS policies exist yet, because no schema exists. Until Phase 2 lands, **any** table created would be unprotected by default. | critical | open | Phase 2: enable RLS on every table with default-deny policies, and prove it with tests. |
-| D2 | `profiles.role` self-escalation must be impossible. A naive `update` policy on `profiles` would let a customer make themselves an admin. | critical | open | Phase 2: protect the `role` column by policy and trigger; Phase 3: add an escalation test. |
+| D1 | No RLS policies exist yet, because no schema exists. Until Phase 2 lands, **any** table created would be unprotected by default. | critical | **resolved** | Phase 2 enabled RLS on all 47 tables with 96 default-deny policies, and proved it with four test suites. Verified: zero tables in `public` have `relrowsecurity = false`. |
+| D2 | `profiles.role` self-escalation must be impossible. A naive `update` policy on `profiles` would let a customer make themselves an admin. | critical | **resolved** | Phase 2 removed the column rather than guarding it: roles live in `user_roles`, which has no write policy for ordinary users. `30_role_escalation.sql` asserts the escalation is impossible. |
 | D3 | Service-role key could leak into the client bundle if imported outside a `server-only` module. | critical | **mitigated** | Phase 1: `lib/supabase/admin.ts` and `lib/env.server.ts` both import `server-only`, so the build fails if either is pulled into a client bundle. Verified by scanning `.next/static/` for the key name and for `service_role`: nothing found. Phase 13 re-runs the scan as a standing check. |
-| D4 | Public mutation endpoints (inquiry, contact, newsletter, order request, auth) have no rate limiting yet. | high | open | Phase 7 and Phase 13: server-side rate limiting plus honeypots. `RATE_LIMIT_DRIVER` is already reserved in `.env.example`. |
+| D4 | Public mutation endpoints (inquiry, contact, newsletter, order request, auth) have no rate limiting yet. | high | open | Phase 7 and Phase 13: server-side rate limiting plus honeypots. The `rate_limit_counters` table now exists (Phase 2); the enforcement layer is still to be written. `RATE_LIMIT_DRIVER` is reserved in `.env.example`. |
 | D5 | Security headers are configured; **Content-Security-Policy is deliberately not yet enforced.** | medium | open | Phase 1 shipped seven headers (nosniff, Referrer-Policy, Permissions-Policy incl. `payment=()`, X-Frame-Options, COOP, CORP, HSTS) and verified them at runtime. CSP is deferred by design: shipping a restrictive policy before the real asset graph is audited breaks the app, and one loosened under pressure provides no protection while creating false confidence. The intended policy and the three-step rollout (report-only → observe → enforce with nonce) are documented in `docs/SECURITY_HEADERS.md`. Owned by Phase 13. |
-| D6 | Guest order lookup must not be authorisable by reference number alone. | high | open | Phase 7: require reference **and** matching email, rate-limited. |
-| D7 | Order-request totals must be recomputed server-side; client-supplied prices must be ignored. | critical | open | Phase 7: server re-pricing with a tamper test. |
-| D8 | No payment code must ever be introduced. This is an invariant, not a task. | critical | **mitigated** | **Done in Phase 1**, earlier than planned. `scripts/check-no-payment-providers.mjs` fails CI on a payment dependency, gateway host, card field, payment webhook or provider-named route, scanning both file content and file paths. It is itself covered by 9 behavioural tests that prove it rejects each violation class rather than merely passing on a clean tree. Phase 13 keeps it wired into CI. |
+| D6 | Guest order lookup must not be authorisable by reference number alone. | high | open | Phase 7: require reference **and** matching email, rate-limited. The `order_requests_email_idx` index exists for this lookup. |
+| D7 | Order-request totals must be recomputed server-side; client-supplied prices must be ignored. | critical | **resolved** | Phase 2: `submit_order_request` re-reads every product and recomputes prices in the database, ignoring any client-supplied amount. The `order_requests_total_matches_parts` constraint re-verifies the arithmetic. Proven in `40_order_and_inventory.sql`. |
+| D8 | No payment code must ever be introduced. This is an invariant, not a task. | critical | **mitigated** | **Done in Phase 1**, earlier than planned. `scripts/check-no-payment-providers.mjs` fails CI on a payment dependency, gateway host, card field, payment webhook or provider-named route, scanning both file content and file paths. It is itself covered by 9 behavioural tests that prove it rejects each violation class rather than merely passing on a clean tree. Phase 2 added a `payment-guard:allow` line marker for the two files that name card fields in order to forbid them; it is restricted to an explicit file allowlist and cannot suppress dependency, secret-key or webhook-route checks. |
 | D9 | HSTS omits `preload`, so the domain is not submitted to the browser preload list. | low | accepted | `preload` is effectively irreversible. It is added only once the owner confirms every subdomain is HTTPS-only. Recorded rather than silently enabled. |
 
 ---
@@ -80,7 +80,7 @@ Recorded so no future phase claims to have verified something it did not.
 | E4 | Supabase project region is not yet chosen, which affects latency for the primary audience. | low | open | Owner picks a region near the audience when creating the project (A1) and records it in `ARCHITECTURE.md`. |
 | E5 | Third-party trademark use (Rolex, Audemars Piguet, Patek Philippe, Richard Mille) is factual product attribution only. | high | accepted | Never claim authorised-dealer status, affiliation or endorsement. Brand names are rendered as data attributes from our `brands` table, nothing more. |
 | E6 | No licensed imagery is available. Seed/demo imagery must be clearly labelled and must not be presented as real stock. | medium | open | Owner supplies licensed or original imagery (A6). Until then, placeholders are labelled as demo data. |
-| E7 | Seed/demo data must never be presented as real transactions. | medium | open | Phase 2 seeds are labelled; Phase 15 documents how to purge them before go-live. |
+| E7 | Seed/demo data must never be presented as real transactions. | medium | open | Phase 2 seeds all 4110 products as `draft`, so none is visible to the public until an administrator publishes it. Phase 15 documents how to purge the seed before go-live. |
 | E8 | The reference's accessibility defects must **not** be reproduced: its viewport sets `maximum-scale=1.0, user-scalable=0`, which blocks pinch-zoom (WCAG 1.4.4). | high | accepted | Our viewport allows zoom; verified in Phase 4 and Phase 14. |
 | E9 | Auto-rotating content (announcement bar, carousels) must be pausable to satisfy WCAG 2.2.2. | medium | open | Phase 4: pausable, dismissible, and `prefers-reduced-motion` aware. |
 
@@ -101,19 +101,45 @@ Recorded so no future phase claims to have verified something it did not.
 
 ---
 
+## G. Database and schema items (raised in Phase 2)
+
+| # | Issue | Severity | Status | Next action |
+|---|---|---|---|---|
+| G1 | **The RLS suites run against a shim, not Supabase itself.** `supabase/tests/00_supabase_shim.sql` emulates `auth.users`, `auth.uid()` and the API roles faithfully, but it is our reproduction of Supabase's behaviour, not Supabase. | high | open | Once A1 is done, run the same suites against the real project (or a Supabase local stack) and confirm the results match. This is the final confirmation of the authorisation model. |
+| G2 | **The concurrency proof widens the race window deliberately.** `--slow-window` inserts a delay between the read and the write so overlap is certain rather than machine-speed dependent. | low | accepted | This is the correct way to test a lock — the alternative is a test that passes or fails depending on load. The consequence is that the measured timings are not production timings, and the numbers should not be read as benchmarks. |
+| G3 | **`supabase db lint` has not been run.** It requires the Supabase CLI linked to a project (A1). | medium | open | Run after A1 and fix anything it reports. The migrations were authored with explicit `search_path` pinning and schema qualification to avoid the classes of issue the linter usually finds. |
+| G4 | **Storage bucket policies are not in the migrations.** Bucket creation and its RLS are Supabase-dashboard configuration, so they cannot be version-controlled with the schema. | medium | open | Phase 10 wires uploads; the required bucket policies are documented in `ARCHITECTURE.md` §12. Consider a `storage`-schema migration once the bucket names are settled. |
+| G5 | **The seed has no images, prose or prices.** All 4110 products are `price_on_request` with null descriptions and no `product_images` rows, because the reference site's photography and text are its own content. | medium | accepted | Deliberate. Real photography must be uploaded (A6) and prices set in the admin. Until then a seeded product page would render a specification table and no gallery. |
+| G6 | **`product_condition` uses `unworn` where the reference uses `pre-owned`/`unworn`.** The seed maps source tags onto the enum. | low | accepted | A naming difference, not a data difference. Documented in `DATABASE_SCHEMA.md` §4. |
+| G7 | **Full-text search relies on a single Postgres GIN index** over five text columns. It has no ranking beyond `ts_rank` defaults and no typo tolerance. | low | open | Sufficient for the current catalogue. If search quality proves inadequate in Phase 5, an external index will be needed; it is not planned for any current phase. |
+| G8 | **The payment guard needed a line-level exemption.** Two files legitimately name card fields in order to assert their absence, which the content checks flagged. | low | **resolved** | Added a `payment-guard:allow` marker restricted to an explicit file allowlist and unable to suppress dependency, secret-key or webhook-route checks. Verified against adversarial fixtures: a marker cannot smuggle a `stripe` import or a secret key past the guard. |
+
+---
+
 ## Summary
 
 | Severity | Count | Open |
 |---|---|---|
-| critical | 6 | 3 (D3 and D8 are now mitigated; D8 is also an accepted standing invariant) |
-| high | 10 | 8 |
-| medium | 11 | 7 |
-| low | 8 | 2 |
+| critical | 6 | 1 |
+| high | 11 | 8 |
+| medium | 13 | 8 |
+| low | 15 | 2 |
 
-**Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository now has a
+"Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
+items are excluded, which is why the open column is smaller than the count.
+
+**Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository has a
 `.gitignore`, a committed lockfile, a documented `.env.example`, a `server-only` guard on every
 privileged module, a CI guard that fails the build if a payment integration is ever introduced, and
 a CI pipeline observed green on `main`.
 
-No critical item is a defect in shipped code. The three remaining criticals are owner-side setup
-(A1, A2) and policies that Phase 2 and Phase 7 must implement by construction (D1, D2, D7).
+**Phase 2 resolved D1, D2 and D7, and added section G.** RLS is enabled on all 47 tables with 96
+policies and proven by four test suites; role self-escalation is structurally impossible because
+roles live in a table with no write policy; and order totals are computed inside the database rather
+than trusted from the client. The eight new items in section G are limitations of the verification
+method, not defects in the schema — the most significant is G1, that the suites run against a shim
+rather than Supabase itself.
+
+**The single remaining open critical is A1**, owner-side setup: no Supabase project exists yet. Every
+critical security property that could be proven without a Supabase account has been proven. A2 and
+G1 are the two items that need A1 resolved before they can be closed.

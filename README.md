@@ -76,6 +76,35 @@ build. Set the variables to enable each integration.
 | `npm run check:no-payment` | Fails if a payment integration is present       |
 | `npm run verify`           | Everything above, in the CI order               |
 
+### Database scripts
+
+These need PostgreSQL 17 running. Two modes are supported and the scripts pick one
+automatically: set `PGHOST` (plus `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`)
+to connect directly, as CI does, or run a Docker container named `lw-pg-test` on
+port 55432.
+
+```bash
+# Create the throwaway database used by the local scripts
+docker run -d --name lw-pg-test -e POSTGRES_PASSWORD=postgres \
+  -p 55432:5432 postgres:17-alpine
+
+./scripts/db-reset.sh          # drop everything (destructive, test db only)
+./scripts/db-verify.sh         # shim + 8 migrations + 4 RLS suites
+python3 scripts/db-concurrency-matrix.py   # 5-scenario oversell proof
+```
+
+| Script                              | Purpose                                              |
+| ----------------------------------- | ---------------------------------------------------- |
+| `scripts/db-reset.sh`               | Drop all schemas so verification starts clean         |
+| `scripts/db-verify.sh`              | Apply migrations and run the RLS suites               |
+| `scripts/db-concurrency-matrix.py`  | Prove inventory cannot be oversold under concurrency   |
+| `scripts/db-concurrency-test.py`    | One scenario; `--help` lists the failure-injection flags |
+| `scripts/generate-catalogue-seed.py`| Regenerate `supabase/seed/01_catalogue.sql`           |
+
+`db-concurrency-test.py` supports deliberate failure injection (`--break-lock`,
+`--break-constraint`, `--slow-window`). The matrix uses these to prove the test
+can actually detect an oversell, not merely pass on a correct database.
+
 ## Environment variables
 
 Every variable is documented with setup notes in `.env.example`. Nothing in that
@@ -118,6 +147,7 @@ src/
   components/
     seo/                   JSON-LD renderer
   lib/
+    database.types.ts      Generated Supabase types (do not hand-edit)
     env.ts                 Public environment (safe, never throws)
     env.server.ts          Server-only environment (guarded)
     errors.ts              AppError and the server error boundary
@@ -125,8 +155,13 @@ src/
     seo/                   Metadata, schema.org, sitemap builders
     supabase/              browser / server / admin clients
   middleware.ts            Supabase session refresh
+supabase/
+  migrations/              Versioned schema, applied in filename order
+  tests/                   Supabase shim + RLS/authorisation suites
+  seed/                    Demo catalogue (all products seeded as draft)
 tests/                     Vitest suites
-scripts/                   CI guards
+scripts/                   CI guards and database verification tooling
+docs/                      SEO and security-header reference
 ```
 
 ## Accessibility and SEO commitments
