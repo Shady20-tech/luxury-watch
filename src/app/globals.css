@@ -1,0 +1,201 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Design tokens
+   --------------------------------------------------------------------------
+   Character: luxury watch retail — a restrained gold accent over neutral
+   surfaces, a display serif for headings and a humanist sans for body copy.
+
+   Contrast is enforced by tests in `tests/design-tokens.test.ts`, not by hope.
+   `--color-gold-500` is the brand accent and is only safe for large text and
+   decorative use (3.7:1 on white). Normal-size text on a light surface must
+   use `--color-gold-700` (5.6:1 on white, 5.1:1 on surface-100).
+   ========================================================================== */
+@theme {
+  /* Brand gold */
+  --color-gold-100: #f7f1e4;
+  --color-gold-300: #d9bc7a;
+  --color-gold-500: #a18040;
+  --color-gold-700: #806428;
+  --color-gold-900: #4d3c18;
+
+  /* Neutrals */
+  --color-ink-950: #111111;
+  --color-ink-900: #222222;
+  --color-ink-700: #444444;
+  --color-ink-500: #666666;
+  --color-ink-400: #767676;
+  --color-ink-300: #999999;
+  --color-line-200: #eeeeee;
+  --color-line-300: #dddddd;
+
+  /* Surfaces */
+  --color-surface-0: #ffffff;
+  --color-surface-50: #fafafa;
+  --color-surface-100: #f5f5f5;
+  --color-surface-200: #e9e9e9;
+
+  /* Status */
+  --color-success-600: #1f7a4d;
+  --color-warning-700: #8a5a00;
+  --color-danger-600: #b3261e;
+
+  /* Semantic aliases — components reference these, not raw palettes */
+  --color-background: var(--color-surface-0);
+  --color-background-muted: var(--color-surface-100);
+  --color-foreground: var(--color-ink-900);
+  --color-foreground-muted: var(--color-ink-500);
+  --color-border: var(--color-line-200);
+  --color-accent: var(--color-gold-500);
+  --color-accent-text: var(--color-gold-700);
+  --color-on-accent: var(--color-surface-0);
+
+  /* Typography */
+  --font-display: var(--font-cardo), ui-serif, Georgia, 'Times New Roman', serif;
+  --font-body:
+    var(--font-nunito), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Spacing rhythm — 4px base */
+  --spacing: 0.25rem;
+
+  /* Radii */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-full: 9999px;
+
+  /* Layout */
+  --container-content: 80rem;
+  --container-narrow: 48rem;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+/* ==========================================================================
+   Layout utilities
+   ========================================================================== */
+
+/* Page-level container. One definition so every template lines up. */
+@utility container-page {
+  width: 100%;
+  margin-inline: auto;
+  max-width: var(--container-content);
+  padding-inline: 1rem;
+
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility container-narrow {
+  width: 100%;
+  margin-inline: auto;
+  max-width: var(--container-narrow);
+  padding-inline: 1rem;
+}
+
+/* Visually hidden but available to assistive technology. */
+@utility sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border-width: 0;
+
+  &:focus-visible {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+}
+
+/* ==========================================================================
+   Base layer
+   ========================================================================== */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Never set user-scalable=0 or maximum-scale=1: blocking pinch-zoom is a
+       WCAG 1.4.4 failure, and the reference site does exactly that. */
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Visible, consistent focus ring on every focusable element. */
+  :focus-visible {
+    outline: 2px solid var(--color-gold-700);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background-color: var(--color-gold-100);
+    color: var(--color-ink-950);
+  }
+
+  /* Respect the user's motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+}

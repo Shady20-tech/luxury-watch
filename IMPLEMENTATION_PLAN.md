@@ -1,6 +1,6 @@
 # Implementation Plan — Luxury Watch E-commerce Platform
 
-Last updated: 2026-10-16 (end of Phase 0)
+Last updated: 2026-10-17 (end of Phase 1)
 Reference: https://carbonwatchcompany.com/ · Deployment: Vercel · Data: Supabase · Email: Resend
 Payments: **manual/offline selection only — no gateway, no online processing**
 
@@ -33,7 +33,7 @@ This ordering exists so each phase continues the real implementation instead of 
 | # | Phase | Status | Depends on |
 |---|---|---|---|
 | 0 | Project contract, repository audit and reference analysis | **done** | — |
-| 1 | Foundation: Next.js 15 + TypeScript + Tailwind scaffold, config, tooling, CI | not started | 0 |
+| 1 | Foundation: Next.js 15 + TypeScript + Tailwind scaffold, config, tooling, CI | **done** | 0 |
 | 2 | Supabase project, database schema, migrations, RLS, generated types | not started | 1 |
 | 3 | Authentication, profiles, roles, protected routes | not started | 2 |
 | 4 | Design system, global chrome (top bar, announcement, header, mega menu, footer, age gate) | not started | 1, 2 |
@@ -108,30 +108,72 @@ schema, no migrations, no UI. Only documentation plus an environment-variable te
 
 ---
 
-## Phase 1 — Foundation (scaffold, tooling, CI)
+## Phase 1 — Foundation (scaffold, tooling, CI) ✅ done
 
 **Goal:** a real, buildable Next.js 15 application with quality gates, and nothing fake.
 
-**Scope**
-- Scaffold Next.js 15 (App Router) + React + TypeScript + Tailwind in place, on npm
-- Strict `tsconfig` (`strict: true`, no implicit any, path aliases `@/*`)
-- ESLint (`next/core-web-vitals`) + Prettier; `npm run lint`, `typecheck`, `build`
-- Vitest wired with one real passing test (not a placeholder assertion)
-- Base `app/layout.tsx` with `<html lang>`, font strategy via `next/font`, metadata defaults
-- `next.config.ts`: image domains for Supabase Storage, security headers scaffold
-- Replace `.example.env` with `.env.example`; add `lib/env.ts` with Zod-validated env parsing that
-  fails loudly in production and degrades safely in development
-- `app/globals.css` with design tokens (gold accent, neutral surfaces, radii, spacing scale,
-  light + dark), mapped into Tailwind theme
-- A real "not found" and "error" boundary
-- GitHub Actions: install → lint → typecheck → test → build
-- `README.md` with local setup, scripts, and Vercel deployment steps
+**Delivered**
+
+| Item | Status | Notes |
+|---|---|---|
+| Next.js 15 (App Router) + React + TS + Tailwind in place, on npm | done | Next 15.5.28, React 19.3.1, Tailwind v4.3.3 |
+| Strict `tsconfig` + `@/*` alias | done | Also `noUncheckedIndexedAccess`, `noImplicitOverride`, `noFallthroughCasesInSwitch` |
+| ESLint + Prettier; `lint` / `typecheck` / `build` scripts | done | Flat config, `next/core-web-vitals` + `next/typescript` + `prettier`, explicit `jsx-a11y` rules |
+| Vitest with real passing tests | done | 7 suites, 106 assertions — no placeholder assertions |
+| `app/layout.tsx` with `<html lang>`, `next/font`, metadata defaults | done | Cardo + Nunito self-hosted; skip link; site-wide JSON-LD |
+| `next.config.ts` with image domains and security headers | done | Supabase Storage pattern added conditionally; 7 headers; private-path `noindex` |
+| `.env.example` replacing `.example.env`; `lib/env.ts` | done | `.example.env` deleted. Validation never throws at import, so `next build` cannot break on a missing variable; problems are collected and surfaced at `/api/health` |
+| `app/globals.css` design tokens | done | Gold accent, neutral surfaces, status colours, radii, spacing, motion; contrast verified by test |
+| Real `not-found` and `error` boundaries | done | Plus `global-error.tsx`; all show a digest, never an internal message |
+| GitHub Actions: install → lint → typecheck → test → build | done | `.github/workflows/ci.yml`, Node 22, least privilege, plus the payment guard and a format check |
+| `README.md` with setup, scripts and Vercel steps | done | |
+
+**Beyond the original scope, and why**
+
+- **`scripts/check-no-payment-providers.mjs`** — the no-payment rule is a
+  project-wide invariant, so it is enforced mechanically rather than by
+  convention. It fails CI on a payment dependency, gateway host, card field,
+  payment webhook or provider-named route, and is itself covered by behavioural
+  tests that prove it rejects each violation class.
+- **`src/lib/logger.ts`, `src/lib/errors.ts`** — the phase asks for a real error
+  boundary; a boundary is only honest if internal detail cannot leak through it,
+  which requires a shared error model and a logger that redacts secrets.
+- **The SEO layer (`src/lib/seo/`, `robots.ts`, `sitemap.ts`, `manifest.ts`,
+  `api/health`)** — the brief makes SEO first-class "from the foundation", and
+  the sitemap's honest `lastmod` handling has to exist before the catalogue is
+  built on top of it. Building it later would mean retrofitting cache tags.
+- **Supabase client boundaries** — the service-role leak risk (D3) is a critical
+  issue, and the guard that prevents it (`server-only`) has to be in place before
+  any code could import it wrongly.
 
 **Acceptance criteria**
-- `npm ci && npm run lint && npm run typecheck && npm test && npm run build` all pass
-- App boots locally and renders a real page (not a placeholder dashboard)
-- No secret in the repo; `.env.example` lists every variable used
-- CI green on `main`
+
+| Criterion | Result |
+|---|---|
+| `npm ci && npm run lint && npm run typecheck && npm test && npm run build` all pass | **Pass.** All five verified individually and in sequence. 106 tests pass, build generates 8 routes. |
+| App boots locally and renders a real page | **Pass.** Verified against a production server: `/` returns 200 and renders genuine configuration state, not a placeholder dashboard. |
+| No secret in the repo; `.env.example` lists every variable used | **Pass.** Secret scan clean. `.env.example` documents all 15 variables with per-service setup notes. |
+| CI green on `main` | **Pass locally; not yet observed on GitHub.** The workflow is committed and every step was executed locally in the same order. It cannot be confirmed green on `main` until it runs after the push. Tracked as C6 in `KNOWN_ISSUES.md`. |
+
+**Additional verification performed**
+
+- `npm audit --omit=dev` → **0 vulnerabilities**, after resolving a real `postcss`
+  advisory via a targeted override (see `CHANGELOG.md`).
+- Runtime header inspection: all seven security headers present; `X-Robots-Tag:
+  noindex` on private paths.
+- `robots.txt`, `sitemap.xml` and the JSON-LD graph inspected for correctness.
+- `/api/health` correctly reports `degraded` when nothing is configured.
+- Client-bundle scan: no secret material and no `service_role` reference in
+  `.next/static/`.
+
+**Carried forward**
+
+- C1 (`.example.env`) and C3 (no `.gitignore`) and C4 (no lockfile) are
+  **resolved**.
+- C5 (no secret scanning in CI) remains open — partially mitigated by the
+  redaction tests, but a repository-level scan is scheduled for Phase 13.
+- CSP remains deferred by design, with the intended policy documented and an
+  owning phase recorded in `KNOWN_ISSUES.md` (D9).
 
 ---
 

@@ -1,0 +1,22 @@
+# Build output and dependencies
+node_modules
+.next
+out
+build
+dist
+coverage
+.next/types
+next-env.d.ts
+
+# Lockfile is committed on purpose: reproducible installs in CI and on Vercel.
+# Do not add package-lock.json here.
+
+# Generated database types
+src/lib/database.types.ts
+
+# Planning documents are hand-formatted prose
+IMPLEMENTATION_PLAN.md
+CHANGELOG.md
+KNOWN_ISSUES.md
+ARCHITECTURE.md
+REFERENCE_ANALYSIS.md

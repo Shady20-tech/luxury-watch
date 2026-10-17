@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel a superseded run on the same ref rather than paying for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: this workflow only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          # Must satisfy the engines field in package.json (>=20.9.0).
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` installs exactly the lockfile and fails if package.json and
+      # package-lock.json disagree, which is what makes CI reproducible.
+      - name: Install dependencies
+        run: npm ci
+
+      # Fails if a payment gateway, SDK, card field or payment webhook is ever
+      # introduced. This project processes no payments online.
+      - name: Payment-provider guard
+        run: npm run check:no-payment
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Runs after tests so a type or logic failure is reported first.
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholder values so the build can run without production secrets.
+          # These are not secrets and are not used at runtime in CI.
+          NEXT_PUBLIC_SITE_URL: https://example.com
+          NEXT_PUBLIC_SITE_NAME: Luxury Watch
+          NEXT_PUBLIC_DEFAULT_CURRENCY: USD
+          NEXT_PUBLIC_ENABLE_AGE_GATE: 'true'

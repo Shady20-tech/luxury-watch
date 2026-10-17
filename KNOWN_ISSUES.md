@@ -1,6 +1,6 @@
 # Known Issues
 
-Last updated: 2026-10-16 (end of Phase 0)
+Last updated: 2026-10-17 (end of Phase 1)
 Owner-visible register of everything unresolved. Kept honest on purpose: an issue is removed only
 when it is genuinely fixed, and a phase is not marked complete while a critical item is open.
 
@@ -43,11 +43,14 @@ Recorded so no future phase claims to have verified something it did not.
 
 | # | Issue | Severity | Status | Next action |
 |---|---|---|---|---|
-| C1 | `.example.env` exists at the repository root, is 1 byte, empty, and misnamed — it is not read by any tool and is a setup trap. | medium | open | Removed in Phase 1 and replaced by `.env.example`. |
-| C2 | Repository is greenfield: no `package.json`, no application code, no tests, no CI, no `vercel.json`. | medium | accepted | Expected; Phase 1 scaffolds the application. Recorded as the documented reason for scaffolding rather than refactoring. |
-| C3 | No `.gitignore`. Without it, `.env.local`, `node_modules/`, `.next/` and Supabase local artefacts risk being committed. | high | open | Added in Phase 1 **before** any dependency install. |
-| C4 | No lockfile, so dependency resolution is currently unpinned and unreproducible. | medium | open | `package-lock.json` committed in Phase 1; CI uses `npm ci`. |
-| C5 | No automated secret scanning in CI. | medium | open | Add a secret scan to the Phase 1 workflow and a repository scan in Phase 13. |
+| C1 | `.example.env` existed at the repository root, 1 byte, empty, and misnamed — not read by any tool, and a setup trap. | medium | **resolved** | Deleted in Phase 1 and replaced by `.env.example` (15 variables, documented, no secrets). |
+| C2 | Repository was greenfield: no `package.json`, no application code, no tests, no CI. | medium | accepted | Expected. Phase 1 scaffolded the application; the documented reason is recorded in `CHANGELOG.md`. |
+| C3 | No `.gitignore`. Without it, `.env.local`, `node_modules/`, `.next/` and Supabase local artefacts risked being committed. | high | **resolved** | Added in Phase 1 **before** the first dependency install. Verified: no secret or build artefact is tracked. |
+| C4 | No lockfile, so dependency resolution was unpinned and unreproducible. | medium | **resolved** | `package-lock.json` committed in Phase 1. Verified with a clean `npm ci` (431 packages). CI uses `npm ci`. |
+| C5 | No automated secret scanning in CI. | medium | open | Partially mitigated: `tests/logger.test.ts` proves credential-shaped keys are redacted and never logged. A repository-level secret scan is still scheduled for Phase 13. |
+| C6 | **CI has not yet been observed green on GitHub.** The workflow was authored and every step was executed locally in the same order, but the first real run happens after the Phase 1 push. | low | open | Check the Actions run for the Phase 1 commit on `main`. If any step fails, fix it in Phase 2 rather than assuming it passed. |
+| C7 | Dependency versions are pinned conservatively and several are older than npm `latest` — ESLint 9 (10 unsupported by `eslint-config-next@15`), TypeScript 5.9 (latest is 7.x), Vitest 3.2 (latest is 5.x). | low | accepted | Deliberate compatibility choices, each recorded with a reason in `CHANGELOG.md`. Revisit when Next.js 16 is approved by the owner. |
+| C8 | `overrides.postcss` pins `postcss@8.5.30` to work around `next@15.5.28` pinning the vulnerable `8.4.31`. | low | accepted | Remove the override once a Next 15.x release depends on a patched postcss, or when upgrading to Next 16. Re-verify with `npm audit` at that point. |
 
 ---
 
@@ -57,12 +60,13 @@ Recorded so no future phase claims to have verified something it did not.
 |---|---|---|---|---|
 | D1 | No RLS policies exist yet, because no schema exists. Until Phase 2 lands, **any** table created would be unprotected by default. | critical | open | Phase 2: enable RLS on every table with default-deny policies, and prove it with tests. |
 | D2 | `profiles.role` self-escalation must be impossible. A naive `update` policy on `profiles` would let a customer make themselves an admin. | critical | open | Phase 2: protect the `role` column by policy and trigger; Phase 3: add an escalation test. |
-| D3 | Service-role key could leak into the client bundle if imported outside a `server-only` module. | critical | open | Phase 1: `lib/supabase/admin.ts` guarded by `import 'server-only'`; Phase 13: audit and bundle scan. |
-| D4 | Public mutation endpoints (inquiry, contact, newsletter, order request, auth) have no rate limiting yet. | high | open | Phase 7 and Phase 13: server-side rate limiting plus honeypots. |
-| D5 | Security headers and CSP are not configured. | high | open | Phase 1 scaffold; completed and verified in Phase 13. |
+| D3 | Service-role key could leak into the client bundle if imported outside a `server-only` module. | critical | **mitigated** | Phase 1: `lib/supabase/admin.ts` and `lib/env.server.ts` both import `server-only`, so the build fails if either is pulled into a client bundle. Verified by scanning `.next/static/` for the key name and for `service_role`: nothing found. Phase 13 re-runs the scan as a standing check. |
+| D4 | Public mutation endpoints (inquiry, contact, newsletter, order request, auth) have no rate limiting yet. | high | open | Phase 7 and Phase 13: server-side rate limiting plus honeypots. `RATE_LIMIT_DRIVER` is already reserved in `.env.example`. |
+| D5 | Security headers are configured; **Content-Security-Policy is deliberately not yet enforced.** | medium | open | Phase 1 shipped seven headers (nosniff, Referrer-Policy, Permissions-Policy incl. `payment=()`, X-Frame-Options, COOP, CORP, HSTS) and verified them at runtime. CSP is deferred by design: shipping a restrictive policy before the real asset graph is audited breaks the app, and one loosened under pressure provides no protection while creating false confidence. The intended policy and the three-step rollout (report-only → observe → enforce with nonce) are documented in `docs/SECURITY_HEADERS.md`. Owned by Phase 13. |
 | D6 | Guest order lookup must not be authorisable by reference number alone. | high | open | Phase 7: require reference **and** matching email, rate-limited. |
 | D7 | Order-request totals must be recomputed server-side; client-supplied prices must be ignored. | critical | open | Phase 7: server re-pricing with a tamper test. |
-| D8 | No payment code must ever be introduced. This is an invariant, not a task. | critical | accepted | Phase 13: add an automated check that fails CI if a payment provider dependency or card field appears. |
+| D8 | No payment code must ever be introduced. This is an invariant, not a task. | critical | **mitigated** | **Done in Phase 1**, earlier than planned. `scripts/check-no-payment-providers.mjs` fails CI on a payment dependency, gateway host, card field, payment webhook or provider-named route, scanning both file content and file paths. It is itself covered by 9 behavioural tests that prove it rejects each violation class rather than merely passing on a clean tree. Phase 13 keeps it wired into CI. |
+| D9 | HSTS omits `preload`, so the domain is not submitted to the browser preload list. | low | accepted | `preload` is effectively irreversible. It is added only once the owner confirms every subdomain is HTTPS-only. Recorded rather than silently enabled. |
 
 ---
 
@@ -92,7 +96,7 @@ Recorded so no future phase claims to have verified something it did not.
 | F4 | Which currencies and locales must be supported? USD only, or more? | Phases 2, 5, 7 |
 | F5 | Are prices published for all products, or is the catalogue predominantly "price on request"? | Phases 5, 6, 12 |
 | F6 | What is the business name, logo, address, phone, email and social handles for the new storefront? | Phases 4, 11 |
-| F7 | Should Next.js be upgraded from 15 to 16, or stay on 15 as the binding decision states? | Phase 1 |
+| F7 | Should Next.js be upgraded from 15 to 16, or stay on 15 as the binding decision states? Note: Next 15.5.28 pins a `postcss` version with a known advisory, currently worked around with an `overrides` entry. | Phase 1 (C7, C8) |
 | F8 | Which analytics, if any, are required? (Affects Lighthouse and consent.) | Phase 14 |
 
 ---
@@ -101,11 +105,14 @@ Recorded so no future phase claims to have verified something it did not.
 
 | Severity | Count | Open |
 |---|---|---|
-| critical | 6 | 5 (D8 is an accepted standing invariant) |
+| critical | 6 | 3 (D3 and D8 are now mitigated; D8 is also an accepted standing invariant) |
 | high | 10 | 8 |
-| medium | 10 | 7 |
-| low | 6 | 1 |
+| medium | 11 | 7 |
+| low | 8 | 3 |
 
-**No critical item is a defect in shipped code — there is no application code yet.** Every critical
-item is either owner-side setup (A1, A2) or a policy that Phase 2 and Phase 7 must implement by
-construction (D1, D2, D3, D7).
+**Phase 1 resolved C1, C3, C4 and mitigated D3 and D8.** The repository now has a `.gitignore`, a
+committed lockfile, a documented `.env.example`, a `server-only` guard on every privileged module,
+and a CI guard that fails the build if a payment integration is ever introduced.
+
+No critical item is a defect in shipped code. The three remaining criticals are owner-side setup
+(A1, A2) and policies that Phase 2 and Phase 7 must implement by construction (D1, D2, D7).

@@ -412,18 +412,55 @@ NEXT_PUBLIC_ENABLE_AGE_GATE
 
 ## 13. Testing strategy
 
-| Layer | Tool | Scope |
-|---|---|---|
-| Types | `tsc --noEmit` | whole project |
-| Lint | ESLint (`next/core-web-vitals`) | whole project |
-| Unit | Vitest | Zod schemas, pricing/total computation, slug helpers, sitemap timestamp logic, status-transition rules |
-| Integration | Vitest against a local Supabase instance | repositories + RLS policies (customer cannot read another's order request; customer cannot read drafts; non-admin cannot write products) |
-| E2E | Playwright | browse → product → cart → order request → confirmation; login/register; admin CRUD; age gate; a11y smoke |
-| A11y | axe via Playwright | home, collection, product, contact, cart, order request |
-| Perf | Lighthouse CI | key public templates |
-| Migrations | `supabase db lint` / migration dry-run | schema integrity |
+| Layer | Tool | Scope | Status |
+|---|---|---|---|
+| Types | `tsc --noEmit` | whole project | **active** |
+| Lint | ESLint (`next/core-web-vitals` + `next/typescript` + `prettier`) + explicit `jsx-a11y` rules | whole project | **active** |
+| Format | Prettier `--check` | whole project | **active** |
+| Policy guard | `scripts/check-no-payment-providers.mjs` | payment integration, card fields, payment webhooks, provider-named routes | **active** |
+| Unit | Vitest | env validation and graceful degradation, log redaction, error non-leakage, schema.org honesty, sitemap `lastmod` honesty, design-token contrast (computed from the real WCAG formula) | **active** — 106 tests |
+| Integration | Vitest against a local Supabase instance | repositories + RLS policies (customer cannot read another's order request; customer cannot read drafts; non-admin cannot write products) | Phase 2 |
+| E2E | Playwright | browse → product → cart → order request → confirmation; login/register; admin CRUD; age gate; a11y smoke | Phase 15 |
+| A11y | axe via Playwright | home, collection, product, contact, cart, order request | Phase 14/15 |
+| Perf | Lighthouse CI | key public templates | Phase 14 |
+| Migrations | `supabase db lint` / migration dry-run | schema integrity | Phase 2 |
 
 Mocks are avoided. RLS and repository tests run against a **real** local Postgres/Supabase.
+
+**Implemented in Phase 1.** `tests/` holds 7 suites and 106 assertions. Notably, the
+payment guard is tested *behaviourally*: each suite creates a temporary fixture tree
+containing a violation and asserts the guard exits non-zero with the right rule name, rather
+than only asserting it passes on the current clean tree. Design-token contrast is computed
+from the WCAG relative-luminance formula over the tokens parsed out of `globals.css`, with
+CSS comments stripped first so an assertion cannot pass by matching the comment that
+documents it.
+
+---
+
+## 13a. Application foundation as built (Phase 1)
+
+| Concern | Module | Note |
+|---|---|---|
+| Public env | `src/lib/env.ts` | Lazy, never throws at import, collects all issues, reports presence as booleans |
+| Server env | `src/lib/env.server.ts` | `import 'server-only'`; `requireServiceRoleKey()` throws at point of use |
+| Browser data | `src/lib/supabase/browser.ts` | anon key only; RLS is the protection |
+| Server data (read) | `src/lib/supabase/server.ts` | Server Components; cookie writes swallowed because Next forbids them there |
+| Server data (write) | `src/lib/supabase/server.ts` | Server Actions and Route Handlers; cookie writes persisted |
+| Privileged data | `src/lib/supabase/admin.ts` | `import 'server-only'`; bypasses RLS, so callers must still authorise |
+| Session refresh | `src/middleware.ts` | The only place a refreshed token can actually be persisted |
+| Errors | `src/lib/errors.ts` | Internal message, cause and stack never cross to the client |
+| Logging | `src/lib/logger.ts` | Single-line JSON, recursive credential redaction, depth- and length-capped |
+| SEO | `src/lib/seo/*` | Metadata, schema.org, sitemap entries and cache tags |
+| Boundaries | `src/app/{not-found,error,global-error}.tsx` | Show a correlation digest, never an internal message |
+
+### Why there are two server Supabase clients
+
+Next.js permits cookie writes only in a Server Action or a Route Handler. If a Server
+Component refreshes an auth token, the new token cannot be persisted, and the user is
+silently signed out when the old one expires. The read-only client therefore swallows that
+write error deliberately, and `src/middleware.ts` performs the refresh where the response
+can be written. `getUser()` is used rather than `getSession()`, because only `getUser()`
+validates the token against the auth server.
 
 ---
 
@@ -449,4 +486,7 @@ Mocks are avoided. RLS and repository tests run against a **real** local Postgre
 | `IMPLEMENTATION_PLAN.md` | Phase-by-phase plan, current state, dependencies |
 | `CHANGELOG.md` | What changed, when |
 | `KNOWN_ISSUES.md` | Honest open issues, severity, next action |
+| `docs/SEO.md` | SEO approach, Google's official AI-search guidance, sitemap `lastmod` policy |
+| `docs/SECURITY_HEADERS.md` | Active security headers and the planned CSP rollout |
+| `README.md` | Local setup, scripts, environment variables, Vercel deployment |
 | `.env.example` | Environment variable names and setup notes (no secrets) |
