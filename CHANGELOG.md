@@ -140,6 +140,11 @@ seed is idempotent and verified to be so.
   runs the same steps in the same order as the CI job.
 - `DATABASE_SCHEMA.md`, `README.md` — reformatted by Prettier, which the above
   omission had allowed to slip through.
+- `DATABASE_SCHEMA.md`, `AGENTS.md` — the seed section described a verified
+  database as showing 4119 products and 9 fixtures. Measured directly, the
+  suites leave 10 fixture products (`SKU-DRAFTORD` had been missed), so the real
+  figure is 4120 products and 5 brands. The behaviour behind the discrepancy is
+  recorded as G9 in `KNOWN_ISSUES.md`.
 - `scripts/db-concurrency-test.py` — the harness was proving nothing. It
   backgrounded jobs through `docker exec -i`, which attaches stdin and caused the
   racers to be suspended with `SIGTTIN` instead of racing, and the critical
