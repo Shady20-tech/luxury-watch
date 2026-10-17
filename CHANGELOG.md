@@ -134,6 +134,12 @@ seed is idempotent and verified to be so.
 
 #### Fixed
 
+- `package.json` — `npm run verify` did not run `format:check`, even though CI
+  did. A formatting failure therefore passed locally and failed on GitHub, which
+  is exactly the kind of divergence a local gate exists to prevent. `verify` now
+  runs the same steps in the same order as the CI job.
+- `DATABASE_SCHEMA.md`, `README.md` — reformatted by Prettier, which the above
+  omission had allowed to slip through.
 - `scripts/db-concurrency-test.py` — the harness was proving nothing. It
   backgrounded jobs through `docker exec -i`, which attaches stdin and caused the
   racers to be suspended with `SIGTTIN` instead of racing, and the critical

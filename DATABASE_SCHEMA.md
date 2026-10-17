@@ -26,16 +26,16 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-| File | Contents |
-|---|---|
-| `0001_extensions_enums_helpers.sql` | `pgcrypto`, `citext`, 13 enum types, `set_updated_at()`, `normalize_slug()`, order-reference sequence and generator |
-| `0002_accounts_profiles_roles.sql` | `profiles`, `user_roles`, `addresses`, new-user trigger |
-| `0003_catalogue.sql` | `brands`, `models`, `products`, `product_images`, `product_specs`, `collections`, `collection_products`, `inventory`, `inventory_transactions` |
-| `0004_commerce.sql` | `payment_methods`, `delivery_options`, `carts`, `cart_items`, `order_requests`, `order_request_items`, `order_request_events`, `inventory_reservations` |
-| `0005_service_requests.sql` | `inquiries` and every service flow, `appointments`, `contact_submissions`, `product_questions`, `messages`, `notifications` |
-| `0006_content_and_config.sql` | `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`, `homepage_sections`, `media`, `site_settings`, `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters` |
-| `0007_rls_policies.sql` | Role helpers, the permission map, RLS enabled on all 47 tables, 96 policies |
-| `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger |
+| File                                         | Contents                                                                                                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001_extensions_enums_helpers.sql`          | `pgcrypto`, `citext`, 13 enum types, `set_updated_at()`, `normalize_slug()`, order-reference sequence and generator                                                                      |
+| `0002_accounts_profiles_roles.sql`           | `profiles`, `user_roles`, `addresses`, new-user trigger                                                                                                                                  |
+| `0003_catalogue.sql`                         | `brands`, `models`, `products`, `product_images`, `product_specs`, `collections`, `collection_products`, `inventory`, `inventory_transactions`                                           |
+| `0004_commerce.sql`                          | `payment_methods`, `delivery_options`, `carts`, `cart_items`, `order_requests`, `order_request_items`, `order_request_events`, `inventory_reservations`                                  |
+| `0005_service_requests.sql`                  | `inquiries` and every service flow, `appointments`, `contact_submissions`, `product_questions`, `messages`, `notifications`                                                              |
+| `0006_content_and_config.sql`                | `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`, `homepage_sections`, `media`, `site_settings`, `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters` |
+| `0007_rls_policies.sql`                      | Role helpers, the permission map, RLS enabled on all 47 tables, 96 policies                                                                                                              |
+| `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger                                                                         |
 
 ### 1.2 Verify locally
 
@@ -271,21 +271,21 @@ into a separate `extensions` schema, not `public`.
 
 ## 4. Enum types
 
-| Enum | Values |
-|---|---|
-| `staff_role` | SUPER_ADMIN, ADMIN, SALES_MANAGER, INVENTORY_MANAGER, WATCH_EXPERT, CUSTOMER_SUPPORT, CONTENT_MANAGER |
-| `product_status` | draft, published, archived |
-| `product_condition` | new, unworn, pre_owned, vintage |
-| `collection_kind` | taxonomy, merchandising, featured, novelty |
-| `order_status` | submitted, under_review, confirmed, awaiting_payment, paid_offline, fulfilled, cancelled, rejected |
-| `fulfilment_type` | delivery, pickup |
-| `inventory_transaction_kind` | acquisition, adjustment, reservation, reservation_release, sale, return, correction |
-| `inquiry_type` | sell_trade, sourcing, repair, general, product_question |
-| `inquiry_status` | new, in_review, responded, closed, spam |
-| `page_status` | draft, published, archived |
-| `navigation_location` | header, footer, topbar |
-| `appointment_status` | requested, confirmed, completed, cancelled |
-| `notification_kind` | order_request, inquiry, appointment, system |
+| Enum                         | Values                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `staff_role`                 | SUPER_ADMIN, ADMIN, SALES_MANAGER, INVENTORY_MANAGER, WATCH_EXPERT, CUSTOMER_SUPPORT, CONTENT_MANAGER |
+| `product_status`             | draft, published, archived                                                                            |
+| `product_condition`          | new, unworn, pre_owned, vintage                                                                       |
+| `collection_kind`            | taxonomy, merchandising, featured, novelty                                                            |
+| `order_status`               | submitted, under_review, confirmed, awaiting_payment, paid_offline, fulfilled, cancelled, rejected    |
+| `fulfilment_type`            | delivery, pickup                                                                                      |
+| `inventory_transaction_kind` | acquisition, adjustment, reservation, reservation_release, sale, return, correction                   |
+| `inquiry_type`               | sell_trade, sourcing, repair, general, product_question                                               |
+| `inquiry_status`             | new, in_review, responded, closed, spam                                                               |
+| `page_status`                | draft, published, archived                                                                            |
+| `navigation_location`        | header, footer, topbar                                                                                |
+| `appointment_status`         | requested, confirmed, completed, cancelled                                                            |
+| `notification_kind`          | order_request, inquiry, appointment, system                                                           |
 
 Note that `product_condition` is `unworn`, not `pre-owned`. The reference site tags
 products `pre-owned` or `unworn`; the enum uses snake_case to match the rest of the
@@ -298,24 +298,24 @@ schema, and the seed generator maps the source tags accordingly.
 These are not incidental validations. Each one makes a class of bug impossible
 rather than merely unlikely, and each is covered by a test.
 
-| Constraint | Table | What it prevents |
-|---|---|---|
-| `products_price_consistency` | products | A product that is `price_on_request` but also has a price, or vice versa. Exactly one representation is valid. |
-| `products_published_requires_timestamp` | products | A published product with no `published_at`, which would break the sitemap's `<lastmod>`. |
-| `inventory_quantity_non_negative` | inventory | Negative stock from any code path. |
-| `inventory_reserved_within_quantity` | inventory | Over-reservation. This is the second of the two independent defences described in §7. |
-| `inventory_reserved_non_negative` | inventory | A negative hold, which would silently inflate availability. |
-| `inventory_transactions_quantity_delta_nonzero` | inventory_transactions | A no-op ledger entry. |
-| `order_requests_total_matches_parts` | order_requests | A total that disagrees with `subtotal + delivery_fee`. |
-| `order_requests_fulfilment_details` | order_requests | Delivery with no address. |
-| `order_requests_settlement_complete` | order_requests | A settlement timestamp with no recording administrator, or the reverse. Both fields are set together or neither is. |
-| `order_requests_amounts_non_negative` | order_requests | Negative money. |
-| `payment_methods_code_format` | payment_methods | Arbitrary codes reaching the storefront. |
-| `delivery_options_fee_non_negative` | delivery_options | A negative delivery fee. |
-| `product_images_source_exclusive` | product_images | An image with both a `storage_path` and an `external_url`, or neither. |
-| `product_images_alt_required` | product_images | A missing `alt_text`, which would fail the accessibility target. |
-| `carts_owner_present` | carts | A cart with neither a user nor a session token, which could never be retrieved. |
-| `addresses_country_code_format` | addresses | A malformed country code. |
+| Constraint                                      | Table                  | What it prevents                                                                                                    |
+| ----------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `products_price_consistency`                    | products               | A product that is `price_on_request` but also has a price, or vice versa. Exactly one representation is valid.      |
+| `products_published_requires_timestamp`         | products               | A published product with no `published_at`, which would break the sitemap's `<lastmod>`.                            |
+| `inventory_quantity_non_negative`               | inventory              | Negative stock from any code path.                                                                                  |
+| `inventory_reserved_within_quantity`            | inventory              | Over-reservation. This is the second of the two independent defences described in §7.                               |
+| `inventory_reserved_non_negative`               | inventory              | A negative hold, which would silently inflate availability.                                                         |
+| `inventory_transactions_quantity_delta_nonzero` | inventory_transactions | A no-op ledger entry.                                                                                               |
+| `order_requests_total_matches_parts`            | order_requests         | A total that disagrees with `subtotal + delivery_fee`.                                                              |
+| `order_requests_fulfilment_details`             | order_requests         | Delivery with no address.                                                                                           |
+| `order_requests_settlement_complete`            | order_requests         | A settlement timestamp with no recording administrator, or the reverse. Both fields are set together or neither is. |
+| `order_requests_amounts_non_negative`           | order_requests         | Negative money.                                                                                                     |
+| `payment_methods_code_format`                   | payment_methods        | Arbitrary codes reaching the storefront.                                                                            |
+| `delivery_options_fee_non_negative`             | delivery_options       | A negative delivery fee.                                                                                            |
+| `product_images_source_exclusive`               | product_images         | An image with both a `storage_path` and an `external_url`, or neither.                                              |
+| `product_images_alt_required`                   | product_images         | A missing `alt_text`, which would fail the accessibility target.                                                    |
+| `carts_owner_present`                           | carts                  | A cart with neither a user nor a session token, which could never be retrieved.                                     |
+| `addresses_country_code_format`                 | addresses              | A malformed country code.                                                                                           |
 
 ---
 
@@ -329,7 +329,7 @@ reasoning:
 A customer must be able to update their own profile — name, phone, avatar. If
 `role` sits on that same row, then the security of the entire application rests on
 the profile `UPDATE` policy correctly excluding the `role` column. PostgreSQL RLS
-cannot restrict *columns*; it can only restrict rows. A policy that allows
+cannot restrict _columns_; it can only restrict rows. A policy that allows
 `UPDATE` on your own profile allows updating every column of it. The usual
 mitigations — a `WITH CHECK` clause comparing `role` to its old value, or a trigger
 rejecting role changes — both work, but both are single points of failure guarding
@@ -347,13 +347,13 @@ column exists.
 All are `SECURITY DEFINER` with `set search_path = ''` and fully-qualified
 references, so they cannot be redirected by a hostile `search_path`.
 
-| Function | Returns | Meaning |
-|---|---|---|
-| `public.is_staff()` | boolean | The caller holds any unexpired staff role. |
-| `public.is_admin()` | boolean | The caller is `ADMIN` or `SUPER_ADMIN`. |
-| `public.has_role(role)` | boolean | The caller holds this specific unexpired role, or is `SUPER_ADMIN` (which satisfies every role). |
-| `public.has_permission(permission)` | boolean | The caller's roles grant this permission, or the caller is `SUPER_ADMIN`. |
-| `public.role_permissions(role)` | text[] | The permission list for a role, from a static map. |
+| Function                            | Returns | Meaning                                                                                          |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `public.is_staff()`                 | boolean | The caller holds any unexpired staff role.                                                       |
+| `public.is_admin()`                 | boolean | The caller is `ADMIN` or `SUPER_ADMIN`.                                                          |
+| `public.has_role(role)`             | boolean | The caller holds this specific unexpired role, or is `SUPER_ADMIN` (which satisfies every role). |
+| `public.has_permission(permission)` | boolean | The caller's roles grant this permission, or the caller is `SUPER_ADMIN`.                        |
+| `public.role_permissions(role)`     | text[]  | The permission list for a role, from a static map.                                               |
 
 Permissions are named `domain.action`: `catalog.write`, `inventory.write`,
 `orders.read`, `orders.write`, `orders.settle`, `content.write`, `audit.read`,
@@ -388,12 +388,12 @@ The design is **default deny with a small explicit public surface**:
 
 `supabase/tests/` contains four suites, run by `scripts/db-verify.sh`:
 
-| File | What it proves |
-|---|---|
-| `00_supabase_shim.sql` | Test fixture: `auth.users`, `auth.uid()`, the API roles. Not a deployment artifact. |
-| `10_public_boundary.sql` | Anonymous visitors read the published catalogue and nothing else. Covers 20 private tables, and confirms the published product *is* readable so the denials are not vacuous. |
-| `20_customer_ownership.sql` | One customer cannot read another's data. Internal notes stay hidden even on the customer's own record. A customer cannot rewrite the commercial facts of their own order. |
-| `30_role_escalation.sql` | The decisive test: no customer can grant themselves a role. Also verifies each staff role's permission boundary, that `ADMIN` is not `SUPER_ADMIN`, that an expired role grants nothing, and that the audit log resists even `SUPER_ADMIN`. |
+| File                         | What it proves                                                                                                                                                                                                                                                 |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `00_supabase_shim.sql`       | Test fixture: `auth.users`, `auth.uid()`, the API roles. Not a deployment artifact.                                                                                                                                                                            |
+| `10_public_boundary.sql`     | Anonymous visitors read the published catalogue and nothing else. Covers 20 private tables, and confirms the published product _is_ readable so the denials are not vacuous.                                                                                   |
+| `20_customer_ownership.sql`  | One customer cannot read another's data. Internal notes stay hidden even on the customer's own record. A customer cannot rewrite the commercial facts of their own order.                                                                                      |
+| `30_role_escalation.sql`     | The decisive test: no customer can grant themselves a role. Also verifies each staff role's permission boundary, that `ADMIN` is not `SUPER_ADMIN`, that an expired role grants nothing, and that the audit log resists even `SUPER_ADMIN`.                    |
 | `40_order_and_inventory.sql` | Server-derived totals, price-on-request recording no amount, disabled payment methods rejected, inventory unable to go negative, reject releasing stock, confirm converting a hold into a sale, and a schema-wide assertion that no column can hold card data. |
 
 The suites share one database, so "can read" is asserted as "sees at least one
@@ -419,13 +419,13 @@ a code path that skips the lock cannot over-reserve.
 The proof matrix runs five scenarios against real Postgres, launching eight
 concurrent order submissions for a product with exactly one unit in stock:
 
-| Scenario | Protections | Result | What it shows |
-|---|---|---|---|
-| 1 | lock + constraint | HOLDS | The normal path is correct. |
-| 2 | lock + constraint, widened window | HOLDS | Correct under genuine contention, not just by luck of timing. |
-| 3 | constraint only | HOLDS | The constraint alone is sufficient. |
-| 4 | lock only | HOLDS | The lock alone is sufficient. |
-| 5 | neither | **BREAKS** | 8 of 8 racers succeeded, `reserved_quantity` reached 8 and available stock went to −7. |
+| Scenario | Protections                       | Result     | What it shows                                                                          |
+| -------- | --------------------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| 1        | lock + constraint                 | HOLDS      | The normal path is correct.                                                            |
+| 2        | lock + constraint, widened window | HOLDS      | Correct under genuine contention, not just by luck of timing.                          |
+| 3        | constraint only                   | HOLDS      | The constraint alone is sufficient.                                                    |
+| 4        | lock only                         | HOLDS      | The lock alone is sufficient.                                                          |
+| 5        | neither                           | **BREAKS** | 8 of 8 racers succeeded, `reserved_quantity` reached 8 and available stock went to −7. |
 
 Scenario 5 is the important one. Without it, a green result would be
 indistinguishable from a test that does nothing.
@@ -517,7 +517,7 @@ production database that holds real records.
 - `products_status_published_idx` — `(status, published_at desc)`. Drives the
   storefront listing and the sitemap query.
 - `products_search_idx` — GIN on `to_tsvector('english', title || reference_number
-  || short_description || case_material || dial_color)`. Catalogue search.
+|| short_description || case_material || dial_color)`. Catalogue search.
 - `products_featured_idx` — partial, `where is_featured`.
 - `products_price_idx` — partial, `where price_cents is not null`. Excludes
   price-on-request rows, which are a large share of the catalogue.
@@ -531,7 +531,7 @@ production database that holds real records.
 - `order_requests_user_idx` — `(user_id, created_at desc)`. A customer's history.
 - `order_requests_status_idx` — `(status, created_at desc)`. The admin queue.
 - `order_requests_email_idx` — supports the guest lookup, which requires the exact
-  reference *and* the email.
+  reference _and_ the email.
 - `order_requests_reference_key` — unique.
 - `inventory_transactions_product_idx` — `(product_id, created_at desc)`. The
   stock ledger.
@@ -551,7 +551,7 @@ production database that holds real records.
 - `carts_user_key`, `carts_session_key` — partial unique, so one cart per signed-in
   user and one per guest session.
 - `product_images_one_primary_idx` — partial unique on `(product_id) where
-  is_primary`. A product cannot have two primary images.
+is_primary`. A product cannot have two primary images.
 - `newsletter_subscribers_email_key`, `newsletter_subscribers_token_key` — unique.
 - `admin_audit_logs_created_idx`, plus actor and entity indexes for the audit view.
 - `inquiries_assigned_idx` — partial, `where assigned_to is not null`.

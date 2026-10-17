@@ -19,7 +19,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check:no-payment": "node scripts/check-no-payment-providers.mjs",
-    "verify": "npm run check:no-payment && npm run lint && npm run typecheck && npm run test && npm run build"
+    "verify": "npm run check:no-payment && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

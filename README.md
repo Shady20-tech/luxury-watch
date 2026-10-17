@@ -93,13 +93,13 @@ docker run -d --name lw-pg-test -e POSTGRES_PASSWORD=postgres \
 python3 scripts/db-concurrency-matrix.py   # 5-scenario oversell proof
 ```
 
-| Script                              | Purpose                                              |
-| ----------------------------------- | ---------------------------------------------------- |
-| `scripts/db-reset.sh`               | Drop all schemas so verification starts clean         |
-| `scripts/db-verify.sh`              | Apply migrations and run the RLS suites               |
-| `scripts/db-concurrency-matrix.py`  | Prove inventory cannot be oversold under concurrency   |
-| `scripts/db-concurrency-test.py`    | One scenario; `--help` lists the failure-injection flags |
-| `scripts/generate-catalogue-seed.py`| Regenerate `supabase/seed/01_catalogue.sql`           |
+| Script                               | Purpose                                                  |
+| ------------------------------------ | -------------------------------------------------------- |
+| `scripts/db-reset.sh`                | Drop all schemas so verification starts clean            |
+| `scripts/db-verify.sh`               | Apply migrations and run the RLS suites                  |
+| `scripts/db-concurrency-matrix.py`   | Prove inventory cannot be oversold under concurrency     |
+| `scripts/db-concurrency-test.py`     | One scenario; `--help` lists the failure-injection flags |
+| `scripts/generate-catalogue-seed.py` | Regenerate `supabase/seed/01_catalogue.sql`              |
 
 `db-concurrency-test.py` supports deliberate failure injection (`--break-lock`,
 `--break-constraint`, `--slow-window`). The matrix uses these to prove the test
