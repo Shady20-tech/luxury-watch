@@ -1,6 +1,6 @@
 # Known Issues
 
-Last updated: 2026-10-17 (end of Phase 2)
+Last updated: 2026-10-17 (end of Phase 4)
 Owner-visible register of everything unresolved. Kept honest on purpose: an issue is removed only
 when it is genuinely fixed, and a phase is not marked complete while a critical item is open.
 
@@ -125,9 +125,21 @@ Recorded so no future phase claims to have verified something it did not.
 | G11 | **The age gate is a legal affordance, not a security control.** It is bypassable by clearing `localStorage`, and its answer is not recorded server-side. | low | accepted | Deliberate and documented in the component. It must never be used to gate anything that matters. If a legally binding check is ever required, it needs a server-side verification flow, which no current phase plans. |
 | G12 | **The age gate is not in the first paint.** Because the visitor's answer lives in `localStorage`, the server cannot know it, so the gate renders nothing until an effect has read storage. | low | accepted | Deliberate trade-off: rendering the gate in the initial HTML would show it to every returning visitor for a frame. The cost is that a first-time visitor sees the gate appear just after paint. Revisit only if a cookie-based server-readable flag is wanted. |
 | G13 | **The `browser-audit` CI job has not yet been observed green on GitHub.** It passes locally against a production build, but the first CI run will be the real confirmation. | medium | **resolved** | Confirmed green on run 38993563050 (all three jobs passed: Node 54s, database 34s, browser audit 2m1s). |
-| G14 | **Lighthouse has not been run.** No score is claimed for any template in this phase. | medium | open | Phase 14. The Phase 0 target of 100/100 remains a target, not a guarantee; the actual scores and any remaining constraint will be reported honestly. |
+| G14 | **Lighthouse had not been run when Phase 3 closed.** No score is claimed for any Phase 3 template. | medium | **resolved** | Phase 4 ran Lighthouse against a production build of the homepage: desktop 100/100/100/100, mobile 95–97 performance with 100 accessibility, best practices and SEO. The remaining mobile gap is carried as G19. The Phase 0 target of 100/100 remains a target, not a guarantee, and the actual scores are reported honestly. |
 | G15 | **The `(site)` layout sets `revalidate = 300`, so chrome changes are visible within five minutes rather than instantly.** | low | accepted | Deliberate: without it every public page would be dynamic and each request would pay for six navigation queries. Phase 10's admin must call `revalidatePath('/', 'layout')` when navigation or settings change, so an editor sees their edit immediately. |
 | G16 | **The design-system page renders invented reference numbers and prices.** They are labelled on the page as illustrative and the page is `noindex` and unlinked. | low | accepted | Deliberate: the page is a token and typography reference. Real product cards arrive in Phase 5 and read every field from the database. The labelling was added in Phase 3 so the page cannot be mistaken for a catalogue. |
+
+---
+
+## I. Homepage and catalogue-surface items (raised in Phase 4)
+
+| # | Issue | Severity | Status | Next action |
+|---|---|---|---|---|
+| G17 | **The catalogue routes are placeholders.** `/products/[slug]`, `/brands/[slug]` and `/collections/[slug]` validate the slug against the database and 404 honestly, but they render a "planned for Phase 5" panel rather than the real page. | medium | open | Phase 5 replaces all three with the full implementations. Until then a homepage card leads to a page that names its own phase rather than a broken link. |
+| G18 | **The homepage is verified against the demo seed, not against the owner's content.** `supabase/seed/03_homepage_demo.sql` creates 17 `homepage_sections` rows plus the inventory and `collection_products` rows the rails need, all clearly labelled demo content, because the owner's editorial copy and imagery do not exist yet (A6). The five brands the homepage renders are the catalogue seed's four plus the `Test Brand` that `db-verify.sh` leaves behind (see G9). | medium | open | Follows A6. The section rows are real `homepage_sections` rows and will be edited in the Phase 10 admin, so the mechanism is proven; only the copy is demo. |
+| G19 | **Mobile Lighthouse performance is 95–97, not 100.** LCP is 2.3–2.9 s, CLS is 0 and TBT is 80–120 ms. The remaining cost is simulated CPU time on the first hero paint, not a measurable defect: no render-blocking resource, no layout shift, no oversized image, and fonts are self-hosted and load at 65–82 ms. | low | open | Phase 14. The Phase 0 target of 100/100 remains a target, not a guarantee. Desktop is 100/100/100/100. The honest limitation is that a simulated slow mobile CPU cannot reach 100 on a hero-text LCP without removing the hero, which would be the wrong trade. |
+| G20 | **Font preload hints are not emitted.** `next/font` populates `.next/server/next-font-manifest.json` with the three `.p.woff2` files, but the rendered head contains no `<link rel="preload" as="font">`. The fonts still load at 65–82 ms, immediately after the document, so this is not currently a bottleneck. | low | accepted | Left alone deliberately: the observed waterfall shows the hint would save nothing measurable. Revisit in Phase 14 if a real-network measurement disagrees. |
+| G21 | **The accessibility audit's detector version had drifted from the lockfile, which hid a real defect from CI.** `axe-core` was declared `^4.11.0`, so the lockfile pinned `4.11.0` and CI's `npm ci` installed it, while the local `node_modules` had resolved `4.14.0`. `4.14.0` detects `label-content-name-mismatch` for a link whose `aria-label` omits its visible text; `4.11.0`–`4.13.0` do not, at any of the four viewports. The logo link therefore failed on every page while CI reported green. | high | **resolved** | Fixed in two parts. The logo link no longer uses `aria-label` (it uses `sr-only` text), and `axe-core` is pinned exactly at `4.14.0` so `npm ci` and local installs cannot diverge again. Two jsdom regression tests in `tests/chrome.test.tsx` assert the accessible name contains the visible text, because axe skips that rule under jsdom (it needs layout). Verified by bisecting the rule across all four versions. |
 
 ---
 
@@ -136,9 +148,9 @@ Recorded so no future phase claims to have verified something it did not.
 | Severity | Count | Open |
 |---|---|---|
 | critical | 6 | 1 |
-| high | 11 | 8 |
-| medium | 16 | 10 |
-| low | 20 | 2 |
+| high | 12 | 8 |
+| medium | 18 | 12 |
+| low | 22 | 3 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
@@ -164,6 +176,32 @@ geometry-dependent axe rule, colour contrast above all. The lasting lesson is re
 not optional. Section H's open items are G10 (the fixture is in use until A1 is resolved) and G14
 (Lighthouse is Phase 14). G11, G12, G15 and G16 are deliberate, documented trade-offs rather than
 defects, and G13 was closed once the new browser-audit job was confirmed green in CI.
+
+**Phase 4 added section I and closed the Lighthouse question for the homepage.** The home page is
+now assembled from `homepage_sections` rather than a hardcoded array, every card value is read from
+the database, and the catalogue links resolve against real rows: a draft, archived or invented slug
+404s instead of rendering. Verification was run against a real PostgreSQL database through
+PostgREST — the first time in this project that the actual `@supabase/supabase-js` client path,
+including RLS, has been exercised end to end rather than against a shim. Lighthouse was run against
+a production build and the real scores are recorded: desktop 100/100/100/100, mobile 95–97
+performance with 100 accessibility, best practices and SEO. The mobile shortfall is recorded as G19
+rather than rounded up; the diagnosis is in the entry, and the honest conclusion is that a
+simulated slow CPU cannot reach 100 on a hero-text LCP without deleting the hero. G17 and G18 are
+the remaining open items — the placeholder catalogue routes and the demo homepage seed — and both
+are closed by Phase 5 and A6 respectively.
+
+**Phase 4 also found a defect that CI's own detector was too old to see, which is the more useful
+lesson.** The logo link failed WCAG 2.5.3 on every page and at every viewport, and it was visible
+locally but not in CI. The cause was not the fallback/database chrome split, as first suspected: it
+was `axe-core` version drift. The manifest declared `^4.11.0`, so the lockfile pinned `4.11.0` and
+`npm ci` installed that in CI, while the local `node_modules` had resolved `4.14.0`. Bisecting the
+rule across `4.11.0`, `4.12.0`, `4.13.0` and `4.14.0` showed the older three do not flag this
+markup at any viewport and `4.14.0` does, so the bug was always in the source and CI was running a
+detector that could not see it. The fix is twofold — the link no longer overrides its contents, and
+`axe-core` is now pinned exactly so the two environments cannot diverge — and two jsdom regression
+tests assert the invariant directly, because axe skips that rule without layout. Recorded as G21.
+The general lesson, added to `AGENTS.md`, is that a caret range on an audit tool means CI and local
+runs can disagree about what counts as a violation, so the detector itself must be pinned.
 
 **The single remaining open critical is A1**, owner-side setup: no Supabase project exists yet. Every
 critical security property that could be proven without a Supabase account has been proven. A2 and

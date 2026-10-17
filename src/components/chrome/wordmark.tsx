@@ -33,7 +33,6 @@ export function Wordmark({
         'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-700 inline-flex min-w-0 items-center',
         className,
       )}
-      aria-label={`${identity.businessName} — home`}
     >
       {identity.logoUrl ? (
         // A plain <img> is used rather than next/image: the logo is an operator
@@ -57,6 +56,18 @@ export function Wordmark({
           ) : null}
         </span>
       )}
+      {/*
+       * The "home" hint is added as text rather than as an `aria-label` on the
+       * link. An `aria-label` replaces the accessible name computed from the
+       * contents, so labelling the link "Business — home" while the link also
+       * shows the business name *and* the tagline leaves the visible text
+       * outside the accessible name — a WCAG 2.5.3 (Label in Name) failure that
+       * axe reports as `label-content-name-mismatch`. Appending the hint keeps
+       * the visible text inside the accessible name, which is what the rule
+       * requires. `sr-only` is positioned out of flow, so it cannot affect the
+       * header layout or the truncation above.
+       */}
+      <span className="sr-only">— Home</span>
     </Link>
   );
 }

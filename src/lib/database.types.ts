@@ -1,16 +1,3 @@
-/**
- * Database types — GENERATED FILE, DO NOT EDIT BY HAND.
- *
- * Generated from the live schema (all 47 tables, 13 enums) with:
- *
- *   npx supabase gen types typescript \
- *     --db-url "$DATABASE_URL" --schema public > src/lib/database.types.ts
- *
- * Regenerate after every migration. See DATABASE_SCHEMA.md for the workflow.
- *
- * ESLint and Prettier both ignore this file, so the generator's own formatting
- * is preserved exactly and re-generation produces a clean diff.
- */
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
@@ -877,11 +864,24 @@ isOneToOne: false
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"is_product_available":
+{ Args: { "p_product_id": string }; Returns: boolean
+                           },
 "is_staff":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "normalize_slug":
 { Args: { "input": string }; Returns: string
+                           },
+"product_availability":
+{ Args: { "p_product_ids": (string)[] }; Returns: {
+              "is_available": boolean,"product_id": string
+            }[]
+                           },
+"published_product_counts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "brand_id": string,"product_count": number
+            }[]
                            },
 "release_reservation":
 { Args: { "p_order_request_id": string,"p_product_id": string,"p_reason"?: string }; Returns: boolean

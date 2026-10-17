@@ -57,6 +57,25 @@ caused by three separate things. Run it after any change to tokens, chrome or
 layout. It also audits the age gate with the modal open, and asserts the dialog
 actually opened, so that pass cannot succeed vacuously.
 
+**Pin the audit tool exactly.** In Phase 4 the logo link failed WCAG 2.5.3
+(`label-content-name-mismatch`) on every page, and CI reported green. The cause
+was `axe-core` version drift: the manifest said `^4.11.0`, so the lockfile pinned
+`4.11.0` and `npm ci` installed that, while local `node_modules` had resolved
+`4.14.0`. `4.14.0` detects that violation; `4.11.0`–`4.13.0` do not, at any
+viewport. So the defect was real the whole time and CI simply could not see it.
+`axe-core` is now pinned exactly. Before concluding that a local audit failure is
+a local artefact, check `npm ls axe-core` against the lockfile: if the detector
+versions differ, the "passing" run is the one to distrust. A green audit is only
+as trustworthy as the version of the tool that produced it.
+
+**Never let an `aria-label` drop visible text.** An `aria-label` _replaces_ the
+name computed from an element's contents. If the element also shows text, the
+accessible name must still contain that text or WCAG 2.5.3 fails — a
+speech-input user cannot say what they can see. Add the extra wording as
+`sr-only` text inside the element instead. axe needs layout to check this rule,
+so jsdom will not catch it; `tests/chrome.test.tsx` asserts the invariant
+directly for the logo link.
+
 ## Text colour rule
 
 `ink-400` is **not** a text token. It is 4.17:1 on `surface-100`, below the 4.5:1
@@ -97,6 +116,30 @@ PGHOST=127.0.0.1 PGPORT=55432 PGUSER=postgres PGPASSWORD=postgres \
 
 Postgres 17 is used deliberately, matching Supabase. Test migrations against it,
 not against whatever version happens to be installed.
+
+### Verifying against a real database, not a shim
+
+The RLS suites prove the policies, but they run against a SQL shim. To exercise
+the **real client path** — `@supabase/supabase-js`, its `/rest/v1` routing, and
+RLS as actually applied — run a PostgREST instance against the verified database
+and point the app at it:
+
+```bash
+# 1. PostgREST listening on 3001 against the local database.
+# 2. Strip the /rest/v1 prefix, exactly as Kong does in a real project:
+node scripts/dev-postgrest-proxy.mjs --port 3002 --target http://127.0.0.1:3001
+
+# 3. .env.local points the app at the proxy, not at PostgREST directly:
+#    NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:3002
+#    NEXT_PUBLIC_SUPABASE_ANON_KEY=<the anon JWT PostgREST accepts>
+```
+
+Without the proxy every request 404s, because `supabase-js` requests
+`/rest/v1/<table>` while a bare PostgREST serves at `/`. The proxy is a
+development and verification tool only; Vercel talks to the Supabase project URL
+directly. This is how Phase 4 verified that the homepage renders real rows, that
+`product_availability` returns a real `false` for a reserved piece, and that a
+draft or archived slug 404s through RLS rather than through application code.
 
 ### Things that will bite you
 

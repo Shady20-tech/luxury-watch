@@ -26,7 +26,15 @@ const axePath = require.resolve('axe-core/axe.min.js');
 const BASE = process.argv[2] ?? 'http://localhost:3000';
 
 /** Pages that make up the shell and the templates built in this phase. */
-const PAGES = ['/', '/collections/all', '/brands', '/contact', '/pages/faq', '/design-system'];
+const PAGES = [
+  '/',
+  '/collections/all',
+  '/brands',
+  '/brands/rolex',
+  '/contact',
+  '/pages/faq',
+  '/design-system',
+];
 
 /** Widths worth checking. 320px is the narrowest phone still in use. */
 const VIEWPORTS = [

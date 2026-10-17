@@ -75,6 +75,12 @@ export function Button({
       // `type` only matters on a real button; passing it to Slot would leak it
       // onto whatever element the caller renders.
       {...(asChild ? {} : { type: type ?? 'button' })}
+      // A real `<button>` gets the native attribute, which is what actually
+      // blocks activation and gives assistive technology the disabled state.
+      // `aria-disabled` alone does neither. When rendered as a link the native
+      // attribute does not exist, so `aria-disabled` is the only signal — and
+      // `pointer-events-none` in the variants stops the click.
+      {...(isDisabled && !asChild ? { disabled: true } : {})}
       {...(isDisabled ? { 'aria-disabled': true } : {})}
       {...(loading ? { 'aria-busy': true } : {})}
       {...props}

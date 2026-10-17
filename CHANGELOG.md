@@ -8,6 +8,133 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 4 — Homepage composition from database sections
+**Date:** 2026-10-17
+
+#### Added
+
+**Homepage assembly (`src/lib/homepage/`)**
+
+- `types.ts` — the homepage view models the components consume. They are
+  deliberately not the database row types: a component must render from a
+  fixture in a test without knowing about `sort_order`, `is_active` or
+  `section_key`.
+- `assemble.ts` — a pure function that turns `homepage_sections` rows plus their
+  resolved references into an ordered render list. It is pure on purpose: the
+  section order, filtering and fallback behaviour are unit-tested without a
+  database or a browser.
+
+**Homepage components (`src/components/homepage/`)**
+
+- `hero-carousel.tsx` — three hero slides, keyboard operable, pausable and
+  `prefers-reduced-motion` aware (satisfies WCAG 2.2.2 for the auto-rotation),
+  with an honest "slide n of m" affordance.
+- `sections.tsx` — the remaining section renderers (brand showcase, featured
+  collection, brand story, new arrivals, browse brands, the sell/trade and
+  sourcing CTAs, trust points, testimonials, newsletter, final CTA). Seventeen
+  `section_key`s are handled in total — three hero slides, four trust points and
+  ten singular sections — matching the demo seed exactly.
+- `product-card.tsx` — reads every value from its props; shows the price or
+  "Request pricing", and a Reserved badge driven by real availability.
+
+**Data access**
+
+- `src/server/repositories/homepage-repository.ts` and
+  `src/server/services/homepage-service.ts` — the homepage read path, keeping
+  queries out of the visual components.
+- `src/server/repositories/catalogue-repository.ts` — minimal slug lookups so the
+  catalogue routes can distinguish a real slug from an invented one.
+- `src/lib/media.ts` — resolves a `storage_path` or a same-project
+  `external_url` to an image URL, and returns `null` (rendering the labelled
+  placeholder) for anything else. A third-party URL is rejected deliberately:
+  the image config allowlists only the Supabase host, and hotlinking another
+  business's photography is a licensing problem.
+
+**Database**
+
+- `supabase/migrations/0009_public_availability.sql` — the `product_availability`
+  RPC, so availability is read from real inventory rather than inferred in the UI.
+- `supabase/seed/03_homepage_demo.sql` — demo `homepage_sections` rows. Clearly
+  labelled as demo; the mechanism is real, the copy is placeholder until the
+  owner supplies content (A6).
+- `supabase/tests/15_public_availability.sql` — proves the RPC returns the real
+  answer, including `false` for a reserved piece.
+
+**Routes**
+
+- The root page (`src/app/(site)/page.tsx`) is now the database-driven homepage
+  composition, replacing the Phase 1 placeholder.
+- `/products/[slug]`, `/brands/[slug]` and `/collections/[slug]` are honest
+  placeholders that validate the slug against the database and `notFound()` for
+  an unknown, draft or archived slug.
+
+**Verification tooling**
+
+- `scripts/dev-postgrest-proxy.mjs` — strips the `/rest/v1` prefix so the real
+  `@supabase/supabase-js` client path can be exercised against a local PostgREST,
+  exactly as Kong routes it in a real project.
+- `tests/homepage-assembly.test.ts` and `tests/homepage-components.test.tsx`.
+- `tests/chrome.test.tsx` — two regression tests for the logo link's accessible
+  name (see Fixed below).
+- `scripts/a11y-audit.mjs` now also audits `/brands/rolex`.
+
+#### Changed
+
+- `src/components/ui/button.tsx` — the button variants the homepage CTAs need.
+- `src/lib/database.types.ts` — regenerated for migration 0009.
+- `axe-core` is now pinned to `4.14.0` instead of `^4.11.0` (see Fixed below).
+
+#### Verification
+
+- `npm run verify` green: lint, typecheck, **216 tests** (up from 163), build.
+- Homepage rendered against a real PostgreSQL database through PostgREST:
+  `h1` "Timepieces chosen one at a time", 13 `h2`s, 8 product links, 5 brand
+  links, 12 "Request pricing", 6 "Reserved", an `ItemList` JSON-LD block, and no
+  fallback path taken.
+- `product_availability` confirmed to return a real `false` for the reserved
+  piece.
+- Route checks: `/`, `/brands`, `/brands/rolex`, a real product slug and
+  `/collections/featured` return 200; invented slugs and brands, and draft or
+  archived products, return 404 — the RLS policy decides, not application code.
+- `npm run audit:a11y` green across 7 pages × 4 viewports (mobile-320/390,
+  tablet-768, desktop-1440), plus the age-gate pass — 30 checks in total, with
+  no critical or serious violation and no horizontal overflow.
+- Lighthouse against a production build: **desktop 100/100/100/100**; **mobile
+  performance 95–97** with accessibility, best practices and SEO all 100 (CLS 0,
+  TBT 80–120 ms, LCP 2.3–2.9 s). The mobile performance shortfall and its
+  diagnosis are recorded honestly as G19 rather than rounded up.
+
+#### Fixed
+
+- **The logo link failed WCAG 2.5.3 (Label in Name) on every page.** The link
+  carried `aria-label="{business} — home"`, and an `aria-label` *replaces* the
+  name computed from the link's contents. Because the link also renders the
+  business name and the tagline, the visible text was no longer contained in the
+  accessible name, which axe reports as `label-content-name-mismatch`
+  (serious). The hint is now a `sr-only` "— Home" text node inside the link, so
+  the accessible name is the visible text plus the hint. `sr-only` is out of
+  flow, so it cannot affect layout.
+- **Why CI passed while the defect was real.** This was diagnosed rather than
+  assumed, and the cause was *not* the fallback/database chrome split. `axe-core`
+  was declared as `^4.11.0`, so the lockfile pinned `4.11.0` and CI's `npm ci`
+  installed that; the local `node_modules` had drifted to `4.14.0`. Bisecting the
+  rule across `4.11.0`, `4.12.0`, `4.13.0` and `4.14.0` showed that `4.11.0`
+  through `4.13.0` do **not** flag this markup at any of the four viewports,
+  while `4.14.0` does — so CI was running an older detector with a blind spot,
+  and the bug was always present in the source. `axe-core` is now pinned exactly
+  so the CI and local detectors cannot diverge again, and the two regression
+  tests below assert the invariant in jsdom (where axe skips the rule, because it
+  needs layout).
+- The homepage no longer renders a static placeholder; it renders real database
+  rows in the order the admin sets.
+
+#### Known limitations added
+
+- G17 (placeholder catalogue routes), G18 (demo homepage seed), G19 (mobile
+  Lighthouse 95–97) and G20 (no font preload hints). G14 was resolved.
+
+---
+
 ### Phase 3 — Luxury design system, shared layout and responsive navigation
 **Date:** 2026-10-17
 

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgeGateDialog } from '@/components/chrome/age-gate';
 import { MobileNav } from '@/components/chrome/mobile-nav';
 import { HeaderActions } from '@/components/chrome/header-actions';
+import { Wordmark } from '@/components/chrome/wordmark';
 import type { ChromeData } from '@/lib/navigation/types';
 
 /**
@@ -72,6 +73,18 @@ const chrome: ChromeData = {
   footerColumns: [],
   ageGate: { enabled: true, minimumAge: 18 },
   source: 'database',
+};
+
+/** The identity the Wordmark renders, reused by both tests below. */
+const identity = {
+  businessName: 'Appleton & Co',
+  tagline: 'Independent watch retail',
+  logoUrl: null,
+  contactEmail: null,
+  contactPhone: null,
+  whatsappUrl: null,
+  addressLines: [],
+  socials: [],
 };
 
 describe('HeaderActions', () => {
@@ -167,6 +180,56 @@ describe('MobileNav', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('link', { name: 'Book an appointment' })).toBeDefined();
+  });
+});
+
+describe('Wordmark', () => {
+  /**
+   * Regression test for WCAG 2.5.3 (Label in Name).
+   *
+   * The logo link used to carry `aria-label="Business — home"`. Because an
+   * `aria-label` *replaces* the name computed from the contents, and the link
+   * also renders the business name and the tagline, the visible text was no
+   * longer contained in the accessible name. axe reports that as
+   * `label-content-name-mismatch` (serious), and it failed on every page.
+   *
+   * The jsdom shell audit could not catch it: axe computes that rule from laid
+   * out text, so under jsdom it is skipped. This asserts the invariant directly
+   * — every visible string inside the link is part of its accessible name —
+   * which holds regardless of layout, so the defect cannot come back unnoticed.
+   */
+  it('keeps its visible text inside its accessible name', () => {
+    render(<Wordmark identity={identity} />);
+
+    // Testing Library computes the accessible name through `dom-accessibility-api`
+    // when a function matcher is used, so the real name computation runs here
+    // without importing that package directly.
+    let accessibleName = '';
+    const link = screen.getByRole('link', {
+      name: (name) => {
+        accessibleName = name;
+        return true;
+      },
+    });
+
+    // The name must include the business name and the tagline, and must not be
+    // reduced to a generic label.
+    expect(accessibleName).toContain('Appleton & Co');
+    expect(accessibleName).toContain('Independent watch retail');
+
+    // And it must still tell a screen-reader user that the link goes home.
+    expect(accessibleName.toLowerCase()).toContain('home');
+
+    // The strongest form of the rule: no visible text is left out of the name.
+    expect(accessibleName).toContain((link.textContent ?? '').trim());
+  });
+
+  it('does not override its contents with an aria-label', () => {
+    render(<Wordmark identity={identity} />);
+
+    // An aria-label on the link is the exact shape of the original bug, so its
+    // absence is asserted rather than merely implied by the name check.
+    expect(screen.getByRole('link').getAttribute('aria-label')).toBeNull();
   });
 });
 
