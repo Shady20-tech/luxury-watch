@@ -48,7 +48,7 @@ Recorded so no future phase claims to have verified something it did not.
 | C3 | No `.gitignore`. Without it, `.env.local`, `node_modules/`, `.next/` and Supabase local artefacts risked being committed. | high | **resolved** | Added in Phase 1 **before** the first dependency install. Verified: no secret or build artefact is tracked. |
 | C4 | No lockfile, so dependency resolution was unpinned and unreproducible. | medium | **resolved** | `package-lock.json` committed in Phase 1. Verified with a clean `npm ci` (431 packages). CI uses `npm ci`. |
 | C5 | No automated secret scanning in CI. | medium | open | Partially mitigated: `tests/logger.test.ts` proves credential-shaped keys are redacted and never logged. A repository-level secret scan is still scheduled for Phase 13. |
-| C6 | **CI has not yet been observed green on GitHub.** The workflow was authored and every step was executed locally in the same order, but the first real run happens after the Phase 1 push. | low | open | Check the Actions run for the Phase 1 commit on `main`. If any step fails, fix it in Phase 2 rather than assuming it passed. |
+| C6 | CI had not been observed green on GitHub when Phase 1 was written. | low | **resolved** | Confirmed green on `main` for commit `4e65779`. All ten steps passed: install, payment guard, format check, lint, typecheck, test and build, on Node 22. Run: `38985101969`. |
 | C7 | Dependency versions are pinned conservatively and several are older than npm `latest` — ESLint 9 (10 unsupported by `eslint-config-next@15`), TypeScript 5.9 (latest is 7.x), Vitest 3.2 (latest is 5.x). | low | accepted | Deliberate compatibility choices, each recorded with a reason in `CHANGELOG.md`. Revisit when Next.js 16 is approved by the owner. |
 | C8 | `overrides.postcss` pins `postcss@8.5.30` to work around `next@15.5.28` pinning the vulnerable `8.4.31`. | low | accepted | Remove the override once a Next 15.x release depends on a patched postcss, or when upgrading to Next 16. Re-verify with `npm audit` at that point. |
 
@@ -108,11 +108,12 @@ Recorded so no future phase claims to have verified something it did not.
 | critical | 6 | 3 (D3 and D8 are now mitigated; D8 is also an accepted standing invariant) |
 | high | 10 | 8 |
 | medium | 11 | 7 |
-| low | 8 | 3 |
+| low | 8 | 2 |
 
-**Phase 1 resolved C1, C3, C4 and mitigated D3 and D8.** The repository now has a `.gitignore`, a
-committed lockfile, a documented `.env.example`, a `server-only` guard on every privileged module,
-and a CI guard that fails the build if a payment integration is ever introduced.
+**Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository now has a
+`.gitignore`, a committed lockfile, a documented `.env.example`, a `server-only` guard on every
+privileged module, a CI guard that fails the build if a payment integration is ever introduced, and
+a CI pipeline observed green on `main`.
 
 No critical item is a defect in shipped code. The three remaining criticals are owner-side setup
 (A1, A2) and policies that Phase 2 and Phase 7 must implement by construction (D1, D2, D7).

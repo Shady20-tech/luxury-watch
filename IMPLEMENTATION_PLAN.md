@@ -153,7 +153,7 @@ schema, no migrations, no UI. Only documentation plus an environment-variable te
 | `npm ci && npm run lint && npm run typecheck && npm test && npm run build` all pass | **Pass.** All five verified individually and in sequence. 106 tests pass, build generates 8 routes. |
 | App boots locally and renders a real page | **Pass.** Verified against a production server: `/` returns 200 and renders genuine configuration state, not a placeholder dashboard. |
 | No secret in the repo; `.env.example` lists every variable used | **Pass.** Secret scan clean. `.env.example` documents all 15 variables with per-service setup notes. |
-| CI green on `main` | **Pass locally; not yet observed on GitHub.** The workflow is committed and every step was executed locally in the same order. It cannot be confirmed green on `main` until it runs after the push. Tracked as C6 in `KNOWN_ISSUES.md`. |
+| CI green on `main` | **Pass.** Confirmed on GitHub for commit `4e65779` — all ten steps succeeded (install, payment guard, format check, lint, typecheck, test, build). Run `38985101969`. |
 
 **Additional verification performed**
 

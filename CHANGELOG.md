@@ -149,6 +149,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - `npm test` — **pass**, 7 suites, 106 tests.
 - `npm run build` — **pass**, 8 routes generated.
 - `npm audit --omit=dev` — **0 vulnerabilities**.
+- **GitHub Actions CI — green on `main` for commit `4e65779`.** All ten steps passed: install
+  (`npm ci`), payment guard, format check, lint, typecheck, test and build, on Node 22.
 - Runtime checks against a production server on port 3100:
   - `/` → 200, `/api/health` → 200, `/robots.txt` → 200, `/sitemap.xml` → 200,
     unmatched route → 404.
