@@ -509,11 +509,11 @@ production database that holds real records.
 **Reading the counts.** The seed itself contributes 4110 products, 4 brands
 (Rolex, Audemars Piguet, Patek Philippe, Richard Mille), 41 model families and
 8785 specification rows. If you count a database that has also had the test
-suites run against it, you will see **4119 products and 5 brands**, not 4110 and
-4 — the extra 9 products and 1 `Test Brand` are fixtures inserted by
+suites run against it, you will see **4120 products and 5 brands**, not 4110 and
+4 — the extra 10 products and 1 `Test Brand` are fixtures inserted by
 `supabase/tests/*.sql` and `scripts/db-concurrency-test.py`, not by the seed.
 `db-verify.sh` leaves those rows behind by design, because the suites share one
-database. On a freshly migrated database that has only had the seed applied, the
+database and none of them wraps itself in a transaction. On a freshly migrated database that has only had the seed applied, the
 counts are exactly 4110 and 4.
 
 ---

@@ -59,7 +59,7 @@ not against whatever version happens to be installed.
 
 - **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency
   harness insert their own rows. A database that has run `db-verify.sh` shows
-  **4119 products and 5 brands**, not the seed's 4110 and 4. This is expected, not
+  **4120 products and 5 brands**, not the seed's 4110 and 4. This is expected, not
   a seed bug. Counts on a clean database: 4110 products, 4 brands, 41 models,
   8785 specs.
 - **`supabase/tests/00_supabase_shim.sql` is a test fixture, not a deployment

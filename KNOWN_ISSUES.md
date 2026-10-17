@@ -113,6 +113,7 @@ Recorded so no future phase claims to have verified something it did not.
 | G6 | **`product_condition` uses `unworn` where the reference uses `pre-owned`/`unworn`.** The seed maps source tags onto the enum. | low | accepted | A naming difference, not a data difference. Documented in `DATABASE_SCHEMA.md` §4. |
 | G7 | **Full-text search relies on a single Postgres GIN index** over five text columns. It has no ranking beyond `ts_rank` defaults and no typo tolerance. | low | open | Sufficient for the current catalogue. If search quality proves inadequate in Phase 5, an external index will be needed; it is not planned for any current phase. |
 | G8 | **The payment guard needed a line-level exemption.** Two files legitimately name card fields in order to assert their absence, which the content checks flagged. | low | **resolved** | Added a `payment-guard:allow` marker restricted to an explicit file allowlist and unable to suppress dependency, secret-key or webhook-route checks. Verified against adversarial fixtures: a marker cannot smuggle a `stripe` import or a secret key past the guard. |
+| G9 | **`db-verify.sh` leaves test fixtures in the database.** The RLS suites and the concurrency harness insert their own products, brands and orders, and none of them wraps itself in a transaction, so a verified database accumulates 10 fixture products and a `Test Brand` on top of the seed's 4110 and 4. | low | accepted | Deliberate for now: the suites need to run against the same database the migrations were applied to, and rollback-per-suite would hide ordering effects between them. `scripts/db-reset.sh` returns to a clean state. The consequence to remember is that raw counts from a verified database are 4120 products and 5 brands, not 4110 and 4 — documented in `DATABASE_SCHEMA.md` §9 and `AGENTS.md` so it is not misread as a seed bug. Revisit if a suite ever asserts on absolute table counts. |
 
 ---
 
@@ -123,7 +124,7 @@ Recorded so no future phase claims to have verified something it did not.
 | critical | 6 | 1 |
 | high | 11 | 8 |
 | medium | 13 | 8 |
-| low | 15 | 2 |
+| low | 16 | 2 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
@@ -136,7 +137,7 @@ a CI pipeline observed green on `main`.
 **Phase 2 resolved D1, D2 and D7, and added section G.** RLS is enabled on all 47 tables with 96
 policies and proven by four test suites; role self-escalation is structurally impossible because
 roles live in a table with no write policy; and order totals are computed inside the database rather
-than trusted from the client. The eight new items in section G are limitations of the verification
+than trusted from the client. The nine new items in section G are limitations of the verification
 method, not defects in the schema — the most significant is G1, that the suites run against a shim
 rather than Supabase itself.
 
