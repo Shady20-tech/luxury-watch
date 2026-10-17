@@ -246,7 +246,7 @@ in `KNOWN_ISSUES.md`.
 > a WCAG AA contrast failure on the media placeholder, and a 320px horizontal
 > overflow in the header. Both were invisible to jsdom and were only caught by
 > the real-browser audit. Remaining honest limitations are recorded in
-> `KNOWN_ISSUES.md` as G10–G12 and in the Phase 3 `CHANGELOG.md` entry.
+> `KNOWN_ISSUES.md` as G10–G16 and in the Phase 3 `CHANGELOG.md` entry.
 
 > **Ordering note.** The owner's Phase 3 brief covers the design system and shared layout, so
 > this phase and the former Phase 3 (Authentication) were swapped. Authentication is now Phase 4

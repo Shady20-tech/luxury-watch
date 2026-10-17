@@ -124,7 +124,7 @@ Recorded so no future phase claims to have verified something it did not.
 | G10 | **The chrome reads from the fallback fixture while Supabase is unconfigured (A1).** The database-driven navigation is exercised against the seed locally, but the deployed preview uses the fixture. | medium | open | Follows A1. Once the project exists and the seed is applied, the chrome reads the database automatically; `source` in the chrome payload reports which path was taken. |
 | G11 | **The age gate is a legal affordance, not a security control.** It is bypassable by clearing `localStorage`, and its answer is not recorded server-side. | low | accepted | Deliberate and documented in the component. It must never be used to gate anything that matters. If a legally binding check is ever required, it needs a server-side verification flow, which no current phase plans. |
 | G12 | **The age gate is not in the first paint.** Because the visitor's answer lives in `localStorage`, the server cannot know it, so the gate renders nothing until an effect has read storage. | low | accepted | Deliberate trade-off: rendering the gate in the initial HTML would show it to every returning visitor for a frame. The cost is that a first-time visitor sees the gate appear just after paint. Revisit only if a cookie-based server-readable flag is wanted. |
-| G13 | **The `browser-audit` CI job has not yet been observed green on GitHub.** It passes locally against a production build, but the first CI run will be the real confirmation. | medium | open | Confirm on the next push to `main`. If Chromium installation or the server-readiness loop proves flaky, adjust the job rather than deleting the check — it is the only thing that catches contrast and overflow defects. |
+| G13 | **The `browser-audit` CI job has not yet been observed green on GitHub.** It passes locally against a production build, but the first CI run will be the real confirmation. | medium | **resolved** | Confirmed green on run 38993563050 (all three jobs passed: Node 54s, database 34s, browser audit 2m1s). |
 | G14 | **Lighthouse has not been run.** No score is claimed for any template in this phase. | medium | open | Phase 14. The Phase 0 target of 100/100 remains a target, not a guarantee; the actual scores and any remaining constraint will be reported honestly. |
 | G15 | **The `(site)` layout sets `revalidate = 300`, so chrome changes are visible within five minutes rather than instantly.** | low | accepted | Deliberate: without it every public page would be dynamic and each request would pay for six navigation queries. Phase 10's admin must call `revalidatePath('/', 'layout')` when navigation or settings change, so an editor sees their edit immediately. |
 | G16 | **The design-system page renders invented reference numbers and prices.** They are labelled on the page as illustrative and the page is `noindex` and unlinked. | low | accepted | Deliberate: the page is a token and typography reference. Real product cards arrive in Phase 5 and read every field from the database. The labelling was added in Phase 3 so the page cannot be mistaken for a catalogue. |
@@ -137,7 +137,7 @@ Recorded so no future phase claims to have verified something it did not.
 |---|---|---|
 | critical | 6 | 1 |
 | high | 11 | 8 |
-| medium | 16 | 11 |
+| medium | 16 | 10 |
 | low | 20 | 2 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
@@ -161,9 +161,9 @@ horizontally at 320px, from three separate causes. Both were found by `scripts/a
 driving real Chromium, because jsdom cannot lay out a document and therefore skips every
 geometry-dependent axe rule, colour contrast above all. The lasting lesson is recorded in
 `AGENTS.md`: a green jsdom axe run says nothing about contrast or overflow, so the browser audit is
-not optional. Section H's open items are G10 (the fixture is in use until A1 is resolved), G13 (the
-browser job has not yet been observed green in CI) and G14 (Lighthouse is Phase 14). G11, G12, G15
-and G16 are deliberate, documented trade-offs rather than defects.
+not optional. Section H's open items are G10 (the fixture is in use until A1 is resolved) and G14
+(Lighthouse is Phase 14). G11, G12, G15 and G16 are deliberate, documented trade-offs rather than
+defects, and G13 was closed once the new browser-audit job was confirmed green in CI.
 
 **The single remaining open critical is A1**, owner-side setup: no Supabase project exists yet. Every
 critical security property that could be proven without a Supabase account has been proven. A2 and
