@@ -178,6 +178,9 @@ timeout, and the root cause was a real product bug that the audit had surfaced.
   pass, run against a production build with **Supabase unconfigured** — the
   configuration that CI uses and the one that reproduces the failure. Three
   consecutive runs were identical.
+- CI green on run `39079548258` for commit `e68e445`: all three jobs passed
+  (lint/typecheck/test/build, migrations/RLS/concurrency, and the accessibility
+  and responsive audit that had failed on run `38999968219`). G13 is resolved.
 
 #### Known limitations added
 
