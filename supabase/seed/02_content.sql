@@ -33,7 +33,7 @@
 -- site_settings — the singleton row
 -- -----------------------------------------------------------------------------
 insert into public.site_settings (id, business_name, tagline)
-values (true, 'Luxury Watch', 'Independent luxury watch retail')
+values (true, 'Carbon Watch Company', 'Independent luxury watch retail')
 on conflict (id) do update
   set business_name = excluded.business_name,
       tagline       = excluded.tagline,

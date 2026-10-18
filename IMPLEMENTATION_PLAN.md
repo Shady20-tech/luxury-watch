@@ -37,8 +37,8 @@ This ordering exists so each phase continues the real implementation instead of 
 | 2 | Supabase project, database schema, migrations, RLS, generated types | **done** | 1 |
 | 3 | Design system, global chrome (top bar, announcement, header, mega menu, footer, age gate) | **done** | 1, 2 |
 | 4 | Homepage composition from database sections | **done** | 2, 3 |
-| 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | not started | 2, 3, 4 |
-| 6 | Product detail page, media gallery, specs, related/recently viewed, wishlist | not started | 5 |
+| 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | **done** | 2, 3, 4 |
+| 6 | Product detail page, media gallery, specs, related/recently viewed, wishlist | **done** | 5 |
 | 7 | Cart, manual order-request flow, payment-method selection, delivery/pickup, confirmation | not started | 5, 6 |
 | 8 | Resend transactional email, templates, admin notifications | not started | 7 |
 | 9 | Authentication, customer account area (orders, wishlist, profile, addresses) and roles | not started | 7, 8 |
@@ -413,6 +413,51 @@ than its absence, so the whole card is one link to the product.
 - Both price paths render correctly and truthfully
 - Product JSON-LD validates; `offers` present only when a real price exists
 
+**Status: complete and verified (2026-10-18).** `npm run verify` is green at 277
+tests, and `scripts/db-verify.sh` is green on a reset database (11 migrations, 7
+RLS/auth suites, idempotent seeds). Every acceptance criterion was checked against
+a real PostgREST + database through the real `supabase-js` path:
+
+- **Published product renders fully from the database** — a real seed anchor
+  returns 200 with 23 specification rows, the brand crumb, the related section and
+  `Product` + `BreadcrumbList` JSON-LD.
+- **Draft/archived returns 404** — `draft-watch` and an invented slug both 404, and
+  the slug is resolved through RLS rather than by application code.
+- **Both price paths render truthfully** — a price-on-request piece shows "Request
+  pricing & availability" and emits **no** `offers` node; `priced-watch` shows
+  `$12,500` and emits an `Offer` of `12500.00` with `InStock`.
+- **Product JSON-LD validates and `offers` is conditional** — `priceMinor` is set
+  from the same single decision that formats the visible price, so the two cannot
+  disagree.
+
+**Phase 6 also closed a critical security leak (D10).** The `anon` role could read
+`products.cost_cents` and `products.compare_at_cents` — the business's cost basis —
+through PostgREST, because RLS restricts rows rather than columns. Migration
+`0011_product_detail.sql` revokes the table-level `select` grant and re-grants the
+public read surface column by column, so the sensitive columns are hard-denied
+(`401`, SQLSTATE `42501`) and a bare `select('*')` fails loudly. Proven against the
+real client path before and after the fix.
+
+Decisions worth recording:
+
+- **`generateStaticParams` returns `[]`.** Prerendering every product would freeze
+  price, stock and `lastmod` into the deployment, so the sitemap's freshness claim
+  would be false. The page renders per request against the live row, and the build
+  does not need a database. Revisit with ISR in Phase 12, together with the
+  sitemap.
+- **An unreachable database is a 200 with `noindex`, not a 404.** A 404 would tell
+  a visitor a watch does not exist when the fault is an outage, and it would invite
+  a crawler to drop a valid URL.
+- **The cart and wishlist controls are genuinely disabled and labelled.** There is
+  no cart until Phase 7 and no account until Phase 9; a live-looking button that
+  discarded the click would be worse than a control that states its phase.
+
+Deferred to later phases and deliberately not stubbed: recently viewed (needs a
+session or account, Phase 9), the working wishlist toggle (Phase 9), and
+add-to-cart (Phase 7). The enquiry form is the real call to action in this phase.
+`/products/[slug]` is indexable but not yet in `sitemap.xml` (G34); the
+database-driven sitemap with real per-product `<lastmod>` is Phase 12.
+
 ---
 
 ## Phase 7 — Cart and manual order-request flow
@@ -625,7 +670,8 @@ than its absence, so the whole card is one link to the product.
   foundation, configuration, quality baseline), Phase 2 (database schema,
   migrations, RLS and authorisation foundation), Phase 3 (luxury design system,
   shared layout and responsive navigation), Phase 4 (homepage composition from
-  database sections).
+  database sections), Phase 5 (catalogue and discovery), Phase 6 (product detail
+  page).
 - **Application code:** the Next.js 15 app shell exists — layout, health route,
   robots, sitemap, manifest and middleware — with the Supabase client modules,
   environment validation, error handling, logging and SEO helpers in place.
@@ -635,25 +681,32 @@ than its absence, so the whole card is one link to the product.
   database-driven composition (`src/lib/homepage/`, `src/components/homepage/`,
   `src/server/repositories/homepage-repository.ts`,
   `src/server/services/homepage-service.ts`) and added the catalogue repository
-  and `src/lib/media.ts` for image resolution. `/products/[slug]`,
-  `/brands/[slug]` and `/collections/[slug]` are honest placeholders that 404 for
-  unknown or unpublished slugs and are replaced by the real pages in Phase 5.
-- **Database:** 47 tables, 13 enums, 96 RLS policies and 138 indexes across 8
+  and `src/lib/media.ts` for image resolution. Phase 5 built the catalogue
+  surfaces (`/shop`, `/brands/[slug]`, `/collections/[slug]`, `/search`).
+  Phase 6 replaced the `/products/[slug]` placeholder with the real detail
+  template (`src/lib/product/`, `src/components/product/`,
+  `src/server/services/product-service.ts`) and added the first server action,
+  `submitEnquiry`.
+- **Database:** 47 tables, 13 enums, 96 RLS policies and 138 indexes across 11
   migrations, verified from an empty PostgreSQL 17 database. Authorisation proven
-  by four test suites; inventory safety proven by a five-scenario concurrency
+  by seven test suites; inventory safety proven by a five-scenario concurrency
   proof including a passing negative control. Phase 4 added migration
   `0009_public_availability.sql` (the `product_availability` RPC) and the demo
-  homepage seed `supabase/seed/03_homepage_demo.sql`. Full reference in
-  `DATABASE_SCHEMA.md`.
-- **Test and verification status:** `npm run verify` green (lint, typecheck, 217
-  unit tests, build). `scripts/db-verify.sh` green (8 migrations, 4 RLS suites).
+  homepage seed `supabase/seed/03_homepage_demo.sql`. Phase 5 added
+  `0010_catalogue_browsing.sql` (the catalogue query layer). Phase 6 added
+  `0011_product_detail.sql`, which also **closed a live column-level leak**:
+  `anon` could read `products.cost_cents` and `compare_at_cents`, so the
+  table-level `select` grant is revoked and the public read surface is granted
+  column by column. Full reference in `DATABASE_SCHEMA.md`.
+- **Test and verification status:** `npm run verify` green (lint, typecheck, 277
+  unit tests, build). `scripts/db-verify.sh` green (11 migrations, 7 RLS suites).
   `scripts/db-concurrency-matrix.py` green (5 of 5 scenarios behave as designed).
   `scripts/a11y-audit.mjs` green (32 page/viewport combinations plus 2 age-gate
   passes, no critical or serious axe violations, no horizontal overflow).
   Lighthouse run against a production build: desktop 100/100/100/100, mobile
   95–97 performance and 100 accessibility/best-practices/SEO. CI runs the Node,
   database and browser-audit jobs on every push.
-- **Next phase to run:** Phase 5 — Catalogue and discovery.
+- **Next phase to run:** Phase 7 — Cart and manual order-request flow.
 - **Blockers:** Phase 9 (authentication) needs a Supabase project (A1) to exercise
   real auth end to end; the schema itself is already applied and verified locally.
   Phase 8+ needs a Resend account (A3). Both are owner-side setup, documented in
@@ -664,4 +717,11 @@ than its absence, so the whole card is one link to the product.
   fixture is used in the deployed preview. Phase 3 also added G11 and G12, on the
   age gate and the placeholder routes. Phase 4 added G17–G19: the placeholder
   catalogue routes, the homepage demo seed and the mobile Lighthouse score.
+  Phase 6 added G34–G41: the product route missing from the sitemap, the
+  per-request rendering decision, the enquiry rate limit being per address rather
+  than per IP, the absence of an email acknowledgement before Phase 8, the
+  simplicity of the related-products ranking, the missing product photography
+  (A4/A6), the untested-in-a-browser zoom dialog, and G41 (A1 still open). It also
+  recorded D10, the closed `cost_cents` leak, which is the most significant
+  security finding since Phase 2.
 

@@ -141,6 +141,53 @@ directly. This is how Phase 4 verified that the homepage renders real rows, that
 `product_availability` returns a real `false` for a reserved piece, and that a
 draft or archived slug 404s through RLS rather than through application code.
 
+### RLS restricts rows, not columns — grant the public surface explicitly
+
+A row-level policy decides which rows a role may see. It says nothing about which
+columns of those rows are visible. The table-level `select` grant does that, and
+by default it covers every column.
+
+Phase 6 found this the expensive way: `products` had a correct row-scoped
+public-read policy and `anon` could still read `cost_cents` and `compare_at_cents`
+— the business's cost basis — through PostgREST. Nothing was misconfigured; the
+policy simply does not speak about columns.
+
+`products` now revokes the table-level grant and re-grants the public read surface
+column by column (migration `0011_product_detail.sql`). The sensitive columns are
+hard-denied (`401`, SQLSTATE `42501`) rather than filtered to an empty result, and
+a bare `select('*')` fails loudly.
+
+**The standing obligation:** on any table with a public-read policy, a new column
+is readable by `anon` by default unless you add it to the grant list. When you add
+a column to `products` or any publicly-readable table, decide explicitly whether
+it belongs in the public surface, then update the grant list **and**
+`supabase/tests/17_product_detail.sql`. Test it through the real client path, not
+only in SQL — a policy that reads correctly can still leak a column.
+
+### A cookie-reading page must be explicitly dynamic, or production 500s
+
+The Supabase server client (`lib/supabase/server.ts`) is cookie-aware, because it
+is shared with the session-bearing routes. Reading cookies makes a route dynamic.
+If such a page also exports `generateStaticParams`, Next.js classifies the route
+as SSG, then fails **at request time in a production build** with:
+
+```
+Error: Page changed from static to dynamic at runtime /products/<slug>, reason: cookies
+```
+
+The request returns a **500**. `next dev` does not reproduce it, so the page looks
+fine locally and breaks only under `next start`. This bit the product detail page
+in Phase 6.
+
+The fix is `export const dynamic = 'force-dynamic'` on the page. `generateStaticParams`
+can stay — it is still the right extension point for a future ISR decision — but it
+must not be the only signal, because it says "static" while the data layer says
+"dynamic".
+
+**How to catch it:** after `npm run build`, run `next start` and request the real
+routes. `next build` alone does not fail. The `●` marker in the build output means
+SSG; if the page reads cookies, that combination is the bug.
+
 ### Things that will bite you
 
 - **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency

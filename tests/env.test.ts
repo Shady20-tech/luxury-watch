@@ -51,7 +51,7 @@ describe('getPublicEnv with nothing configured', () => {
   it('falls back to a deterministic local URL rather than undefined', () => {
     const env = getPublicEnv();
     expect(env.siteUrl).toBe('http://localhost:3000');
-    expect(env.siteName).toBe('Luxury Watch');
+    expect(env.siteName).toBe('Carbon Watch Company');
     expect(env.defaultCurrency).toBe('USD');
   });
 

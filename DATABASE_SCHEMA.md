@@ -384,17 +384,62 @@ The design is **default deny with a small explicit public surface**:
 - `admin_audit_logs` is readable by `has_permission('audit.read')` and writable by
   nobody through the API, including `SUPER_ADMIN`.
 
+#### 6.3.1 RLS does not restrict columns
+
+A row-level policy decides _which rows_ a role may see. It says nothing about
+_which columns_ of those rows are visible. Phase 6 found this the hard way:
+`products` had a correct row-scoped public-read policy, and `anon` could still
+read `cost_cents` and `compare_at_cents` — the business's cost basis — because
+the table-level `select` grant covered every column.
+
+The fix is a **column-level grant list**, not a policy. Migration
+`0011_product_detail.sql` revokes the table-level `select` grant from `anon` and
+`authenticated` and re-grants only the public read surface, one column at a time:
+
+```sql
+revoke select on public.products from anon, authenticated;
+grant select (
+  id, sku, slug, title, brand_id, model_id,
+  short_description, description,
+  price_cents, currency, price_on_request,
+  condition, production_year, reference_number,
+  case_size_mm, case_material, movement, dial_color, bracelet_material,
+  bezel, water_resistance_m, gender, box_and_papers,
+  status, published_at, is_featured, sort_order,
+  seo_title, seo_description, og_image_url,
+  created_at, updated_at
+) on public.products to anon, authenticated;
+```
+
+Two consequences are deliberate:
+
+- The sensitive columns are **hard-denied** (`401`, SQLSTATE `42501`) rather than
+  filtered to an empty result. An empty result is indistinguishable from "the
+  column is null", and a caller would not know it had been refused.
+- A bare `select('*')` now fails loudly, because the grant list cannot cover the
+  excluded columns. That is the desired outcome: the mistake surfaces at once
+  instead of silently returning the sensitive values again.
+
+**This applies to every publicly-readable table, and it is a standing obligation.**
+A new column on such a table is readable by `anon` by default unless the grant
+list is updated with it. When adding a column to `products` — or to any table with
+a public-read policy — decide explicitly whether it belongs in the public surface,
+and update both the grant list and `supabase/tests/17_product_detail.sql`.
+
 ### 6.4 The authorisation tests
 
-`supabase/tests/` contains four suites, run by `scripts/db-verify.sh`:
+`supabase/tests/` contains seven suites, run by `scripts/db-verify.sh`:
 
-| File                         | What it proves                                                                                                                                                                                                                                                 |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `00_supabase_shim.sql`       | Test fixture: `auth.users`, `auth.uid()`, the API roles. Not a deployment artifact.                                                                                                                                                                            |
-| `10_public_boundary.sql`     | Anonymous visitors read the published catalogue and nothing else. Covers 20 private tables, and confirms the published product _is_ readable so the denials are not vacuous.                                                                                   |
-| `20_customer_ownership.sql`  | One customer cannot read another's data. Internal notes stay hidden even on the customer's own record. A customer cannot rewrite the commercial facts of their own order.                                                                                      |
-| `30_role_escalation.sql`     | The decisive test: no customer can grant themselves a role. Also verifies each staff role's permission boundary, that `ADMIN` is not `SUPER_ADMIN`, that an expired role grants nothing, and that the audit log resists even `SUPER_ADMIN`.                    |
-| `40_order_and_inventory.sql` | Server-derived totals, price-on-request recording no amount, disabled payment methods rejected, inventory unable to go negative, reject releasing stock, confirm converting a hold into a sale, and a schema-wide assertion that no column can hold card data. |
+| File                         | What it proves                                                                                                                                                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `00_supabase_shim.sql`       | Test fixture: `auth.users`, `auth.uid()`, the API roles. Not a deployment artifact.                                                                                                                                                                                    |
+| `10_public_boundary.sql`     | Anonymous visitors read the published catalogue and nothing else. Covers 20 private tables, and confirms the published product _is_ readable so the denials are not vacuous. Also asserts that `cost_cents` and `compare_at_cents` are **denied** to `anon` (Phase 6). |
+| `15_public_availability.sql` | `product_availability` / `is_product_available` report the real inventory state, including a reserved piece.                                                                                                                                                           |
+| `16_catalogue.sql`           | The catalogue query layer: filtering, faceting with self-exclusion, sorting, search and pagination against real rows.                                                                                                                                                  |
+| `17_product_detail.sql`      | Phase 6: the column-grant boundary (`anon` denied on `cost_cents`, `compare_at_cents`, `select *` and `order by cost_cents`), `catalogue_similar` never leaking a draft or the anchor, and `submit_product_question` shape validation.                                 |
+| `20_customer_ownership.sql`  | One customer cannot read another's data. Internal notes stay hidden even on the customer's own record. A customer cannot rewrite the commercial facts of their own order.                                                                                              |
+| `30_role_escalation.sql`     | The decisive test: no customer can grant themselves a role. Also verifies each staff role's permission boundary, that `ADMIN` is not `SUPER_ADMIN`, that an expired role grants nothing, and that the audit log resists even `SUPER_ADMIN`.                            |
+| `40_order_and_inventory.sql` | Server-derived totals, price-on-request recording no amount, disabled payment methods rejected, inventory unable to go negative, reject releasing stock, confirm converting a hold into a sale, and a schema-wide assertion that no column can hold card data.         |
 
 The suites share one database, so "can read" is asserted as "sees at least one
 row" and "cannot read" as "sees exactly zero". That asymmetry is deliberate: the

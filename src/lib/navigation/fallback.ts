@@ -16,7 +16,7 @@ import type { ChromeData } from '@/lib/navigation/types';
  */
 export const fallbackChrome: ChromeData = {
   identity: {
-    businessName: 'Luxury Watch',
+    businessName: 'Carbon Watch Company',
     tagline: 'Independent luxury watch retail',
     logoUrl: null,
     contactEmail: null,

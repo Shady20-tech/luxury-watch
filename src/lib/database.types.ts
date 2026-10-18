@@ -889,6 +889,37 @@ isOneToOne: false
 "total_count": number | null
             }[]
                            },
+"catalogue_similar":
+{ Args: { "p_limit"?: number,"p_product_id": string }; Returns: {
+              "box_and_papers": boolean | null,
+"bracelet_material": string | null,
+"brand_name": string | null,
+"brand_slug": string | null,
+"case_material": string | null,
+"case_size_mm": number | null,
+"condition": string | null,
+"currency": string | null,
+"dial_color": string | null,
+"gender": string | null,
+"id": string,
+"image_alt": string | null,
+"image_external_url": string | null,
+"image_storage_path": string | null,
+"is_available": boolean | null,
+"is_featured": boolean | null,
+"match_reason": string | null,
+"model_name": string | null,
+"model_slug": string | null,
+"movement": string | null,
+"price_cents": number | null,
+"price_on_request": boolean | null,
+"production_year": number | null,
+"published_at": string | null,
+"reference_number": string | null,
+"slug": string,
+"title": string
+            }[]
+                           },
 "catalogue_suggest":
 { Args: { "p_limit"?: number,"p_query"?: string }; Returns: {
               "detail": string | null,
@@ -953,6 +984,9 @@ isOneToOne: false
       } },
 "role_permissions":
 { Args: { "r": Database["public"]['Enums']["staff_role"] }; Returns: (string)[]
+                           },
+"submit_product_question":
+{ Args: { "p_email": string,"p_message": string,"p_name": string,"p_phone"?: string,"p_product_slug": string }; Returns: string
                            },
 "submit_order_request":
 { Args: { "p_customer_email": string,"p_customer_name": string,"p_customer_note"?: string,"p_customer_phone": string,"p_delivery_address"?: Json,"p_delivery_option_code"?: string,"p_fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"p_items": Json,"p_payment_method_code": string }; Returns: {

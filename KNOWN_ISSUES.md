@@ -1,6 +1,6 @@
 # Known Issues
 
-Last updated: 2026-10-17 (end of Phase 4; CI audit follow-up)
+Last updated: 2026-10-18 (end of Phase 6; product detail page)
 Owner-visible register of everything unresolved. Kept honest on purpose: an issue is removed only
 when it is genuinely fixed, and a phase is not marked complete while a critical item is open.
 
@@ -67,6 +67,7 @@ Recorded so no future phase claims to have verified something it did not.
 | D7 | Order-request totals must be recomputed server-side; client-supplied prices must be ignored. | critical | **resolved** | Phase 2: `submit_order_request` re-reads every product and recomputes prices in the database, ignoring any client-supplied amount. The `order_requests_total_matches_parts` constraint re-verifies the arithmetic. Proven in `40_order_and_inventory.sql`. |
 | D8 | No payment code must ever be introduced. This is an invariant, not a task. | critical | **mitigated** | **Done in Phase 1**, earlier than planned. `scripts/check-no-payment-providers.mjs` fails CI on a payment dependency, gateway host, card field, payment webhook or provider-named route, scanning both file content and file paths. It is itself covered by 9 behavioural tests that prove it rejects each violation class rather than merely passing on a clean tree. Phase 2 added a `payment-guard:allow` line marker for the two files that name card fields in order to forbid them; it is restricted to an explicit file allowlist and cannot suppress dependency, secret-key or webhook-route checks. |
 | D9 | HSTS omits `preload`, so the domain is not submitted to the browser preload list. | low | accepted | `preload` is effectively irreversible. It is added only once the owner confirms every subdomain is HTTPS-only. Recorded rather than silently enabled. |
+| D10 | **The `anon` role could read `products.cost_cents` and `products.compare_at_cents`** — the business's cost basis and comparison pricing — through PostgREST. RLS restricts rows, not columns, and the public-read policy is row-scoped, so both columns were readable by anyone holding the public anon key. Proven live before the fix: `GET /rest/v1/products?select=slug,price_cents,cost_cents` returned `{"slug":"priced-watch","price_cents":1250000,"cost_cents":4200000}`. | critical | **resolved** | Phase 6: migration `0011_product_detail.sql` revokes the table-level `select` grant from `anon` and `authenticated` and re-grants the public read surface column by column. The sensitive columns are now hard-denied (`401`, SQLSTATE `42501`) rather than filtered to an empty result, and a bare `select('*')` fails loudly instead of silently succeeding. Verified against the real client path in `supabase/tests/17_product_detail.sql` and `10_public_boundary.sql`. **A standing lesson for later phases: a new column on a publicly-readable table is exposed by default unless the grant list is updated with it.** |
 
 ---
 
@@ -162,14 +163,38 @@ Recorded so no future phase claims to have verified something it did not.
 
 ---
 
+## K. Product detail items (raised in Phase 6)
+
+| # | Issue | Severity | Status | Next action |
+|---|---|---|---|---|
+| G34 | **`/products/[slug]` is indexable but absent from `sitemap.xml`.** Phase 6 made the route real and it renders `index, follow` with a self-canonical, yet the sitemap still lists only `/` and `/shop`. This is G33 extended to products, and it is the same deliberate ordering: the database-driven sitemap is Phase 12. Until then a crawler reaches a product page only by following a link, and the dynamic product `lastmod` timestamps the project requires are not yet emitted. | medium | open | Phase 12. `products.updated_at` and `published_at` are already selected by the repository, so the entries can carry a real `<lastmod>` rather than a build-time fallback. |
+| G35 | **The product detail page is server-rendered per request, not prerendered.** `generateStaticParams` returns `[]` and the route carries `export const dynamic = 'force-dynamic'` by design: prerendering would freeze price, stock and `lastmod` into the deployment. The consequence is that every product view hits the database, and the page cannot be served from the CDN edge as static HTML. | medium | accepted | Revisit in Phase 12 with ISR (`export const revalidate`) once the sitemap and cache-invalidation story exists, so a stale price and a stale sitemap timestamp are handled together rather than separately. |
+| G36 | **The enquiry rate limit is per email address, not per IP.** `submit_product_question` counts submissions for the same address inside a window. Someone willing to vary the email address can submit more, and there is no IP-level throttle because the application cannot see a trustworthy client IP behind Vercel's proxy without extra configuration. | medium | open | Add an IP- or session-level limit in Phase 7, where the order-request flow needs the same protection and the trusted-header question has to be settled once for both. |
+| G37 | **The enquiry form has no email-verification step and no spam challenge beyond a honeypot.** A honeypot plus the database rate limit stops naive bots, but nothing stops a determined sender, and no enquiry is confirmed to the sender by email until Phase 8 (Resend). | medium | open | Phase 8 sends the acknowledgement and the admin notification. Reassess whether a stronger challenge is warranted once real traffic exists; adding one now, with no traffic data, would trade conversion for an unmeasured risk. |
+| G38 | **Related products are drawn from model, brand and case material only.** `catalogue_similar` has no notion of price proximity, era or collection, so a piece with no model and no brand — as several seed fixtures are — returns an empty related set and the section is correctly omitted. On a sparse catalogue the section can therefore be empty more often than a visitor expects. | low | accepted | The ranking is deliberately simple and explainable, and an empty section is omitted rather than padded. If the owner wants a fuller related row, the next signals would be collection membership and price band. |
+| G39 | **A product with no images renders a labelled placeholder rather than photography.** The seed catalogue carries no image URLs at all (a licensing decision, A6), so most products currently show "Photography to follow". This is honest but not a finished storefront. | high | open | Follows A4 and A6: the owner supplies licensed photography and the Storage bucket exists, then Phase 10 wires upload. |
+| G40 | **The gallery zoom dialog was verified by markup and keyboard wiring, not by a real browser interaction.** The Radix dialog supplies focus trapping, Escape-to-close and focus restoration, and the thumbnail strip uses a roving-tabindex tab pattern, but no automated browser test exercises them. The shell-level axe check covers the page, not the open dialog. | low | open | Add a component test with a real DOM once a browser-test harness exists. Not a blocker: the primitives are Radix's, and the wiring is standard. |
+| G41 | **Phase 6 was verified against a local PostgreSQL + PostgREST stack, not a real Supabase project** (A1 still open). The `supabase-js` client path, RLS and the column grants were exercised for real; what is unverified is Supabase's own platform behaviour, including whether the dashboard's generated types match the hand-maintained `database.types.ts`. | high | open | Follows A1 and G1. Re-run the same checks against the real project, and regenerate `database.types.ts` with `supabase gen types` — it was hand-edited here because the CLI install timed out in this environment. |
+| G42 | **A database-backed page that reads cookies is misclassified as SSG unless it declares `force-dynamic`, and the failure appears only in a production build.** Phase 6 hit this: `/products/[slug]` exported `generateStaticParams` while reading through the cookie-aware Supabase server client, so `next start` returned a 500 for every product with "Page changed from static to dynamic at runtime". `next dev` and `next build` both passed, so it was invisible to the normal loop. | high | **resolved** | Fixed with `export const dynamic = 'force-dynamic'`, and recorded in `AGENTS.md` as a standing pitfall with the way to catch it (request the real routes against `next start`, not only `next dev`). The underlying risk is not gone for future routes: any new database-backed page has the same shape. |
+
+**Phase 6 closed a critical security item (D10).** The `anon` role could read
+`products.cost_cents` and `products.compare_at_cents`, the business's cost basis,
+through PostgREST. Migration 0011 revokes the table-level `select` grant and
+re-grants only the public read surface column by column, so the sensitive columns
+are hard-denied (`401`, SQLSTATE `42501`) rather than filtered to an empty result.
+This is recorded as D10 and was proven against the real client path before and after
+the fix.
+
+---
+
 ## Summary
 
 | Severity | Count | Open |
 |---|---|---|
-| critical | 6 | 1 |
-| high | 14 | 8 |
-| medium | 19 | 12 |
-| low | 23 | 3 |
+| critical | 7 | 1 |
+| high | 19 | 11 |
+| medium | 23 | 14 |
+| low | 31 | 5 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
@@ -227,3 +252,16 @@ runs can disagree about what counts as a violation, so the detector itself must 
 **The single remaining open critical is A1**, owner-side setup: no Supabase project exists yet. Every
 critical security property that could be proven without a Supabase account has been proven. A2 and
 G1 are the two items that need A1 resolved before they can be closed.
+
+**Phase 6 found and closed a critical leak that had been live since Phase 2: `products.cost_cents`
+and `products.compare_at_cents` were readable by the `anon` role.** RLS restricts rows, not columns,
+and the public-read policy on `products` was row-scoped, so the business's cost basis was exposed to
+anyone holding the public anon key. It was proven against the real client path — `select=slug,
+price_cents,cost_cents` returned `cost_cents: 4200000` — before the fix, and the fix was proven the
+same way after it. Migration `0011` revokes the table-level `select` grant and re-grants only the
+public read surface column by column, so the sensitive columns are now hard-denied rather than
+filtered to an empty result, and a bare `select('*')` fails loudly instead of silently succeeding.
+Recorded as D10, and it carries a lesson for every later phase: on a publicly-readable table, a new
+column is exposed by default unless the grant list is updated with it. This is the second defect of
+this kind the project has found by testing against real infrastructure rather than trusting a
+reading of the policies, which is why that practice is kept.

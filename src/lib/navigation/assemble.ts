@@ -260,7 +260,7 @@ export function buildAnnouncements(rows: AnnouncementRow[]): Announcement[] {
 export function buildIdentity(row: SiteSettingsRow | null): SiteIdentity {
   if (!row) {
     return {
-      businessName: 'Luxury Watch',
+      businessName: 'Carbon Watch Company',
       tagline: null,
       logoUrl: null,
       contactEmail: null,

@@ -145,7 +145,7 @@ export function getPublicEnv(): PublicEnv {
     // at import time, which would break `next build`.
     siteUrl:
       siteUrl && isAbsoluteHttpUrl(siteUrl) ? siteUrl.replace(/\/+$/, '') : PLACEHOLDER_SITE_URL,
-    siteName: raw('NEXT_PUBLIC_SITE_NAME') ?? 'Luxury Watch',
+    siteName: raw('NEXT_PUBLIC_SITE_NAME') ?? 'Carbon Watch Company',
     defaultCurrency: currency && isIso4217(currency) ? currency : 'USD',
     enableAgeGate: ageGate === undefined ? true : ageGate === 'true',
     supabaseUrl: raw('NEXT_PUBLIC_SUPABASE_URL'),

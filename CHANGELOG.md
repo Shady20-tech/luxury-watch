@@ -98,6 +98,172 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ---
 
+### Phase 6 — Product detail page
+
+**Date:** 2026-10-18
+
+#### Security
+
+**Closed a live column-level leak on `products` (`supabase/migrations/0011_product_detail.sql`).**
+
+The `anon` role could read `cost_cents` and `compare_at_cents` directly. RLS
+restricts rows, not columns, and the public-read policy is row-scoped, so both
+columns were readable through PostgREST. This was proven against the real client
+path before the fix:
+
+```
+GET /rest/v1/products?select=slug,price_cents,cost_cents&limit=1
+→ [{"slug":"priced-watch","price_cents":1250000,"cost_cents":4200000}]
+```
+
+`cost_cents` is the business's cost basis. Exposing it to anyone with the public
+anon key is a commercial-information leak, not a cosmetic one.
+
+The fix revokes the table-level `select` grant from `anon` and `authenticated`
+and re-grants only the public read surface column by column, so the sensitive
+columns are now **hard-denied** rather than filtered to empty:
+
+```
+GET /rest/v1/products?select=slug,cost_cents&limit=1  → 401 42501 permission denied
+GET /rest/v1/products?select=*&limit=1                → 401 42501 permission denied
+GET /rest/v1/products?select=slug,title,price_cents   → 200 (public columns intact)
+```
+
+The distinction matters: an empty result would have been indistinguishable from
+"this column is null", and a future `select('*')` would have silently succeeded
+again. A `select('*')` now fails loudly, which is the outcome that keeps the
+guarantee from eroding.
+
+#### Added
+
+**Database (`supabase/migrations/0011_product_detail.sql`)**
+
+- `catalogue_similar(p_product_id uuid, p_limit integer)` — related products for
+  the detail page. Ranks by shared model, then shared brand, then shared case
+  material, and returns a `match_reason` so the page can explain the selection
+  rather than asserting an unexplained "you may also like". Excludes the anchor,
+  excludes unpublished rows, and is `stable` and read-only.
+- `submit_product_question(...)` — the product enquiry. Validates name, email and
+  message length, resolves the slug to a **published** product, enforces a
+  per-address rate limit through `rate_limit_counters`, and writes an `inquiries`
+  row of type `product_question`, returning a reference. `SECURITY DEFINER` with
+  `set search_path = ''`, so the write does not depend on a public insert policy
+  and cannot be redirected by a hostile `search_path`.
+
+**Application**
+
+- `src/lib/product/types.ts` — `ProductDetail`, `ProductDetailResult`
+  (`ok` / `not_found` / `unavailable`) and `SpecRow`, `ProductImage`.
+- `src/lib/product/assemble.ts` — pure row-to-view-model mapping, plus
+  `productBreadcrumbs`. Image resolution is injected, so every state is testable
+  without a database.
+- `src/lib/product/enquiry.ts` — the Zod schema, the state type and the
+  `safeDatabaseMessage` allowlist. Kept out of the action because a `'use server'`
+  module may only export async functions, so these could not be unit-tested from
+  there.
+- `src/server/repositories/product-repository.ts` — `fetchProductDetail`,
+  availability, `catalogue_similar` and `submit_product_question` calls.
+- `src/server/services/product-service.ts` — three-state assembly, `cache`d per
+  request so `generateMetadata` and the page share one round trip.
+- `src/server/actions/product-actions.ts` — the `submitEnquiry` server action.
+- Components: `breadcrumbs`, `product-gallery`, `price-block`, `spec-table`,
+  `purchase-actions`, `enquiry-form`.
+- `src/app/(site)/products/[slug]/page.tsx` — the real detail template, replacing
+  the Phase 3 placeholder.
+
+**Tests**
+
+- `supabase/tests/17_product_detail.sql` — RLS and function behaviour: `anon`
+  denied on `cost_cents` / `compare_at_cents` / `select *` / `order by cost_cents`;
+  `catalogue_similar` never leaks a draft, never returns the anchor, and does not
+  hide a published product whose taxonomy is inactive; question shape validation.
+- `tests/product-detail-assembly.test.ts` — 17 cases over the honesty rules.
+- `tests/product-enquiry-action.test.ts` — schema validation and the error
+  allowlist, including that an unrecognised database error is hidden.
+- `supabase/tests/10_public_boundary.sql` — assertion strengthened from
+  "empty result" to "permission denied", which is the stronger guarantee the
+  revoke now provides.
+
+#### Changed
+
+- `src/lib/seo/schema.ts` — `ProductSchemaInput.condition` was missing `unworn`,
+  a real value of the `product_condition` enum, and `CONDITION_URL` had no entry
+  for it. A product whose condition was `unworn` could therefore not be typed into
+  the schema builder at all. `unworn` now maps to `NewCondition`, the term that
+  asserts what "never worn" actually means.
+- `src/server/services/product-service.ts` — dropped an unused `ProductDetail`
+  type import.
+
+#### Decisions
+
+- **`generateStaticParams` returns `[]`.** The phase asks for it, and the shape
+  matters more than the values: prerendering every product would freeze prices,
+  stock and `lastmod` timestamps into the deployment, so the sitemap's freshness
+  claim would be false. The page renders per request against the live row. It also
+  keeps `next build` from needing a database, which matters because the Vercel
+  build runs before any Supabase secret is necessarily present.
+- **An unreachable database is a 200, not a 404.** Telling a visitor a watch does
+  not exist when the fault is an outage would be false, and it would invite a
+  crawler to drop a valid URL. The page states the problem plainly and is
+  `noindex`.
+- **The cart and wishlist controls are genuinely disabled, with a note.** There is
+  no cart to add to until Phase 7 and no account until Phase 9. A live-looking
+  button that discarded the click would be a lie; omitting the controls would hide
+  a real planned feature. Both are rendered disabled with `aria-disabled`, a
+  `title`, and visible text naming the phase.
+- **The enquiry is the real call to action for this phase**, so it is a prominent
+  in-page anchor and a working form, not a placeholder.
+- **`offers` is emitted only for a genuine price.** A price-on-request piece makes
+  no price claim in the JSON-LD at all. `priceMinor` is set from the same single
+  decision that formats the visible price, so the two cannot disagree.
+- **`product_questions` was left for its own purpose.** The public Q&A table
+  exists, but an enquiry is private correspondence, so it is written to `inquiries`
+  with `inquiry_type = 'product_question'` — the value the enum already reserves
+  for it.
+
+#### Fixed
+
+- **Production-only 500 on `/products/[slug]`.** The page exported
+  `generateStaticParams` while reading through the cookie-aware Supabase server
+  client, so Next.js classified the route as SSG and then failed at request time
+  under `next start` with `Page changed from static to dynamic at runtime ...
+  reason: cookies`, returning a 500 for **every** product, published or not. It did
+  not reproduce in `next dev`, and `next build` succeeded, so it was only visible
+  by running the production server. Fixed with `export const dynamic =
+  'force-dynamic'`; `generateStaticParams` is retained as the extension point for
+  a future ISR decision. Verified after the fix: `priced-watch` 200,
+  `draft-watch` 404, an invented slug 404, and a real full product 200 with 23
+  spec rows, the related rail and both JSON-LD nodes. Recorded in `AGENTS.md` as a
+  standing pitfall, because the same shape will recur on any future
+  database-backed route.
+
+#### Verified
+
+- Migrations 0001–0011 apply cleanly from an empty database; seed is idempotent.
+- `supabase/tests/17_product_detail.sql` and `10_public_boundary.sql` pass.
+- The column leak is closed through the real `supabase-js` → PostgREST path, not
+  only in SQL (401 `42501` on the sensitive columns, 200 on the public ones).
+- `submit_product_question` returns a reference end to end; the sixth submission
+  from one address is refused with the rate-limit message; a draft slug is
+  refused with `Unknown product`.
+- `catalogue_similar` on a real seed anchor returns same-model siblings first,
+  then same-brand pieces, and no anchor or draft.
+- Rendered pages against a production `next start`, not only `next dev`: a real
+  published product returns 200 with 23 spec rows, the price-on-request prompt,
+  the enquiry form, the related rail and `Product` + `BreadcrumbList` JSON-LD
+  with **no** `offers` node; `priced-watch` returns 200 with a visible price and
+  an `Offer` of `12500.00`; `draft-watch` and an invented slug both return 404.
+- The enquiry submitted through the rendered `<form>` with **JavaScript disabled**
+  returns 200 with a reference (`LW-26-100017`) and honest confirmation copy that
+  claims no payment. This is the real progressive-enhancement path, not a
+  simulated one.
+- `npm run verify` passes: payment guard, format, lint, typecheck, 277 tests and
+  `next build`. `/products/[slug]` builds as SSG with no prerendered params.
+- `npm run check:no-payment` passes: no gateway, SDK, card field or payment
+  webhook anywhere.
+
+---
+
 ### Phase 4 — Homepage composition from database sections
 **Date:** 2026-10-17
 

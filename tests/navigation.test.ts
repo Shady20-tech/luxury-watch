@@ -288,7 +288,7 @@ describe('buildIdentity', () => {
   it('returns a usable identity when settings are missing', () => {
     const identity = buildIdentity(null);
 
-    expect(identity.businessName).toBe('Luxury Watch');
+    expect(identity.businessName).toBe('Carbon Watch Company');
     expect(identity.addressLines).toEqual([]);
     expect(identity.socials).toEqual([]);
   });

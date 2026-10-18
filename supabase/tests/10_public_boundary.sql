@@ -159,7 +159,11 @@ select pg_temp.assert_no_rows(
   'anon cannot read admin_audit_logs',
   'select count(*) from public.admin_audit_logs');
 
-select pg_temp.assert_no_rows(
+-- Migration 0011 revokes `select` on the counter from the public roles, so this
+-- is now a hard denial rather than an empty result. Asserting the denial is the
+-- stronger claim: a later RLS policy cannot re-expose the table, because the
+-- grant itself is gone.
+select pg_temp.assert_denied(
   'anon cannot read rate_limit_counters',
   'select count(*) from public.rate_limit_counters');
 

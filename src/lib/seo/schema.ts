@@ -51,7 +51,7 @@ export type ProductSchemaInput = {
   category?: string | null;
   /** Absolute or site-relative image URLs. */
   images?: string[];
-  condition?: 'new' | 'pre_owned' | 'vintage' | null;
+  condition?: 'new' | 'unworn' | 'pre_owned' | 'vintage' | null;
   /** Publish/update timestamp, used for `dateModified`. */
   updatedAt?: string | null;
   /**
@@ -70,9 +70,21 @@ export type FaqEntry = {
   answer: string;
 };
 
-/** Schema.org `ItemCondition` values, keyed by our own condition vocabulary. */
+/**
+ * schema.org condition values.
+ *
+ * schema.org offers only `NewCondition`, `UsedCondition`, `RefurbishedCondition`
+ * and `DamagedCondition`, so the four catalogue conditions have to map onto
+ * them. `unworn` maps to `NewCondition`: the piece has never been worn, which is
+ * what the schema term asserts, and it is the mapping the catalogue's own
+ * condition labels imply. The remaining three are unambiguous.
+ *
+ * All four enum values must appear here. A missing one is a type error rather
+ * than a silently dropped field, because the key type is derived from the union.
+ */
 const CONDITION_URL: Record<NonNullable<ProductSchemaInput['condition']>, string> = {
   new: 'https://schema.org/NewCondition',
+  unworn: 'https://schema.org/NewCondition',
   pre_owned: 'https://schema.org/UsedCondition',
   vintage: 'https://schema.org/UsedCondition',
 };
