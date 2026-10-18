@@ -49,7 +49,7 @@ on conflict (id) do update
 -- change and no reseed.
 insert into public.navigation_items (id, location, parent_id, label, href, group_label, sort_order, is_active)
 values
-  ('00000000-0000-4000-8000-000000000101', 'header', null, 'Shop',                '/collections/all',              null, 10, true),
+  ('00000000-0000-4000-8000-000000000101', 'header', null, 'Shop',                '/shop',              null, 10, true),
   ('00000000-0000-4000-8000-000000000102', 'header', null, 'Brands',              '/brands',                       null, 20, true),
   ('00000000-0000-4000-8000-000000000103', 'header', null, 'Sell or Trade',       '/services/sell-trade',          null, 30, true),
   ('00000000-0000-4000-8000-000000000104', 'header', null, 'Watch Sourcing',      '/services/sourcing',            null, 40, true),
@@ -73,7 +73,7 @@ on conflict (id) do update
 insert into public.navigation_items (id, location, parent_id, label, href, group_label, sort_order, is_active)
 values
   -- Explore
-  ('00000000-0000-4000-8000-000000000201', 'footer', null, 'Shop All',            '/collections/all',             'Explore',  10, true),
+  ('00000000-0000-4000-8000-000000000201', 'footer', null, 'Shop All',            '/shop',             'Explore',  10, true),
   ('00000000-0000-4000-8000-000000000202', 'footer', null, 'Brands',              '/brands',                      'Explore',  20, true),
   ('00000000-0000-4000-8000-000000000203', 'footer', null, 'About Us',            '/pages/about',                 'Explore',  30, true),
   ('00000000-0000-4000-8000-000000000204', 'footer', null, 'FAQ',                 '/pages/faq',                   'Explore',  40, true),

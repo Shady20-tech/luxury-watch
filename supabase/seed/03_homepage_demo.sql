@@ -153,7 +153,7 @@ values
    'Timepieces chosen one at a time',
    'Independent luxury watch retail',
    'We buy, sell and source fine watches, and we tell you what we actually think. Every piece is inspected before it is offered, and every price is discussed with you directly.',
-   'Browse the collection', '/collections/all', null, '{"eyebrow": "Independent watch retail"}'::jsonb, true, 10),
+   'Browse the collection', '/shop', null, '{"eyebrow": "Independent watch retail"}'::jsonb, true, 10),
 
   ('00000000-0000-4000-8000-000000000402', 'hero_2',
    'Looking for a specific reference?',

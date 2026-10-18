@@ -849,7 +849,55 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "confirm_reservation":
+            "catalogue_condition_label":
+{ Args: { "p_value": string }; Returns: string
+                           },
+"catalogue_facets":
+{ Args: { "p_available_only"?: boolean,"p_box_and_papers"?: boolean,"p_bracelets"?: string[],"p_brands"?: string[],"p_case_materials"?: string[],"p_case_max"?: number,"p_case_min"?: number,"p_collections"?: string[],"p_conditions"?: string[],"p_dial_colors"?: string[],"p_genders"?: string[],"p_models"?: string[],"p_movements"?: string[],"p_price_max"?: number,"p_price_min"?: number,"p_price_mode"?: string,"p_query"?: string,"p_scope"?: string,"p_scope_slug"?: string,"p_year_max"?: number,"p_year_min"?: number }; Returns: Json
+                           },
+"catalogue_like_pattern":
+{ Args: { "p_value": string }; Returns: string
+                           },
+"catalogue_search":
+{ Args: { "p_available_only"?: boolean,"p_box_and_papers"?: boolean,"p_bracelets"?: string[],"p_brands"?: string[],"p_case_materials"?: string[],"p_case_max"?: number,"p_case_min"?: number,"p_collections"?: string[],"p_conditions"?: string[],"p_dial_colors"?: string[],"p_genders"?: string[],"p_limit"?: number,"p_models"?: string[],"p_movements"?: string[],"p_offset"?: number,"p_price_max"?: number,"p_price_min"?: number,"p_price_mode"?: string,"p_query"?: string,"p_scope"?: string,"p_scope_slug"?: string,"p_sort"?: string,"p_year_max"?: number,"p_year_min"?: number }; Returns: {
+              "box_and_papers": boolean | null,
+"bracelet_material": string | null,
+"brand_name": string | null,
+"brand_slug": string | null,
+"case_material": string | null,
+"case_size_mm": number | null,
+"condition": string | null,
+"currency": string | null,
+"dial_color": string | null,
+"gender": string | null,
+"id": string,
+"image_alt": string | null,
+"image_external_url": string | null,
+"image_storage_path": string | null,
+"is_available": boolean | null,
+"is_featured": boolean | null,
+"model_name": string | null,
+"model_slug": string | null,
+"movement": string | null,
+"price_cents": number | null,
+"price_on_request": boolean | null,
+"production_year": number | null,
+"published_at": string | null,
+"reference_number": string | null,
+"slug": string,
+"title": string,
+"total_count": number | null
+            }[]
+                           },
+"catalogue_suggest":
+{ Args: { "p_limit"?: number,"p_query"?: string }; Returns: {
+              "detail": string | null,
+"href": string,
+"kind": string,
+"label": string
+            }[]
+                           },
+"confirm_reservation":
 { Args: { "p_order_request_id": string,"p_product_id": string }; Returns: boolean
                            },
 "generate_order_reference":

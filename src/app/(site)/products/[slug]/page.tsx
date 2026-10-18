@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { PlannedPage } from '@/components/chrome/planned-page';
 import { buildMetadata } from '@/lib/seo/metadata';
-import { fetchPublishedProductSummary } from '@/server/repositories/catalogue-repository';
+import { fetchPublishedProductIdentity } from '@/server/repositories/catalogue-repository';
 
 /**
  * Product route placeholder.
@@ -28,7 +28,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await fetchPublishedProductSummary(slug).catch(() => null);
+  const product = await fetchPublishedProductIdentity(slug).catch(() => null);
 
   if (!product) {
     return buildMetadata({
@@ -48,7 +48,7 @@ export async function generateMetadata({
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = await fetchPublishedProductSummary(slug).catch(() => null);
+  const product = await fetchPublishedProductIdentity(slug).catch(() => null);
 
   if (!product) notFound();
 

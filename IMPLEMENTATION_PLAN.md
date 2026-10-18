@@ -336,10 +336,10 @@ sets, with every card value read from the database.
   instead of inventing content.
 
 **Status: complete.** `npm run verify` is green at 216 tests; the browser audit is
-green across 7 pages × 4 viewports plus the age-gate pass. The logo link's WCAG
+green across 7 pages Ã— 4 viewports plus the age-gate pass. The logo link's WCAG
 2.5.3 failure was found and fixed, along with the `axe-core` version drift that
-had hidden it from CI (G21). Lighthouse: desktop 100/100/100/100, mobile 95–97
-performance with 100 accessibility, best practices and SEO — recorded as G19
+had hidden it from CI (G21). Lighthouse: desktop 100/100/100/100, mobile 95â€“97
+performance with 100 accessibility, best practices and SEO â€” recorded as G19
 rather than rounded up.
 
 ---
@@ -364,6 +364,33 @@ rather than rounded up.
 - Filters and sort work against real data and are reflected in the URL
 - Empty states are honest and actionable
 - Facet permutations are not indexable; clean collection URLs are canonical
+
+**Status: complete and verified (2026-10-17).** `npm run verify` is green at 248
+tests, and `scripts/db-verify.sh` is green on a reset database (10 migrations, 6
+RLS/auth suites, idempotent seeds). Verified against a real PostgREST + database
+through the real `supabase-js` path: `/shop` 20 of 20, `availability=reserved` 4
+and `availability=available` 16 (a true partition), `brand=rolex` 4, an
+impossible filter combination returns an honest empty state, `pageSize=12&page=2`
+returns 8, `sort=price_asc` matches the database ordering, a selected brand still
+lists the other brands' counts, `/brands/rolex` 4, `/collections/featured` 6,
+`/search?q=rolex` 4, an invented brand slug 404s, and `/collections/all` 308s to
+`/shop`.
+
+Two decisions worth recording, both from repository evidence rather than
+preference:
+
+- **Availability is a tri-state (`any` / `available` / `reserved`), not a
+  boolean.** The database already models it through `is_product_available`, and a
+  reserved watch is genuinely spoken for â€” collapsing that to a boolean would
+  have thrown away a distinction the data carries.
+- **`/shop` is the canonical listing, not `/collections/all`.** `/collections/all`
+  is retained as a 308 so the reference-style address and existing links keep
+  working, but only one URL is indexable and canonical.
+
+Deferred to later phases, and deliberately not stubbed here: the wishlist toggle
+and add-to-cart on the card (Phases 7 and 9), and the product detail template
+(Phase 6). A card control that looked live but discarded the click would be worse
+than its absence, so the whole card is one link to the product.
 
 ---
 

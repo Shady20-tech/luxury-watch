@@ -8,6 +8,96 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 5 — Catalogue and discovery
+
+**Date:** 2026-10-17
+
+#### Added
+
+**Catalogue query layer (`supabase/migrations/0010_catalogue_browsing.sql`)**
+
+- `p_availability text` on `catalogue_filtered`, `catalogue_search` and
+  `catalogue_facets`, accepting `any` / `available` / `reserved`. Availability is
+  a real tri-state, not a boolean: a reserved watch is genuinely spoken for and
+  must be distinguishable from one that is available.
+- `p_exclude text` on `catalogue_filtered`, so each facet dimension counts
+  against the other active filters but **not** its own. Without this, selecting a
+  brand zeroed every other brand — a one-way filter list, which is a real UX
+  defect rather than a cosmetic one.
+- Availability values are the database's own (`available` / `reserved`), read
+  through `is_product_available`, so the storefront cannot drift from the
+  inventory rules.
+
+**Catalogue view models and URL state (`src/lib/catalogue/`)**
+
+- `types.ts` — `CatalogueProduct`, `FacetSet`, `FacetOption`, `CatalogueListing`
+  and honest empty constructors. `source` distinguishes "the database answered
+  and found nothing" from "the database did not answer"; only the first is a
+  genuine empty result.
+- `params.ts` — one validated, canonical representation of a listing:
+  `parseCatalogueParams`, `buildCatalogueHref`, `canonicalListingPath`,
+  `isIndexableListing`, `hasActiveFilters`, `countActiveFilterGroups`,
+  `catalogueHiddenInputs`. Defaults are omitted when rendering a URL, so there is
+  exactly one address for each logical page.
+- `assemble.ts` — pure row-to-view-model conversion plus `paginationWindow`.
+
+**Catalogue UI (`src/components/catalogue/`)**
+
+- `catalogue-card.tsx` / `CatalogueGrid` — every value from the database; a
+  price-on-request piece says "Request pricing & availability" rather than
+  printing a number, and a reserved piece carries a "Reserved" badge instead of
+  being hidden.
+- `catalogue-filters.tsx` — link-based facets, so filters work without
+  JavaScript and each combination is a real URL. `FilterRow`, `FacetGroup`,
+  `ChoiceFilter`, `ConditionFilter`, `RangeFilter`, `BoxAndPapersFilter`,
+  `AvailabilityFilter`, `ActiveFilterChips`.
+- `listing-toolbar.tsx` — sort and page-size as a plain `GET` form carrying the
+  active filters as hidden inputs, so sorting cannot silently drop a filter.
+- `pagination.tsx` — crawlable page links, `aria-current` on the current page,
+  and the range ends rendered as non-links rather than disabled anchors.
+- `mobile-filter-drawer.tsx` — controlled Radix dialog that closes on a URL
+  change, so tapping a filter cannot leave a stale overlay over the new results.
+- `search-form.tsx` — `GET` search that preserves the active filters.
+
+**Routes**
+
+- `/shop` — the one canonical "everything" listing. `/collections/all`
+  permanently redirects to it (308) so the old address and existing links keep
+  working without two live URLs competing for the same grid.
+- `/brands/[slug]` and `/collections/[slug]` — real scoped listings; an unknown
+  or inactive slug is a `404`, not a `200` with an empty grid.
+- `/search` — the listing with a `q` term, reusing the same RPC, facets and
+  cards rather than a second result pipeline. Always `noindex, follow`.
+- `/shop` added to the XML sitemap.
+
+#### Changed
+
+- Filtered, searched and sorted listings are `noindex, follow` and declare the
+  clean listing as canonical. The decision comes from `isIndexableListing`, not
+  from comparing the canonical path to `/shop` — filtering keeps the base path,
+  so that comparison would have been true for both cases.
+- `/products/[slug]` now resolves its identity through
+  `fetchPublishedProductIdentity`, the function that actually exists.
+
+#### Verified
+
+- `npm run verify` green (248 unit tests across 13 files, typecheck, lint,
+  format, no-payment guard, production build). `tests/catalogue-params.test.ts`
+  covers the query layer directly, including the `isIndexableListing`
+  invariant that the rendered-page check caught.
+- `scripts/db-verify.sh` green on a reset database: all 10 migrations apply
+  cleanly, all 6 RLS/auth suites pass, seeds are idempotent.
+- Against a real PostgREST + database through the real `supabase-js` path:
+  `/shop` renders 20 of 20; `availability=reserved` 4 and `availability=available`
+  16 (partitioning correctly); `brand=rolex` 4; a combined brand+availability
+  filter that matches nothing returns an honest empty state; `pageSize=12&page=2`
+  returns 8; `sort=price_asc` matches the database ordering; a selected brand
+  still lists the other brands' counts (facet self-exclusion); `/brands/rolex` 4,
+  `/collections/featured` 6, `/search?q=rolex` 4; an invented brand slug 404s;
+  `/collections/all` 308s to `/shop`.
+
+---
+
 ### Phase 4 — Homepage composition from database sections
 **Date:** 2026-10-17
 

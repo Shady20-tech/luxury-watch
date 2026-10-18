@@ -27,7 +27,7 @@ export const fallbackChrome: ChromeData = {
   },
   announcements: [],
   header: [
-    { kind: 'link', id: 'fb-shop', label: 'Shop', href: '/collections/all', external: false },
+    { kind: 'link', id: 'fb-shop', label: 'Shop', href: '/shop', external: false },
     { kind: 'brands', id: 'fb-brands', label: 'Brands', href: '/brands', panels: [] },
     {
       kind: 'link',
@@ -58,7 +58,7 @@ export const fallbackChrome: ChromeData = {
     {
       heading: 'Explore',
       links: [
-        { id: 'fb-f1', label: 'Shop All', href: '/collections/all', external: false },
+        { id: 'fb-f1', label: 'Shop All', href: '/shop', external: false },
         { id: 'fb-f2', label: 'Brands', href: '/brands', external: false },
         { id: 'fb-f3', label: 'About Us', href: '/pages/about', external: false },
         { id: 'fb-f4', label: 'FAQ', href: '/pages/faq', external: false },

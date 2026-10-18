@@ -57,6 +57,24 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
 
+  /**
+   * Redirects.
+   *
+   * `/collections/all` is the reference site's "everything" address and is still
+   * linked from navigation, but `/shop` is the one canonical listing. A permanent
+   * redirect (308) consolidates any existing ranking signal onto `/shop` and
+   * keeps old links and bookmarks working.
+   */
+  async redirects() {
+    return [
+      {
+        source: '/collections/all',
+        destination: '/shop',
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
