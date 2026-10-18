@@ -158,6 +158,7 @@ Recorded so no future phase claims to have verified something it did not.
 | G30 | **The seed has almost no priced products, so the price sort and price band filter are verified against a small sample.** G5 stands: the seed is `price_on_request` throughout, and the test fixtures add only a handful of priced rows. | low | accepted | Consequence of G5 and A6, not a defect in the query layer. The sort was verified to match the database's own ordering on the rows that do have prices. |
 | G31 | **A card's wishlist and add-to-cart controls are not present in Phase 5.** The whole card is a single link to the product. | low | accepted | Phase 7 (cart) and Phase 9 (wishlist). A control that appeared interactive but discarded the click would be worse than its absence, so it is omitted rather than stubbed. |
 | G32 | **Phase 5 was verified against a local PostgreSQL + PostgREST stack, not a real Supabase project** (A1 still open). The `supabase-js` client path and RLS were exercised for real; what is unverified is Supabase's own platform behaviour. | high | open | Follows A1 and G1. Re-run the same checks against the real project once it exists. |
+| G33 | **`/brands/[slug]` and `/collections/[slug]` are indexable but absent from `sitemap.xml`.** Phase 5 made these routes real and they render `index, follow` with a self-canonical, yet the sitemap still lists only `/` and `/shop`. The database-driven sitemap is Phase 12, so this is a deliberate ordering rather than an oversight, but until Phase 12 a crawler can only reach a brand or collection page by following a link. | medium | open | Phase 12. The brand and collection rows already carry `updated_at`, so the entries can be added with a real `<lastmod>` rather than a build-time fallback. `/shop` itself uses a build-time `lastmod` for the same reason and should be revisited in the same pass. |
 
 ---
 
@@ -167,7 +168,7 @@ Recorded so no future phase claims to have verified something it did not.
 |---|---|---|
 | critical | 6 | 1 |
 | high | 14 | 8 |
-| medium | 18 | 11 |
+| medium | 19 | 12 |
 | low | 23 | 3 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
