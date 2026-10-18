@@ -222,10 +222,16 @@ function RangeFilter({
  * One selectable row in a filter list.
  *
  * Shared by every link-based filter so the checkbox mark, the hit target, the
- * pressed state and the count can only be defined once. `aria-pressed` is used
- * rather than a real checkbox because activating the row navigates: a checkbox
- * would tell assistive technology that the value is a form control whose state
- * changes in place, which is not what happens.
+ * selected state and the count can only be defined once.
+ *
+ * `aria-current` carries the selected state rather than `aria-pressed`. The row
+ * is a link that navigates, and `aria-pressed` is not permitted on a link at all
+ * — axe reports `aria-allowed-attr` for it — so the browser audit failed on
+ * every filter link at desktop width, where the panel is expanded. `aria-current`
+ * is the attribute that means "this is the current item in a set of links",
+ * which is exactly what a selected filter row is. A real checkbox would be wrong
+ * for the same reason as before: activating the row navigates, so the value is
+ * not a form control whose state changes in place.
  */
 function FilterRow({
   href,
@@ -246,7 +252,7 @@ function FilterRow({
   return (
     <Link
       href={href}
-      aria-pressed={selected}
+      aria-current={selected ? 'true' : undefined}
       scroll={false}
       className={cn(
         'group flex items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm',

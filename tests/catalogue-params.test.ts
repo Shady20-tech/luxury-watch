@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -232,5 +234,39 @@ describe('catalogueHiddenInputs', () => {
     expect(names).toContain('brand');
     expect(names).toContain('condition');
     expect(names).not.toContain('page');
+  });
+});
+
+describe('the filter markup', () => {
+  /**
+   * A source-level guard for the attribute that broke CI.
+   *
+   * Every filter row is an `<a>` that navigates, and `aria-pressed` is not
+   * permitted on a link — axe reports `aria-allowed-attr`, which failed the
+   * browser audit on `/collections/all` at desktop width, where the filter panel
+   * is expanded rather than folded into a drawer. The selected state belongs in
+   * `aria-current`, which is the attribute that means "current item in a set of
+   * links".
+   *
+   * jsdom does not run the rule, because `aria-allowed-attr` is not among the
+   * ones axe evaluates without layout — the same gap that hid the Phase 3 and
+   * Phase 4 defects. So the invariant is asserted against the source, which
+   * cannot be skipped for lack of a layout engine.
+   */
+  const source = readFileSync(
+    fileURLToPath(new URL('../src/components/catalogue/catalogue-filters.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  it('never puts aria-pressed on a link', () => {
+    // Strip comments: the doc comment above the fix names the old attribute in
+    // order to explain why it was wrong, and that is prose, not code.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/aria-pressed/);
+  });
+
+  it('marks the selected row with aria-current', () => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).toMatch(/aria-current=/);
   });
 });
