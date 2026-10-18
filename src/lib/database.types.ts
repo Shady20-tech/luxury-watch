@@ -103,17 +103,17 @@ isOneToOne: false
                   ]
                 },"carts": {
                   Row: {
-                    "created_at": string,"currency": string,"id": string,"session_token": string | null,"updated_at": string,"user_id": string | null
+                    "created_at": string,"currency": string,"discount_code": string | null,"id": string,"session_token": string | null,"updated_at": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"currency"?: string,"id"?: string,"session_token"?: string | null,"updated_at"?: string,"user_id"?: string | null
+                    "created_at"?: string,"currency"?: string,"discount_code"?: string | null,"id"?: string,"session_token"?: string | null,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"currency"?: string,"id"?: string,"session_token"?: string | null,"updated_at"?: string,"user_id"?: string | null
+                    "created_at"?: string,"currency"?: string,"discount_code"?: string | null,"id"?: string,"session_token"?: string | null,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
-                    
+
                   ]
                 },"collection_products": {
                   Row: {
@@ -168,6 +168,20 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"discount_codes": {
+                  Row: {
+                    "code": string,"created_at": string,"description": string | null,"ends_at": string | null,"id": string,"is_enabled": boolean,"kind": Database["public"]['Enums']["discount_kind"],"label": string,"max_discount_cents": number | null,"min_subtotal_cents": number,"starts_at": string | null,"times_redeemed": number,"updated_at": string,"usage_limit": number | null,"value": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code": string,"created_at"?: string,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"is_enabled"?: boolean,"kind"?: Database["public"]['Enums']["discount_kind"],"label": string,"max_discount_cents"?: number | null,"min_subtotal_cents"?: number,"starts_at"?: string | null,"times_redeemed"?: number,"updated_at"?: string,"usage_limit"?: number | null,"value"?: number
+                  }
+                  Update: {
+                    "code"?: string,"created_at"?: string,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"is_enabled"?: boolean,"kind"?: Database["public"]['Enums']["discount_kind"],"label"?: string,"max_discount_cents"?: number | null,"min_subtotal_cents"?: number,"starts_at"?: string | null,"times_redeemed"?: number,"updated_at"?: string,"usage_limit"?: number | null,"value"?: number
+                  }
+                  Relationships: [
+
                   ]
                 },"delivery_options": {
                   Row: {
@@ -849,7 +863,40 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "catalogue_condition_label":
+            "cart_pricing":
+{ Args: { "p_currency"?: string,"p_discount_code"?: string,"p_items"?: Json }; Returns: Json
+                           },
+"catalogue_by_ids":
+{ Args: { "p_product_ids": (string)[] }; Returns: {
+              "box_and_papers": boolean | null,
+"bracelet_material": string | null,
+"brand_name": string | null,
+"brand_slug": string | null,
+"case_material": string | null,
+"case_size_mm": number | null,
+"condition": string | null,
+"currency": string | null,
+"dial_color": string | null,
+"gender": string | null,
+"id": string,
+"image_alt": string | null,
+"image_external_url": string | null,
+"image_storage_path": string | null,
+"is_available": boolean | null,
+"is_featured": boolean | null,
+"model_name": string | null,
+"model_slug": string | null,
+"movement": string | null,
+"price_cents": number | null,
+"price_on_request": boolean | null,
+"production_year": number | null,
+"published_at": string | null,
+"reference_number": string | null,
+"slug": string,
+"title": string
+            }[]
+                           },
+"catalogue_condition_label":
 { Args: { "p_value": string }; Returns: string
                            },
 "catalogue_facets":
@@ -1022,7 +1069,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "appointment_status": "requested"|"confirmed"|"completed"|"cancelled","collection_kind": "taxonomy"|"merchandising"|"featured"|"novelty","fulfilment_type": "delivery"|"pickup","inquiry_status": "new"|"in_review"|"responded"|"closed"|"spam","inquiry_type": "sell_trade"|"sourcing"|"repair"|"general"|"product_question","inventory_transaction_kind": "acquisition"|"adjustment"|"reservation"|"reservation_release"|"sale"|"return"|"correction","navigation_location": "header"|"footer"|"topbar","notification_kind": "order_request"|"inquiry"|"appointment"|"system","order_status": "submitted"|"under_review"|"confirmed"|"awaiting_payment"|"paid_offline"|"fulfilled"|"cancelled"|"rejected","page_status": "draft"|"published"|"archived","product_condition": "new"|"unworn"|"pre_owned"|"vintage","product_status": "draft"|"published"|"archived","staff_role": "SUPER_ADMIN"|"ADMIN"|"SALES_MANAGER"|"INVENTORY_MANAGER"|"WATCH_EXPERT"|"CUSTOMER_SUPPORT"|"CONTENT_MANAGER"
+            "appointment_status": "requested"|"confirmed"|"completed"|"cancelled","collection_kind": "taxonomy"|"merchandising"|"featured"|"novelty","discount_kind": "percentage"|"fixed_amount"|"free_delivery","fulfilment_type": "delivery"|"pickup","inquiry_status": "new"|"in_review"|"responded"|"closed"|"spam","inquiry_type": "sell_trade"|"sourcing"|"repair"|"general"|"product_question","inventory_transaction_kind": "acquisition"|"adjustment"|"reservation"|"reservation_release"|"sale"|"return"|"correction","navigation_location": "header"|"footer"|"topbar","notification_kind": "order_request"|"inquiry"|"appointment"|"system","order_status": "submitted"|"under_review"|"confirmed"|"awaiting_payment"|"paid_offline"|"fulfilled"|"cancelled"|"rejected","page_status": "draft"|"published"|"archived","product_condition": "new"|"unworn"|"pre_owned"|"vintage","product_status": "draft"|"published"|"archived","staff_role": "SUPER_ADMIN"|"ADMIN"|"SALES_MANAGER"|"INVENTORY_MANAGER"|"WATCH_EXPERT"|"CUSTOMER_SUPPORT"|"CONTENT_MANAGER"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1138,7 +1185,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "appointment_status": ["requested", "confirmed", "completed", "cancelled"],"collection_kind": ["taxonomy", "merchandising", "featured", "novelty"],"fulfilment_type": ["delivery", "pickup"],"inquiry_status": ["new", "in_review", "responded", "closed", "spam"],"inquiry_type": ["sell_trade", "sourcing", "repair", "general", "product_question"],"inventory_transaction_kind": ["acquisition", "adjustment", "reservation", "reservation_release", "sale", "return", "correction"],"navigation_location": ["header", "footer", "topbar"],"notification_kind": ["order_request", "inquiry", "appointment", "system"],"order_status": ["submitted", "under_review", "confirmed", "awaiting_payment", "paid_offline", "fulfilled", "cancelled", "rejected"],"page_status": ["draft", "published", "archived"],"product_condition": ["new", "unworn", "pre_owned", "vintage"],"product_status": ["draft", "published", "archived"],"staff_role": ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "INVENTORY_MANAGER", "WATCH_EXPERT", "CUSTOMER_SUPPORT", "CONTENT_MANAGER"]
+            "appointment_status": ["requested", "confirmed", "completed", "cancelled"],"collection_kind": ["taxonomy", "merchandising", "featured", "novelty"],"discount_kind": ["percentage", "fixed_amount", "free_delivery"],"fulfilment_type": ["delivery", "pickup"],"inquiry_status": ["new", "in_review", "responded", "closed", "spam"],"inquiry_type": ["sell_trade", "sourcing", "repair", "general", "product_question"],"inventory_transaction_kind": ["acquisition", "adjustment", "reservation", "reservation_release", "sale", "return", "correction"],"navigation_location": ["header", "footer", "topbar"],"notification_kind": ["order_request", "inquiry", "appointment", "system"],"order_status": ["submitted", "under_review", "confirmed", "awaiting_payment", "paid_offline", "fulfilled", "cancelled", "rejected"],"page_status": ["draft", "published", "archived"],"product_condition": ["new", "unworn", "pre_owned", "vintage"],"product_status": ["draft", "published", "archived"],"staff_role": ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "INVENTORY_MANAGER", "WATCH_EXPERT", "CUSTOMER_SUPPORT", "CONTENT_MANAGER"]
           }
         }
 } as const

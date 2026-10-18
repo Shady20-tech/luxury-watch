@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { AnnouncementBar } from '@/components/chrome/announcement-bar';
 import { DesktopNav } from '@/components/chrome/desktop-nav';
-import { HeaderActions } from '@/components/chrome/header-actions';
+import { HeaderActionsLive } from '@/components/chrome/header-actions-live';
 import { MobileNav } from '@/components/chrome/mobile-nav';
 import { Wordmark } from '@/components/chrome/wordmark';
 import type { ChromeData } from '@/lib/navigation/types';
@@ -57,7 +57,7 @@ export function SiteHeader({ data }: { data: ChromeData }) {
               Book an appointment
             </Link>
 
-            <HeaderActions />
+            <HeaderActionsLive />
           </div>
         </div>
       </div>

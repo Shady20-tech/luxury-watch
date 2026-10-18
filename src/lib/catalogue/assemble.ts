@@ -118,7 +118,7 @@ function formatCaseSize(value: number | string | null): string | null {
  * homepage card rather than reimplemented, so the two cannot drift into
  * describing the same product differently.
  */
-function catalogueSummary(row: CatalogueSearchRow): string | null {
+function catalogueSummary(row: Omit<CatalogueSearchRow, 'total_count'>): string | null {
   return composeSummary({
     id: row.id,
     slug: row.slug,
@@ -148,7 +148,7 @@ function catalogueSummary(row: CatalogueSearchRow): string | null {
  * environment; the default is supplied by the repository.
  */
 export function toCatalogueProduct(
-  row: CatalogueSearchRow,
+  row: Omit<CatalogueSearchRow, 'total_count'>,
   now: string,
   resolveImage: (storagePath: string | null, externalUrl: string | null) => string | null,
 ): CatalogueProduct {
@@ -188,7 +188,7 @@ export function toCatalogueProduct(
 
 /** Map a page of search rows. */
 export function toCatalogueProducts(
-  rows: CatalogueSearchRow[],
+  rows: Omit<CatalogueSearchRow, 'total_count'>[],
   now: string,
   resolveImage: (storagePath: string | null, externalUrl: string | null) => string | null,
 ): CatalogueProduct[] {

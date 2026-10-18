@@ -213,6 +213,33 @@ to the customer, e.g. the bank details to transfer to.
 `session_token`, `currency`, timestamps, with a check that at least one owner
 exists. `cart_items` has `cart_id`, `product_id`, `quantity`, `unit_price_cents`.
 
+Migration 0012 added **`carts.discount_code`**: the code the customer applied,
+stored as a reference to `discount_codes.code` rather than as an amount. A
+tampered request can change which code is named; it cannot change what the code is
+worth, because `cart_pricing` recomputes the value from the row on every read.
+
+**`discount_codes`** — administrator-configured promotional codes. `id`, `code`
+(unique), `label`, `kind` (`discount_kind`), `value` (basis points for
+`percentage`, minor units for `fixed_amount`, ignored for `free_delivery`),
+`min_subtotal_cents`, `max_discount_cents`, `is_enabled`, `starts_at`, `ends_at`,
+timestamps. It has **no public read policy**, so the list of live codes cannot be
+enumerated with the anon key; `cart_pricing` is `security definer` and reads it on
+the customer's behalf.
+
+**`carts` / `cart_items` ownership.** A signed-in cart is owner-scoped by policy. A
+**guest** cart has no policy at all — an anonymous caller cannot read or write
+`carts` or `cart_items` directly, because there is no way to prove ownership of a
+guest cart from inside a policy. Guest carts are handled exclusively server-side
+with the service-role client, where the session token lives in an httpOnly cookie
+and never appears in a query the browser can influence.
+
+**`wishlists` / `wishlist_items`** — `wishlists` has `id`, `user_id`, `name`,
+`is_default`, timestamps, with a partial unique index giving one default list per
+user. `wishlist_items` has `wishlist_id`, `product_id`, `created_at`, and a
+`unique (wishlist_id, product_id)` constraint — which is what makes a duplicate
+row impossible rather than merely unlikely. Both are owner-scoped by policy; a
+guest's list lives in `localStorage` and is merged into the account once.
+
 **`order_requests`** — the core commerce record. 23 columns: `id`, `reference`
 (unique, `LW-YY-NNNNNN`), `user_id` (nullable for guests), `customer_name`,
 `customer_email`, `customer_phone`, `fulfilment_type` (`delivery`/`pickup`),
@@ -279,6 +306,7 @@ into a separate `extensions` schema, not `public`.
 | `collection_kind`            | taxonomy, merchandising, featured, novelty                                                            |
 | `order_status`               | submitted, under_review, confirmed, awaiting_payment, paid_offline, fulfilled, cancelled, rejected    |
 | `fulfilment_type`            | delivery, pickup                                                                                      |
+| `discount_kind`              | percentage, fixed_amount, free_delivery                                                               |
 | `inventory_transaction_kind` | acquisition, adjustment, reservation, reservation_release, sale, return, correction                   |
 | `inquiry_type`               | sell_trade, sourcing, repair, general, product_question                                               |
 | `inquiry_status`             | new, in_review, responded, closed, spam                                                               |
@@ -316,6 +344,10 @@ rather than merely unlikely, and each is covered by a test.
 | `product_images_alt_required`                   | product_images         | A missing `alt_text`, which would fail the accessibility target.                                                    |
 | `carts_owner_present`                           | carts                  | A cart with neither a user nor a session token, which could never be retrieved.                                     |
 | `addresses_country_code_format`                 | addresses              | A malformed country code.                                                                                           |
+| `cart_items_quantity_positive`                  | cart_items             | A zero, negative or absurd quantity. The boundary for "invalid quantity", not the UI.                               |
+| `cart_items_cart_product_key` (unique)          | cart_items             | Two lines for one product in one cart, which would double-count in a subtotal.                                      |
+| `wishlist_items_unique`                         | wishlist_items         | A duplicate saved row. This is what makes the brief's "prevent duplicate records" a database guarantee.             |
+| `discount_codes_code_unique`                    | discount_codes         | Two codes with the same spelling, which would make eligibility ambiguous.                                           |
 
 ---
 
@@ -516,6 +548,48 @@ Status transitions are handled by `handle_order_status_change`, which releases t
 reservation on `rejected` or `cancelled` and converts it to a sale on `confirmed`.
 `settled_offline_at` and `settled_offline_by` can only be set together, by an
 administrator, and never by submission.
+
+---
+
+## 8a. Cart pricing at the database level (Phase 7)
+
+The cart has the same shape as the order path, for the same reason: the browser is
+a display surface, never a source of truth. `cart_pricing(p_lines jsonb,
+p_discount_code text, p_currency char(3))` is the single entry point for every
+number the cart shows, and it is `SECURITY DEFINER` so an anonymous visitor with
+only the anon key can call it.
+
+It takes **ids and quantities**. There is no parameter through which a price could
+be sent, so there is nothing for a tampered request to carry.
+
+1. Normalises each line: a malformed id is skipped rather than raising, and a
+   repeated id is ignored so listing a product twice cannot inflate a subtotal.
+2. Re-reads every product. An unpublished or archived product is **reported** with
+   `product_status = 'unpublished'`, not silently dropped, and contributes nothing
+   to the subtotal.
+3. Decides whether the product model permits a quantity above one. A piece with
+   fewer than two unreserved units is clamped to one and flagged
+   `quantity_locked` / `quantity_adjusted`, so the UI can say the quantity changed
+   rather than changing it silently.
+4. Recomputes the discount from `discount_codes` — eligibility by minimum
+   subtotal, enabled state and window, then the value by kind, capped at
+   `max_discount_cents` and never below zero. An ineligible code returns
+   `applied: false` with a customer-readable `reason` rather than raising.
+5. Returns `subtotal_cents`, `discount_cents` and `total_cents` as booleans and
+   formatted money — never `cost_cents`, never `compare_at_cents`, and never a
+   stock count. `is_available` and `quantity_locked` are booleans precisely so the
+   result cannot be used to binary-search the business's inventory position.
+
+**A cart does not reserve stock.** `cart_pricing` is read-only; it does not touch
+`inventory`, `inventory_reservations` or `inventory_transactions`. Availability is
+reported, never claimed. The piece is held only when an order request is submitted
+and an administrator confirms it, which is `submit_order_request` (§8) and
+`reserve_inventory()`.
+
+**`catalogue_by_ids(uuid[])`** exists because `wishlist_items` can reference a
+product that has since been unpublished. It re-applies the publication and
+active-taxonomy gates inside the function, so a saved id returns no row for a
+draft — an id the browser holds is not an oracle for the catalogue.
 
 ---
 

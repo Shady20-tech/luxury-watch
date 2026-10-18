@@ -8,14 +8,15 @@ import { cn } from '@/lib/utils';
 /**
  * Header utility actions: search, account, wishlist, cart.
  *
- * The counts are passed in rather than read from a store here. Cart and
- * wishlist state does not exist yet — it arrives with Phase 7 (cart) and Phase 6
- * (wishlist) — so the callers pass the real count, which is currently zero. A
- * badge renders **only when the count is above zero**, so the header shows no
- * invented number. The links themselves are real routes, so they are never dead.
+ * Presentational and stateless: the counts arrive as props. The callers are
+ * `HeaderActionsLive` (which reads them from the cart/wishlist surfaces) and the
+ * component tests (which pass a fixture). Keeping this component free of data
+ * fetching is what lets the accessibility wiring be tested against a real DOM
+ * without a database.
  *
- * This component deliberately owns no state, so that when the cart store lands
- * the only change is where the count comes from.
+ * A badge renders **only when the count is above zero**, so the header never
+ * shows an invented number, and the links themselves are real routes, so they
+ * are never dead.
  */
 export function HeaderActions({
   cartCount = 0,

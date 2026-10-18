@@ -34,6 +34,12 @@ const PAGES = [
   '/contact',
   '/pages/faq',
   '/design-system',
+  // The cart and the wishlist are per-visitor and are not in the sitemap, but
+  // they are the two surfaces this phase adds and both render chrome, cards and
+  // interactive controls. Auditing them is the only check that catches a
+  // contrast or overflow defect in the cart summary or the wishlist grid.
+  '/cart',
+  '/wishlist',
   // An unmatched path, so the not-found template is audited in every
   // configuration. `/brands/rolex` cannot stand in for it: it renders a real
   // brand page when a database is configured and only falls back to the 404

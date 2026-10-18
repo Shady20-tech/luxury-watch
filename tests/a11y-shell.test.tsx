@@ -34,6 +34,22 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
+/**
+ * The header's counts are fetched by a small Client Component after mount (see
+ * `header-actions-live.tsx`), which imports a Server Action. A Server Action is
+ * importable from a Client Component in a real Next.js build — that is what the
+ * `'use server'` boundary is for — but the action's module graph reaches
+ * `server-only`, which throws by design when a test imports it into a
+ * browser-like environment.
+ *
+ * This suite audits the shell's structure, not the counts fetch, so the action is
+ * replaced with a fixed answer. The mock is at the module boundary and returns
+ * the real `HeaderCounts` shape, so the badge path is still exercised.
+ */
+vi.mock('@/server/actions/counts-actions', () => ({
+  readHeaderCounts: async () => ({ cartCount: 0, wishlistCount: 0, signedIn: false }),
+}));
+
 const chrome: ChromeData = {
   identity: {
     businessName: 'Appleton & Co',

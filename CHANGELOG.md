@@ -8,6 +8,110 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 7 — Wishlist and cart
+
+**Date:** 2026-10-18
+
+#### Added
+
+**Migration `supabase/migrations/0012_wishlist_and_cart.sql`**
+
+- `discount_kind` (`percentage`, `fixed_amount`, `free_delivery`) and
+  `discount_codes` — administrator-configured promotional codes. The table has
+  **no public read policy**, so the list of live codes cannot be enumerated with
+  the anon key.
+- `carts.discount_code` — the code a customer has applied, stored as a reference
+  to the code, never as an amount. A tampered request can change which code is
+  named; it cannot change what the code is worth.
+- `cart_pricing(lines jsonb, discount_code text, currency char(3))` — the single
+  source of truth for every number the cart shows. It re-reads each product,
+  decides availability, decides whether the product model permits a quantity
+  above one, and recomputes the discount from the code. `security definer`,
+  because it must see unpublished rows in order to report them honestly, and it
+  never returns `cost_cents`, `compare_at_cents` or a stock count.
+- `catalogue_by_ids(uuid[])` — the published card rows for a set of ids, with the
+  publication and active-taxonomy gates re-applied inside the function. The
+  wishlist needs this because `wishlist_items` can reference a product that has
+  since been unpublished, and a wishlist that rendered a draft would be a leak.
+
+**Cart**
+
+- `src/lib/cart/` — `types.ts` (view models), `pricing.ts` (a pure mapper from the
+  `cart_pricing` payload, with no arithmetic of its own), `validation.ts` (Zod
+  schemas and the mutation state), `session.ts` (the httpOnly guest-cart token),
+  `merge.ts` (the merge rules) and `events.ts` (the change signal).
+- `src/server/repositories/cart-repository.ts` — reads and writes against the
+  request-scoped client, plus the service-role path a guest cart needs.
+- `src/server/services/cart-service.ts`, `src/server/actions/cart-actions.ts` —
+  `addToCart`, `updateCartQuantity`, `removeFromCart`, `applyDiscountCode`,
+  `clearCart`, `mergeGuestCartAction` and `moveToCartFromWishlist`.
+- `src/components/cart/` — the add-to-cart control, the cart contents, the line
+  controls, the discount form and the responsive cart drawer.
+- `/cart` — the cart page, explicitly `force-dynamic` because it reads a cookie.
+
+**Wishlist**
+
+- `src/lib/wishlist/` — `guest.ts` (the `localStorage` list, ids only),
+  `assemble.ts` and `types.ts`.
+- `src/server/repositories/wishlist-repository.ts`,
+  `src/server/services/wishlist-service.ts`, and the wishlist server actions.
+- `src/components/wishlist/` — the guest list, the signed-in grid, the remove
+  control, the move-to-cart control and the one-shot sign-in merge.
+- `/wishlist`, the product-page wishlist toggle, and live header badges.
+
+#### Security
+
+- **A discount is recomputed from the code, never accepted as an amount.** The
+  form posts the code and nothing else; `cart_pricing` decides eligibility and
+  the value. An ineligible code is reported with a reason and applies nothing
+  rather than raising, so an expired code is a normal outcome and not an error.
+- **A repeated product id is one line, not two.** `cart_pricing` ignores a
+  second occurrence of an id, so listing a product twice cannot inflate a
+  subtotal, and `cart_items_cart_product_key` makes the duplicate unrepresentable.
+- **A quantity is normalised, and the constraint is the boundary.**
+  `cart_items_quantity_positive` rejects a zero, a negative or a value above 99
+  even in a direct statement; `cart_pricing` clamps a unique piece to one and
+  says that it did.
+- **The guest-cart token is `httpOnly`.** It is written in exactly one module,
+  it is not an authentication token, and it is never accepted as proof of
+  identity.
+- **A saved id cannot confirm that a draft exists.** `catalogue_by_ids` returns
+  no row for a draft or archived product, so an id the browser holds is not an
+  oracle for the catalogue.
+
+#### Fixed
+
+- **`aria-pressed` on a catalogue filter link failed WCAG and the browser
+  audit.** Every filter row is an `<a>` that navigates, and `aria-pressed` is not
+  permitted on a link: axe reports `aria-allowed-attr`, which failed
+  `npm run audit:a11y` on `/collections/all` at desktop width, where the filter
+  panel is expanded rather than folded into a drawer. This was a Phase 5 defect,
+  reproduced on a clean checkout of the previous commit and red in CI on `main`
+  (run `39125597185`). The selected state now uses `aria-current`, the attribute
+  that means "current item in a set of links". `tests/catalogue-params.test.ts`
+  guards it at source level, because jsdom does not run `aria-allowed-attr` — the
+  same layout gap that hid the Phase 3 and Phase 4 defects.
+
+#### Changed
+
+- `scripts/a11y-audit.mjs` now audits `/cart` and `/wishlist`, so the two
+  surfaces this phase adds are covered by the check that catches contrast and
+  overflow. The audit is green across **10 pages × 4 viewports** plus the
+  age-gate pass.
+- `tests/a11y-shell.test.tsx` mocks `next/navigation`'s `usePathname`, which the
+  header now needs.
+
+#### Not done, and deliberately
+
+- **No payment gateway, no card field, no provider.** `npm run check:no-payment`
+  passes unchanged. Payment is settled offline by an administrator.
+- **A cart does not reserve stock.** Nothing in the cart path decrements
+  `inventory` or writes a reservation, and the copy says so. The piece is held
+  when an order request is submitted and an administrator confirms it.
+- **Submitting an order request is not built.** The path from a cart to a request
+  is the next phase; the cart's control states that plainly rather than offering a
+  button that leads nowhere.
+
 ### Phase 5 — Catalogue and discovery
 
 **Date:** 2026-10-17

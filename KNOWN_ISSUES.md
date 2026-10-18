@@ -177,6 +177,31 @@ Recorded so no future phase claims to have verified something it did not.
 | G41 | **Phase 6 was verified against a local PostgreSQL + PostgREST stack, not a real Supabase project** (A1 still open). The `supabase-js` client path, RLS and the column grants were exercised for real; what is unverified is Supabase's own platform behaviour, including whether the dashboard's generated types match the hand-maintained `database.types.ts`. | high | open | Follows A1 and G1. Re-run the same checks against the real project, and regenerate `database.types.ts` with `supabase gen types` — it was hand-edited here because the CLI install timed out in this environment. |
 | G42 | **A database-backed page that reads cookies is misclassified as SSG unless it declares `force-dynamic`, and the failure appears only in a production build.** Phase 6 hit this: `/products/[slug]` exported `generateStaticParams` while reading through the cookie-aware Supabase server client, so `next start` returned a 500 for every product with "Page changed from static to dynamic at runtime". `next dev` and `next build` both passed, so it was invisible to the normal loop. | high | **resolved** | Fixed with `export const dynamic = 'force-dynamic'`, and recorded in `AGENTS.md` as a standing pitfall with the way to catch it (request the real routes against `next start`, not only `next dev`). The underlying risk is not gone for future routes: any new database-backed page has the same shape. |
 
+## L. Wishlist and cart items (raised in Phase 7)
+
+| ID | Finding | Severity | Status | Resolution or next step |
+|---|---|---|---|---|
+| G43 | **`aria-pressed` on a catalogue filter link failed WCAG and the browser audit.** Every filter row is an `<a>` that navigates; `aria-pressed` is not permitted on a link, so axe reported `aria-allowed-attr` and `npm run audit:a11y` failed on `/collections/all` at desktop width, where the filter panel is expanded rather than folded into a drawer. It was invisible below `md`, where the same filters live in a drawer. | high | **resolved** | This was a Phase 5 defect, not a Phase 7 one: it reproduced on a clean checkout of the previous commit and was red in CI on `main` (run `39125597185`). The selected state now uses `aria-current`, which is the attribute that means "current item in a set of links". `tests/catalogue-params.test.ts` guards it at source level, because jsdom does not run `aria-allowed-attr` — the same layout gap that hid the Phase 3 and Phase 4 defects. Verified by reintroducing the attribute and watching the guard fail. |
+| G44 | **Submitting an order request from the cart is not built.** The cart's primary control is rendered disabled with a `title` explaining that the next step is unbuilt, rather than a button that navigates nowhere or silently does nothing. | medium | open | The next phase. The database is ready: `submit_order_request` (§8) is the single entry point and already derives every monetary value. The cart's `cart_pricing` and the order path agree by construction, because both are in Postgres. |
+| G45 | **The guest cart is identified by an httpOnly cookie, so it does not survive a cleared cookie jar or a private window.** A guest who clears cookies loses the cart; there is no server-side way to recover it, because the token was the only link. | low | accepted | Deliberate. The alternative — an identifier the browser could read or forge — would let one visitor reach another's cart. A signed-in cart is unaffected, because it is keyed by `user_id`. |
+| G46 | **Phase 7 was verified against a local PostgreSQL + PostgREST stack, not a real Supabase project** (A1 still open). The `supabase-js` client path, RLS and the column grants were exercised for real, including the new `cart_pricing` and `catalogue_by_ids`. What is unverified is Supabase's own platform behaviour. | high | open | Follows A1, G1, G32 and G41. Re-run the same checks against the real project once it exists. |
+| G47 | **The sign-in merge runs on the first visit to `/wishlist` rather than at the moment of sign-in.** The sign-in flow is a later phase and does not exist yet, so a merge hooked into it would never run. Hooking it to the wishlist page means the merge happens at the earliest point at which both a session and a browser list exist at once, and it is idempotent — the browser copy is cleared only on a successful merge, so a failure retries. | low | open | Revisit when the sign-in flow is built. The merge action is already written to be callable from there; only the trigger point moves. |
+| G48 | **A discount code has no per-customer usage limit and no redemption counter.** `discount_codes` carries an enabled flag and a validity window, but nothing counts how many times a code has been used, so a customer can apply the same code to every request they submit. | medium | open | The order path is where a redemption would be recorded, and it is the next phase. Decide then whether the limit is per code, per customer or both, and record the redemption inside `submit_order_request` so it cannot be bypassed. |
+| G49 | **A cart line's `unit_price_cents` is a display snapshot and is never trusted.** It is written when a line is added and can therefore be stale, which is deliberate: the order path recomputes from `products.price_cents`. The risk is that a future reader treats the snapshot as authoritative. | low | accepted | Documented in the column comment and in §8a. `cart_pricing` ignores the snapshot entirely and re-reads the product, so the snapshot cannot influence a displayed or submitted total today. |
+
+**Phase 7 added section L and closed one defect that predated it.** The cart and
+wishlist are now real: a cart is priced by `cart_pricing` from ids and quantities
+only, a discount is recomputed from its code rather than accepted as an amount, a
+duplicate wishlist row is impossible by constraint, and a guest's list is merged
+into the account once with the database as the source of truth afterwards. The
+finding worth carrying forward is G43: the `aria-pressed`-on-a-link defect was a
+Phase 5 mistake that CI had been reporting red, and it was found by running the
+browser audit locally rather than by reading the code — the same lesson as Phase 3
+and Phase 4, that the geometry- and rule-dependent checks are the ones that catch
+what a jsdom run cannot see. G44 records that the order-request step is deliberately
+not built, and G46 that this phase, like Phases 4, 5 and 6, was verified against a
+local PostgREST stack because A1 is still open.
+
 **Phase 6 closed a critical security item (D10).** The `anon` role could read
 `products.cost_cents` and `products.compare_at_cents`, the business's cost basis,
 through PostgREST. Migration 0011 revokes the table-level `select` grant and
@@ -192,9 +217,9 @@ the fix.
 | Severity | Count | Open |
 |---|---|---|
 | critical | 7 | 1 |
-| high | 19 | 11 |
-| medium | 23 | 14 |
-| low | 31 | 5 |
+| high | 21 | 12 |
+| medium | 25 | 16 |
+| low | 34 | 6 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.

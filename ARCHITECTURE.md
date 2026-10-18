@@ -167,8 +167,11 @@ Full DDL lands in Phase 2 as versioned SQL migrations under `supabase/migrations
 - `payment_methods` — id, code, label, description, instructions, is_enabled, sort_order
   *(admin-controlled list: bank transfer, mobile money/manual transfer, cash on pickup)*
 - `delivery_options` — id, code (`delivery`/`pickup`), label, description, fee_cents, is_enabled, sort_order
-- `carts` — id, user_id (nullable for guests), session_token, currency, created_at, updated_at
+- `carts` — id, user_id (nullable for guests), session_token, currency, discount_code (nullable),
+  created_at, updated_at
 - `cart_items` — id, cart_id, product_id, quantity, unit_price_cents (snapshot at add time)
+- `discount_codes` — id, code, label, kind (`percentage`/`fixed_amount`/`free_delivery`), value,
+  min_subtotal_cents, max_discount_cents, is_enabled, starts_at, ends_at. No public read policy.
 - `order_requests` — id, reference (human-readable, unique), user_id (nullable), customer_name,
   customer_email, customer_phone, fulfilment_type, delivery_address jsonb (nullable), pickup_location,
   payment_method_code, customer_note, admin_note, subtotal_cents, delivery_fee_cents, total_cents,
@@ -182,6 +185,27 @@ Full DDL lands in Phase 2 as versioned SQL migrations under `supabase/migrations
 **Critical invariant:** `order_requests.status` has **no** `paid` value that the customer can cause.
 `paid_offline` can only be set by an administrator after payment is verified outside the website.
 Nothing in the schema stores card numbers, CVV, or any payment credential.
+
+**Cart pricing lives in the database, not in the application (Phase 7).** The cart's numbers come
+from `cart_pricing(lines, discount_code, currency)`, which takes product **ids and quantities** and
+re-reads every product. There is no parameter through which a price or a stock count could arrive,
+so a tampered request has nothing to tamper with. This is the same reasoning as
+`submit_order_request`: one implementation of "what does this line cost", used by the cart, the
+drawer and the order path, rather than an application copy that can drift from the order path's
+copy. The TypeScript mapper (`src/lib/cart/pricing.ts`) formats the payload and does no arithmetic.
+A discount is stored as a **code reference**, never as an amount, and is valued from the code row on
+every read.
+
+**A cart does not reserve stock.** `cart_pricing` is read-only and never touches `inventory`,
+`inventory_reservations` or `inventory_transactions`. It reports availability as booleans and never
+returns a stock count, so the result cannot be used to probe the business's inventory position. The
+piece is held only when an order request is submitted and an administrator confirms it.
+
+**Guest ownership is not expressible in a policy.** A signed-in cart is owner-scoped by RLS. A guest
+cart has no policy at all, because there is no way to prove ownership of a guest row from inside a
+policy; it is handled exclusively server-side with the service-role client, with the session token
+in an httpOnly cookie. The wishlist follows the same split — a signed-in list in the database, a
+guest list in `localStorage` merged once on sign-in.
 
 ### 5.3 Service inquiries
 

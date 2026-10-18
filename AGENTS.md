@@ -209,6 +209,20 @@ SSG; if the page reads cookies, that combination is the bug.
   redirectable by a hostile `search_path`.
 - **`submit_order_request` recomputes totals from product rows.** Never trust a
   client-supplied price. The arithmetic is re-checked by a constraint.
+- **`cart_pricing` takes ids and quantities, never prices.** It is the only source
+  of a cart's numbers and the only place a discount is valued. The browser's copy is
+  display data. Do not add a price parameter to it, and do not compute a subtotal,
+  a discount or a total in TypeScript — `src/lib/cart/pricing.ts` maps the payload
+  and does no arithmetic, deliberately.
+- **`aria-pressed` is not allowed on a link.** It failed the browser audit on the
+  catalogue filter rows (`aria-allowed-attr`), which are `<a>` elements that
+  navigate. Use `aria-current` for "the current item in a set of links", and
+  `aria-pressed` only on a real `<button>`. jsdom does not run this rule, so the
+  audit is what catches it.
+- **A guest cart is server-side only.** `carts` and `cart_items` have no policy
+  that can prove a guest owns a row, so an anonymous caller cannot touch them
+  through the API. Guest carts go through the service-role client with the token
+  in an httpOnly cookie. Do not add a public policy to "make the guest cart work".
 - **`pkill -f "next start"` does not kill a running Next.js server.** Next.js
   renames its process to `next-server`, so the pattern never matches and the old
   server keeps serving the previous `.next` build on that port. Restarting with

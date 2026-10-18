@@ -15,6 +15,8 @@ import { buildMetadata } from '@/lib/seo/metadata';
 import { breadcrumbSchema, productSchema } from '@/lib/seo/schema';
 import { productBreadcrumbs } from '@/lib/product/assemble';
 import { getProductBySlug } from '@/server/services/product-service';
+import { productAllowsQuantity } from '@/server/services/cart-service';
+import { getViewerState } from '@/server/services/viewer-service';
 
 /**
  * Product detail page.
@@ -220,6 +222,17 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const { product, related } = result;
   const breadcrumbs = productBreadcrumbs(product);
 
+  // The purchase controls need three facts that belong to the visitor rather
+  // than the product: whether they are signed in, whether this piece is already
+  // saved, and whether the product model permits a quantity above one. They are
+  // resolved here, in parallel, so the controls render in their correct state
+  // rather than flickering after hydration. `productAllowsQuantity` asks
+  // `cart_pricing`, so the selector agrees with what the cart will actually do.
+  const [viewer, allowsQuantity] = await Promise.all([
+    getViewerState(),
+    productAllowsQuantity(product.id),
+  ]);
+
   return (
     <main id="main-content" className="container-page py-8 lg:py-12">
       <Breadcrumbs entries={breadcrumbs} className="mb-6" />
@@ -244,7 +257,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
             </p>
           ) : null}
 
-          <PurchaseActions />
+          <PurchaseActions
+            product={product}
+            signedIn={viewer.signedIn}
+            initiallySaved={viewer.savedProductIds.includes(product.id)}
+            allowQuantity={allowsQuantity}
+          />
 
           {/* The enquiry anchor is the real call to action for this phase, so it
               is a prominent link rather than a disabled button. */}
