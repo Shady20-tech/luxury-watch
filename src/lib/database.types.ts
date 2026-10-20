@@ -1009,6 +1009,9 @@ isOneToOne: false
               "brand_id": string,"product_count": number
             }[]
                            },
+"read_order_request":
+{ Args: { "p_access_token": string,"p_reference": string }; Returns: Json
+                           },
 "release_reservation":
 { Args: { "p_order_request_id": string,"p_product_id": string,"p_reason"?: string }; Returns: boolean
                            },
@@ -1036,7 +1039,7 @@ isOneToOne: false
 { Args: { "p_email": string,"p_message": string,"p_name": string,"p_phone"?: string,"p_product_slug": string }; Returns: string
                            },
 "submit_order_request":
-{ Args: { "p_customer_email": string,"p_customer_name": string,"p_customer_note"?: string,"p_customer_phone": string,"p_delivery_address"?: Json,"p_delivery_option_code"?: string,"p_fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"p_items": Json,"p_payment_method_code": string }; Returns: {
+{ Args: { "p_access_token_hash"?: string,"p_customer_email": string,"p_customer_name": string,"p_customer_note"?: string,"p_customer_phone": string,"p_delivery_address"?: Json,"p_delivery_option_code"?: string,"p_discount_code"?: string,"p_fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"p_idempotency_key"?: string,"p_items": Json,"p_payment_method_code": string,"p_pickup_location"?: string,"p_terms_acknowledged"?: boolean,"p_user_agent"?: string }; Returns: {
               "admin_note": string | null,
 "created_at": string,
 "currency": string,

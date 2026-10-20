@@ -15,7 +15,7 @@ All headers are defined in `next.config.ts` and applied to every response.
 | `Strict-Transport-Security`    | `max-age=63072000; includeSubDomains`                                                                 | Forces HTTPS for two years.                                                                               |
 
 `X-Robots-Tag: noindex, nofollow` and `Cache-Control: no-store` are added to
-`/account`, `/admin`, `/cart`, `/order-request` and `/api/*`.
+`/account`, `/admin`, `/cart`, `/wishlist`, `/checkout`, `/order/*` and `/api/*`.
 
 ## Why `preload` is omitted from HSTS
 

@@ -1,7 +1,8 @@
 # Architecture — Luxury Watch Storefront & Administration Platform
 
-Status: **Phase 0 (planning)**. No application code exists yet.
-Last updated: 2026-10-16
+Status: **Phase 7 complete (both passes)** — catalogue, product detail, wishlist, cart and the
+manual order-request flow are built. Phase 8 (transactional email) is next.
+Last updated: 2026-10-18
 
 This document is the authoritative architecture reference. Every phase must conform to it, or amend
 it with a recorded reason in `CHANGELOG.md` and `IMPLEMENTATION_PLAN.md`.
@@ -115,8 +116,8 @@ There is **no payment provider in this diagram, by design**.
 | `/services/sourcing` | Service flow | Server shell + form island |
 | `/services/repair-restoration` | Service flow | Server shell + form island |
 | `/contact` | Contact | Server shell + form island |
-| `/order-request` | Order request submission | Server shell + form island |
-| `/order-request/[reference]` | Request confirmation | Dynamic, no cache |
+| `/checkout` | Order request submission (no payment) | Server shell + form island, `force-dynamic` |
+| `/order/[reference]` | Request confirmation, guest read-back with a private token | `force-dynamic`, `noindex` |
 | `/account`, `/account/orders`, `/account/orders/[id]`, `/account/wishlist`, `/account/profile` | Customer account | Auth-gated, dynamic |
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | Dynamic |
 | `/sitemap.xml`, `/robots.txt`, `/sitemap-products.xml` etc. | SEO | Route handlers, revalidated |
@@ -196,10 +197,13 @@ copy. The TypeScript mapper (`src/lib/cart/pricing.ts`) formats the payload and 
 A discount is stored as a **code reference**, never as an amount, and is valued from the code row on
 every read.
 
-**A cart does not reserve stock.** `cart_pricing` is read-only and never touches `inventory`,
-`inventory_reservations` or `inventory_transactions`. It reports availability as booleans and never
-returns a stock count, so the result cannot be used to probe the business's inventory position. The
-piece is held only when an order request is submitted and an administrator confirms it.
+**A cart does not reserve stock; submitting an order request does.** `cart_pricing` is read-only and
+never touches `inventory`, `inventory_reservations` or `inventory_transactions`. It reports
+availability as booleans and never returns a stock count, so the result cannot be used to probe the
+business's inventory position. The piece is held when an order request is **submitted**:
+`submit_order_request` (§8) calls `reserve_inventory()` in the same transaction, so a request under
+review holds the piece, and the hold is released if the request is rejected or cancelled. The cart
+itself holds nothing.
 
 **Guest ownership is not expressible in a policy.** A signed-in cart is owner-scoped by RLS. A guest
 cart has no policy at all, because there is no way to prove ownership of a guest row from inside a
@@ -302,8 +306,8 @@ Visual components never import a repository.
 5. **Secrets.** No secret is committed. `.env.example` lists names only. `NEXT_PUBLIC_*` is reserved
    for values that are genuinely public (Supabase URL, anon key, site URL).
 6. **Service-role key** is server-only, never logged, never sent to the client.
-7. **Guest order lookup** requires the exact `reference` **and** the email used, rate-limited; a
-   reference alone is not sufficient authorisation.
+7. **Guest order lookup** requires the exact `reference` **and** the access token issued once at
+   submission, rate-limited; a reference alone is not sufficient authorisation.
 8. **Rate limiting** on public mutation endpoints (inquiries, contact, newsletter, order requests,
    auth) via a Postgres-backed counter or an edge-compatible limiter — no third-party payment or
    CAPTCHA provider is required, but a honeypot plus server-side rate limit is mandatory.
@@ -327,7 +331,7 @@ Customer                Next.js (server)                 Supabase               
    │ add to cart              │                             │                       │
    ├─────────────────────────►│ upsert cart + cart_items ──►│                       │
    │                          │                             │                       │
-   │ open /order-request      │                             │                       │
+   │ open /checkout           │                             │                       │
    ├─────────────────────────►│ read enabled              ─►│ payment_methods       │
    │                          │ delivery_options            │                       │
    │◄─────────────────────────┤                             │                       │
@@ -354,8 +358,9 @@ Customer                Next.js (server)                 Supabase               
 **Honesty requirements for this flow:**
 - Confirmation copy states the request was **received** and that payment will be arranged offline.
 - It never says "payment successful", "paid", or "order complete".
-- Stock is **not** decremented on submission alone; an admin confirms the request, and confirmation
-  performs the reservation. This avoids silently overselling.
+- Stock is **held on submission** and converted to a sale when the admin confirms the request; a
+  rejected or cancelled request releases the hold. This avoids silently overselling, and it is why
+  the customer-facing copy says the pieces are held once the request is submitted — not before.
 - Totals are recomputed server-side from the database. Client-supplied prices are ignored.
 
 ---
@@ -396,7 +401,7 @@ Implementation notes:
 | Sitemap freshness | Publish / edit / unpublish / archive / delete triggers `revalidateTag('sitemap')` and the relevant product/collection tags |
 | Structured data | `Organization`, `LocalBusiness`, `WebSite` + `SearchAction`, `BreadcrumbList`, `Product` (+ `Offer` **only** when a real price is published), `FAQPage` where Q&A is visible |
 | Product schema honesty | `brand` is the actual manufacturer from `brands`. No `offers` when `price_on_request` is true |
-| Robots | Explicit `Disallow` for `/admin`, `/account`, `/cart`, `/order-request`, `/api`, filtered and sorted collection permutations |
+| Robots | Explicit `Disallow` for `/admin`, `/account`, `/cart`, `/wishlist`, `/checkout`, `/order/`, `/api`, filtered and sorted collection permutations |
 | Images | `next/image`, explicit dimensions, descriptive `alt` from `product_images.alt_text`, AVIF/WebP |
 | Crawl hints | We document that `<lastmod>` is a hint; we do not claim it forces a recrawl |
 

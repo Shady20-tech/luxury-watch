@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 
 import { absoluteUrl, getPublicEnv } from '@/lib/env';
+import { PRIVATE_DISALLOW_PATHS } from '@/lib/seo/private-routes';
 
 /**
  * `robots.txt`.
@@ -24,12 +25,10 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: '/',
         disallow: [
-          // Private and transactional
-          '/admin',
-          '/account',
-          '/cart',
-          '/order-request',
-          '/api/',
+          // Private and transactional. The shared list covers the customer and
+          // staff surfaces; the auth pages are added here because they are not
+          // per-visitor but are still not useful in an index.
+          ...PRIVATE_DISALLOW_PATHS,
           '/login',
           '/register',
           '/forgot-password',
@@ -49,7 +48,7 @@ export default function robots(): MetadataRoute.Robots {
         // public catalogue is repeated explicitly for it.
         userAgent: 'AdsBot-Google',
         allow: ['/products/', '/collections/', '/brands/', '/pages/', '/'],
-        disallow: ['/admin', '/account', '/cart', '/order-request', '/api/'],
+        disallow: [...PRIVATE_DISALLOW_PATHS],
       },
     ],
     sitemap: absoluteUrl('/sitemap.xml'),

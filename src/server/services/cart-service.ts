@@ -9,6 +9,7 @@ import { toCartView } from '@/lib/cart/pricing';
 import { emptyCartView, type CartView } from '@/lib/cart/types';
 import { mergeCartLines, type MergeableLine } from '@/lib/cart/merge';
 import {
+  deleteAllCartItems,
   deleteCartBySessionToken,
   ensureCart,
   findCart,
@@ -169,4 +170,31 @@ export async function mergeGuestCartIntoAccount(
   await deleteCartBySessionToken(guestSessionToken);
 
   return { merged: true };
+}
+
+/**
+ * Empty the caller's cart after an order request has been accepted.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THE CART IS EMPTIED RATHER THAN KEPT
+ * -----------------------------------------------------------------------------
+ *
+ * The stock has been reserved for this request, so leaving the same pieces in
+ * the cart would invite a second request that would race the reservation the
+ * first one created. The cart is emptied only *after* the request is committed,
+ * and only by the caller's own cart — the owner is resolved from the request, so
+ * this can never empty someone else's.
+ *
+ * A guest cart is emptied in place rather than deleted, so the httpOnly session
+ * cookie keeps pointing at a valid empty cart. Deleting it would let a
+ * subsequent add mint a different cart and orphan the cookie.
+ *
+ * This does not clear the applied discount code; the code is a property of the
+ * cart and its redemption is already accounted against the request. A cart with
+ * no items prices to nothing regardless of the code.
+ */
+export async function clearCartAfterOrder(): Promise<void> {
+  const cart = await findCart();
+  if (!cart) return;
+  await deleteAllCartItems(cart.owner, cart.cartId);
 }

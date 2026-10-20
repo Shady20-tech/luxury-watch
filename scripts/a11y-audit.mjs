@@ -40,6 +40,11 @@ const PAGES = [
   // contrast or overflow defect in the cart summary or the wishlist grid.
   '/cart',
   '/wishlist',
+  // The order-request page is per-visitor too. With an unconfigured store it
+  // renders its empty state, which is still the surface a customer reaches, and
+  // the audit is the only check that will catch a contrast or overflow defect in
+  // the order summary or the form controls.
+  '/checkout',
   // An unmatched path, so the not-found template is audited in every
   // configuration. `/brands/rolex` cannot stand in for it: it renders a real
   // brand page when a database is configured and only falls back to the 404

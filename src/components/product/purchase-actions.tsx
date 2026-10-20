@@ -78,12 +78,12 @@ export function PurchaseActions({
       </div>
 
       <p className="text-ink-500 text-xs">
-        Pieces in your cart are not reserved. Submitting an order request is the next step to be
-        built; until then,{' '}
+        Pieces in your cart are not reserved. Sending an order request is the next step — that is
+        what holds a piece for you, and no payment is taken on this site.{' '}
         <a href="#enquire" className="text-accent-text underline underline-offset-4">
-          send an enquiry
+          Send an enquiry
         </a>{' '}
-        and we will hold a piece for you. No payment is taken on this site.
+        if you would rather ask first.
       </p>
 
       <p className="text-ink-500 text-xs">

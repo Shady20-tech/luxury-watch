@@ -35,8 +35,8 @@ import { cn } from '@/lib/utils';
  * -----------------------------------------------------------------------------
  *
  * The copy never says a piece is "reserved", "held" or "secured" by being in the
- * cart. It is not: stock is only held when an order request is submitted and an
- * administrator confirms it. The summary says the pieces are "set aside in your
+ * cart. It is not: stock is held when an order request is submitted, which is
+ * the next step from here. The summary says the pieces are "set aside in your
  * cart" and that an order request comes next, which is what is actually true.
  */
 export function CartContents({ cart, className }: { cart: CartView; className?: string }) {
@@ -240,22 +240,29 @@ function CartSummary({ cart }: { cart: CartView }) {
       </div>
 
       <div className="border-line-200 mt-5 border-t pt-5">
-        {/* The order-request step is the next phase, so there is no route to
-            send the customer to yet. A live-looking button that led nowhere
-            would be a lie; a disabled one with the reason stated is the honest
-            version, and it is the same pattern the product page already uses for
-            a phase boundary. */}
-        <Button
-          block
-          disabled
-          aria-disabled="true"
-          title="Available once the order-request step is built (next phase)"
-        >
-          Continue to order request
-        </Button>
+        {/* The order request is the next step. It is offered only when at least
+            one line can actually be requested; the button is not a promise that
+            the request will be accepted, and the copy says so. */}
+        {cart.hasUnavailable || cart.itemCount === 0 ? (
+          <>
+            <Button block disabled aria-disabled="true">
+              Continue to order request
+            </Button>
+            <p className="text-foreground-muted mt-3 text-xs">
+              Resolve the unavailable pieces above before continuing. Nothing is charged on this
+              site at any point; sending an order request holds the available pieces for you, and we
+              release them again if the request is declined.
+            </p>
+          </>
+        ) : (
+          <Button asChild block>
+            <Link href="/checkout">Continue to order request</Link>
+          </Button>
+        )}
         <p className="text-foreground-muted mt-3 text-xs">
-          Submitting an order request is the next step to be built. Nothing is charged on this site
-          at any point, and a piece is only held once the team has confirmed it with you.
+          The next step is not a payment. Nothing is charged now — you will review your details and
+          send us an order request; an administrator will confirm availability and arrange payment
+          separately.
         </p>
         <Button asChild variant="ghost" block className="mt-2">
           <Link href="/shop">Continue shopping</Link>

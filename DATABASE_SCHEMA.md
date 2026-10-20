@@ -26,16 +26,18 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-| File                                         | Contents                                                                                                                                                                                 |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0001_extensions_enums_helpers.sql`          | `pgcrypto`, `citext`, 13 enum types, `set_updated_at()`, `normalize_slug()`, order-reference sequence and generator                                                                      |
-| `0002_accounts_profiles_roles.sql`           | `profiles`, `user_roles`, `addresses`, new-user trigger                                                                                                                                  |
-| `0003_catalogue.sql`                         | `brands`, `models`, `products`, `product_images`, `product_specs`, `collections`, `collection_products`, `inventory`, `inventory_transactions`                                           |
-| `0004_commerce.sql`                          | `payment_methods`, `delivery_options`, `carts`, `cart_items`, `order_requests`, `order_request_items`, `order_request_events`, `inventory_reservations`                                  |
-| `0005_service_requests.sql`                  | `inquiries` and every service flow, `appointments`, `contact_submissions`, `product_questions`, `messages`, `notifications`                                                              |
-| `0006_content_and_config.sql`                | `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`, `homepage_sections`, `media`, `site_settings`, `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters` |
-| `0007_rls_policies.sql`                      | Role helpers, the permission map, RLS enabled on all 47 tables, 96 policies                                                                                                              |
-| `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger                                                                         |
+| File                                         | Contents                                                                                                                                                                                                                                      |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001_extensions_enums_helpers.sql`          | `pgcrypto`, `citext`, 13 enum types, `set_updated_at()`, `normalize_slug()`, order-reference sequence and generator                                                                                                                           |
+| `0002_accounts_profiles_roles.sql`           | `profiles`, `user_roles`, `addresses`, new-user trigger                                                                                                                                                                                       |
+| `0003_catalogue.sql`                         | `brands`, `models`, `products`, `product_images`, `product_specs`, `collections`, `collection_products`, `inventory`, `inventory_transactions`                                                                                                |
+| `0004_commerce.sql`                          | `payment_methods`, `delivery_options`, `carts`, `cart_items`, `order_requests`, `order_request_items`, `order_request_events`, `inventory_reservations`                                                                                       |
+| `0005_service_requests.sql`                  | `inquiries` and every service flow, `appointments`, `contact_submissions`, `product_questions`, `messages`, `notifications`                                                                                                                   |
+| `0006_content_and_config.sql`                | `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`, `homepage_sections`, `media`, `site_settings`, `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters`                                                      |
+| `0007_rls_policies.sql`                      | Role helpers, the permission map, RLS enabled on all 47 tables, 96 policies                                                                                                                                                                   |
+| `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger                                                                                                                              |
+| `0012_wishlist_and_cart.sql`                 | `discount_kind`, `discount_codes`, `carts.discount_code`, `cart_pricing`, `catalogue_by_ids`, the wishlist tables and the cart quantity/uniqueness constraints                                                                                |
+| `0013_order_request_submission.sql`          | `order_requests` guest token, idempotency, terms, discount and pickup columns; `evaluate_discount_code`, `redeem_discount_code`, `release_discount_code`, `enforce_rate_limit`, the redefined `submit_order_request` and `read_order_request` |
 
 ### 1.2 Verify locally
 
@@ -240,13 +242,26 @@ user. `wishlist_items` has `wishlist_id`, `product_id`, `created_at`, and a
 row impossible rather than merely unlikely. Both are owner-scoped by policy; a
 guest's list lives in `localStorage` and is merged into the account once.
 
-**`order_requests`** — the core commerce record. 23 columns: `id`, `reference`
+**`order_requests`** — the core commerce record: `id`, `reference`
 (unique, `LW-YY-NNNNNN`), `user_id` (nullable for guests), `customer_name`,
 `customer_email`, `customer_phone`, `fulfilment_type` (`delivery`/`pickup`),
 `delivery_address` (jsonb), `pickup_location`, `payment_method_code`,
 `customer_note`, `admin_note`, `subtotal_cents`, `delivery_fee_cents`,
+`discount_code`, `discount_cents`, `discount_redeemed_at`, `discount_released_at`,
 `total_cents`, `currency`, `status`, `settled_offline_at`, `settled_offline_by`,
 `ip_hash`, `user_agent`, timestamps.
+
+Migration `0013` (Phase 7, second pass) adds the guest and integrity columns:
+`access_token_hash` (SHA-256 of the guest access token, hex — the raw token is
+shown once and never stored, checked by `order_requests_access_token_hash_format`),
+`idempotency_key` (unique per `(customer_email, idempotency_key)` where non-null,
+so a repeated submission returns the first request rather than creating a second),
+and `terms_acknowledged_at`. The discount columns hold the **code** and the amount
+it produced; `order_requests_discount_has_code` forbids a discount amount that no
+code explains, and `order_requests_total_matches_parts` re-verifies the
+arithmetic. A redemption of a limited code is counted into
+`discount_codes.times_redeemed` at submission and returned if the request is
+rejected or cancelled (`redeem_discount_code` / `release_discount_code`).
 
 `order_status`: `submitted`, `under_review`, `confirmed`, `awaiting_payment`,
 `paid_offline`, `fulfilled`, `cancelled`, `rejected`.
@@ -460,18 +475,20 @@ and update both the grant list and `supabase/tests/17_product_detail.sql`.
 
 ### 6.4 The authorisation tests
 
-`supabase/tests/` contains seven suites, run by `scripts/db-verify.sh`:
+`supabase/tests/` contains nine suites, run by `scripts/db-verify.sh`:
 
-| File                         | What it proves                                                                                                                                                                                                                                                         |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `00_supabase_shim.sql`       | Test fixture: `auth.users`, `auth.uid()`, the API roles. Not a deployment artifact.                                                                                                                                                                                    |
-| `10_public_boundary.sql`     | Anonymous visitors read the published catalogue and nothing else. Covers 20 private tables, and confirms the published product _is_ readable so the denials are not vacuous. Also asserts that `cost_cents` and `compare_at_cents` are **denied** to `anon` (Phase 6). |
-| `15_public_availability.sql` | `product_availability` / `is_product_available` report the real inventory state, including a reserved piece.                                                                                                                                                           |
-| `16_catalogue.sql`           | The catalogue query layer: filtering, faceting with self-exclusion, sorting, search and pagination against real rows.                                                                                                                                                  |
-| `17_product_detail.sql`      | Phase 6: the column-grant boundary (`anon` denied on `cost_cents`, `compare_at_cents`, `select *` and `order by cost_cents`), `catalogue_similar` never leaking a draft or the anchor, and `submit_product_question` shape validation.                                 |
-| `20_customer_ownership.sql`  | One customer cannot read another's data. Internal notes stay hidden even on the customer's own record. A customer cannot rewrite the commercial facts of their own order.                                                                                              |
-| `30_role_escalation.sql`     | The decisive test: no customer can grant themselves a role. Also verifies each staff role's permission boundary, that `ADMIN` is not `SUPER_ADMIN`, that an expired role grants nothing, and that the audit log resists even `SUPER_ADMIN`.                            |
-| `40_order_and_inventory.sql` | Server-derived totals, price-on-request recording no amount, disabled payment methods rejected, inventory unable to go negative, reject releasing stock, confirm converting a hold into a sale, and a schema-wide assertion that no column can hold card data.         |
+| File                                | What it proves                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `00_supabase_shim.sql`              | Test fixture: `auth.users`, `auth.uid()`, the API roles. Not a deployment artifact.                                                                                                                                                                                                                                                                  |
+| `10_public_boundary.sql`            | Anonymous visitors read the published catalogue and nothing else. Covers 20 private tables, and confirms the published product _is_ readable so the denials are not vacuous. Also asserts that `cost_cents` and `compare_at_cents` are **denied** to `anon` (Phase 6).                                                                               |
+| `15_public_availability.sql`        | `product_availability` / `is_product_available` report the real inventory state, including a reserved piece.                                                                                                                                                                                                                                         |
+| `16_catalogue.sql`                  | The catalogue query layer: filtering, faceting with self-exclusion, sorting, search and pagination against real rows.                                                                                                                                                                                                                                |
+| `17_product_detail.sql`             | Phase 6: the column-grant boundary (`anon` denied on `cost_cents`, `compare_at_cents`, `select *` and `order by cost_cents`), `catalogue_similar` never leaking a draft or the anchor, and `submit_product_question` shape validation.                                                                                                               |
+| `20_customer_ownership.sql`         | One customer cannot read another's data. Internal notes stay hidden even on the customer's own record. A customer cannot rewrite the commercial facts of their own order.                                                                                                                                                                            |
+| `30_role_escalation.sql`            | The decisive test: no customer can grant themselves a role. Also verifies each staff role's permission boundary, that `ADMIN` is not `SUPER_ADMIN`, that an expired role grants nothing, and that the audit log resists even `SUPER_ADMIN`.                                                                                                          |
+| `18_wishlist_and_cart.sql`          | Phase 7: `cart_pricing` ignores a supplied price and a duplicate id, clamps a unique piece to one, recomputes a discount from its code, and never returns `cost_cents`; `catalogue_by_ids` never returns a draft; a duplicate wishlist row is refused by constraint.                                                                                 |
+| `40_order_and_inventory.sql`        | Server-derived totals, price-on-request recording no amount, disabled payment methods rejected, delivery without an address and submission without terms acknowledgement refused, inventory unable to go negative, reject releasing stock, confirm converting a hold into a sale, and a schema-wide assertion that no column can hold card data.     |
+| `41_order_request_guest_access.sql` | Phase 7 (second pass): a guest reads their own request with the reference **and** the token and not without either, the raw token is never stored, an idempotency key does not create a second request or reserve stock twice, a discount is evaluated from a code only, a limited code is returned on cancellation, and submission is rate-limited. |
 
 The suites share one database, so "can read" is asserted as "sees at least one
 row" and "cannot read" as "sees exactly zero". That asymmetry is deliberate: the
@@ -525,7 +542,10 @@ indistinguishable from a test that does nothing.
 
 The storefront never inserts order rows directly. `submit_order_request(...)` is
 the single entry point, and it is `SECURITY DEFINER` so it can write on behalf of
-an anonymous customer while still enforcing every rule:
+an anonymous customer while still enforcing every rule. Migration `0013` (Phase 7,
+second pass) extends it with the idempotency key, the guest access-token hash, the
+terms acknowledgement, the discount **code** and the pickup location, and adds
+`read_order_request` for the guest's private read-back. The rules are unchanged:
 
 1. Validates the payload — non-empty item list, positive quantities, required
    contact fields, and that the fulfilment type's details are present.
@@ -580,11 +600,12 @@ be sent, so there is nothing for a tampered request to carry.
    stock count. `is_available` and `quantity_locked` are booleans precisely so the
    result cannot be used to binary-search the business's inventory position.
 
-**A cart does not reserve stock.** `cart_pricing` is read-only; it does not touch
-`inventory`, `inventory_reservations` or `inventory_transactions`. Availability is
-reported, never claimed. The piece is held only when an order request is submitted
-and an administrator confirms it, which is `submit_order_request` (§8) and
-`reserve_inventory()`.
+**A cart does not reserve stock; submitting an order request does.** `cart_pricing`
+is read-only; it does not touch `inventory`, `inventory_reservations` or
+`inventory_transactions`. Availability is reported, never claimed. The piece is held
+when an order request is **submitted** — `submit_order_request` (§8) calls
+`reserve_inventory()` inside the submission transaction — and the hold is released
+if the request is rejected or cancelled. Being in a cart does not hold anything.
 
 **`catalogue_by_ids(uuid[])`** exists because `wishlist_items` can reference a
 product that has since been unpublished. It re-applies the publication and

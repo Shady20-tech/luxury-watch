@@ -1,6 +1,6 @@
 # Implementation Plan — Luxury Watch E-commerce Platform
 
-Last updated: 2026-10-17 (end of Phase 4; CI audit follow-up)
+Last updated: 2026-10-18 (end of Phase 7, both passes; order-request flow)
 Reference: https://carbonwatchcompany.com/ · Deployment: Vercel · Data: Supabase · Email: Resend
 Payments: **manual/offline selection only — no gateway, no online processing**
 
@@ -39,7 +39,7 @@ This ordering exists so each phase continues the real implementation instead of 
 | 4 | Homepage composition from database sections | **done** | 2, 3 |
 | 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | **done** | 2, 3, 4 |
 | 6 | Product detail page, media gallery, specs, related/recently viewed, wishlist | **done** | 5 |
-| 7 | Cart, manual order-request flow, payment-method selection, delivery/pickup, confirmation | not started | 5, 6 |
+| 7 | Cart, manual order-request flow, payment-method selection, delivery/pickup, confirmation | **done** | 5, 6 |
 | 8 | Resend transactional email, templates, admin notifications | not started | 7 |
 | 9 | Authentication, customer account area (orders, wishlist, profile, addresses) and roles | not started | 7, 8 |
 | 10 | Admin platform (products, brands, models, collections, inventory, orders, inquiries, media, pages, announcements, payment methods, settings) | not started | 2, 4, 7, 9 |
@@ -460,19 +460,17 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
 
 ---
 
-## Phase 7 — Cart and manual order-request flow
+## Phase 7 — Cart and manual order-request flow ✅ done
 
-> **Scope note (2026-10-18).** This phase was run in two passes. The first pass —
-> this one — implemented the **wishlist and the cart**, because those are the two
-> surfaces a customer touches before a request exists and neither needs the
-> order-request machinery to be useful. The **order-request flow itself was
-> deliberately deferred**: `/order-request`, the confirmation page, guest lookup
-> by reference and email, and the reservation-on-confirmation step are the next
-> pass. The cart was built to hand off to that flow cleanly — its primary control
-> is a disabled, explained control rather than a button that leads nowhere — and
-> the database side already exists (`submit_order_request`, §8 of
-> `DATABASE_SCHEMA.md`), so the deferral is application work only. The bullets
-> below that belong to the deferred pass are marked **(deferred)**.
+> **Scope note (2026-10-18).** This phase was run in two passes, and **both are
+> now complete**. The first pass implemented the **wishlist and the cart**. The
+> second pass implemented the **order-request flow**: `/checkout` (the
+> order-request form), the confirmation and guest lookup pages, server-side
+> validation, rate limiting and honeypot, and the reservation-on-*submission*
+> step. Working notes sometimes call the second pass "Phase 8", but the plan
+> numbers it correctly here — Phase 8 is transactional email. The route is
+> `/checkout` rather than `/order-request`; the bullets below keep the original
+> wording and are all satisfied.
 
 **Goal:** the commerce path — with **no payment processing anywhere**.
 
@@ -482,17 +480,17 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
 - Cart drawer + `/cart` page sharing one state source
 - Wishlist: saved products for a signed-in customer, a local list for a guest, merge on sign-in,
   and move-to-cart
-- **(deferred)** `/order-request`: collect name, email, phone, fulfilment (delivery or pickup),
-  delivery address when applicable, **payment method chosen from admin-enabled methods**, customer
-  note
-- **(deferred)** Server-side validation, rate limiting, honeypot on the request form
+- `/checkout`: collect name, email, phone, fulfilment (delivery or pickup), delivery address when
+  applicable, **payment method chosen from admin-enabled methods**, customer note
+- Server-side validation, rate limiting, honeypot on the request form
 - Totals recomputed from the database — client totals are ignored
-- **(deferred)** `order_requests` + `order_request_items` + `order_request_events` written
-  transactionally
-- **(deferred)** Confirmation page with reference number, explicit "request received / payment
-  arranged offline" language
-- **(deferred)** Guest lookup by reference **+ email**
-- Stock is **not** decremented on submission; admin confirmation reserves stock
+- `order_requests` + `order_request_items` + `order_request_events` written transactionally
+- Confirmation page with reference number, explicit "request received / payment arranged offline"
+  language
+- Guest lookup by reference **+ access token** (the token is minted at submission; the storefront
+  never treats the reference alone as a credential)
+- Stock **is held on submission** and converted to a sale on confirmation; a rejected or cancelled
+  request releases the hold
 
 **Acceptance criteria**
 - Cart and wishlist persist as intended for both a guest and a signed-in customer (tested)
@@ -502,10 +500,10 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
 - The server never reads a price or a stock count from the browser: `cart_pricing` accepts ids and
   quantities only, and a discount is recomputed from its code (tested)
 - **Zero** payment gateway, SDK, card field, iframe or provider reference anywhere in the codebase
-- **(deferred)** End-to-end: browse → add to cart → order request → confirmation, against real
-  Supabase
-- **(deferred)** Confirmation copy never claims payment was made
-- **(deferred)** Disabled payment methods cannot be selected (tested)
+- End-to-end: browse → add to cart → order request → confirmation, against real Supabase (G46:
+  verified locally against PostgreSQL + PostgREST, not a real Supabase project)
+- Confirmation copy never claims payment was made
+- Disabled payment methods cannot be selected (tested)
 
 ---
 
@@ -601,8 +599,8 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
 - Database-driven `/sitemap.xml` index plus products, collections, brands, pages sitemaps
 - Every product `<lastmod>` uses the real `updated_at`; collections/pages use their own
 - Tag-based revalidation on publish / edit / unpublish / archive / delete
-- `robots.txt` route disallowing `/admin`, `/account`, `/cart`, `/order-request`, `/api`, and
-  filtered/sorted permutations
+- `robots.txt` route disallowing `/admin`, `/account`, `/cart`, `/wishlist`, `/checkout`,
+  `/order/`, `/api`, and filtered/sorted permutations
 - Structured data: Organization, LocalBusiness, WebSite + SearchAction, BreadcrumbList, Product
   (+ Offer only when a real price exists), FAQPage where Q&A is visible
 - Canonical and metadata coverage for every public template
@@ -711,8 +709,12 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
   `submitEnquiry`. Phase 7 built the wishlist and the cart (`src/lib/cart/`,
   `src/lib/wishlist/`, `src/components/cart/`, `src/components/wishlist/`,
   `src/server/services/cart-service.ts`, `src/server/services/wishlist-service.ts`,
-  `/cart`, `/wishlist`, the product wishlist toggle and the live header badges).
-- **Database:** 48 tables, 14 enums, 97 RLS policies and 149 indexes across 12
+  `/cart`, `/wishlist`, the product wishlist toggle and the live header badges),
+  then the order-request flow itself in its second pass (`src/lib/orders/`,
+  `src/components/checkout/`, `src/server/actions/order-actions.ts`,
+  `src/server/repositories/order-repository.ts`,
+  `src/server/services/checkout-service.ts`, `/checkout` and `/order/[reference]`).
+- **Database:** 48 tables, 14 enums, 97 RLS policies and 149 indexes across 13
   migrations, verified from an empty PostgreSQL 17 database. Authorisation proven
   by eight test suites; inventory safety proven by a five-scenario concurrency
   proof including a passing negative control. Phase 4 added migration
@@ -722,21 +724,26 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
   `0011_product_detail.sql`, which also **closed a live column-level leak**:
   `anon` could read `products.cost_cents` and `compare_at_cents`, so the
   table-level `select` grant is revoked and the public read surface is granted
-  column by column. Phase 7 added `0012_wishlist_and_cart.sql`:
-  `discount_kind`, `discount_codes`, `carts.discount_code`, and the
+  column by column. Phase 7 added `0012_wishlist_and_cart.sql`
+  (`discount_kind`, `discount_codes`, `carts.discount_code`, and the
   `cart_pricing` and `catalogue_by_ids` functions, plus the wishlist tables and
-  the quantity and uniqueness constraints. Full reference in `DATABASE_SCHEMA.md`.
-- **Test and verification status:** `npm run verify` green (lint, typecheck, 354
-  unit tests, build). `scripts/db-verify.sh` green (12 migrations, 8 RLS suites,
+  the quantity and uniqueness constraints) and, in its second pass,
+  `0013_order_request_submission.sql` (guest access-token hashes, idempotency,
+  terms acknowledgement, discount evaluation and redemption,
+  `enforce_rate_limit`, the redefined `submit_order_request` and
+  `read_order_request`). Full reference in `DATABASE_SCHEMA.md`.
+- **Test and verification status:** `npm run verify` green (lint, typecheck, 392
+  unit tests, build). `scripts/db-verify.sh` green (13 migrations, 9 RLS suites,
   seeds re-applied for idempotency). `scripts/db-concurrency-matrix.py` green
-  (5 of 5 scenarios behave as designed). `scripts/a11y-audit.mjs` green (40
+  (5 of 5 scenarios behave as designed). `scripts/a11y-audit.mjs` green (44
   page/viewport combinations plus 2 age-gate passes, no critical or serious axe
   violations, no horizontal overflow). Lighthouse run against a production build:
   desktop 100/100/100/100, mobile 95–97 performance and 100
   accessibility/best-practices/SEO. CI runs the Node, database and browser-audit
   jobs on every push.
-- **Next phase to run:** the order-request flow — the part of the original Phase 7
-  scope that this pass deliberately deferred. See the scope note below.
+- **Next phase to run:** Phase 8, transactional email (Resend). The order-request
+  flow — the second pass of Phase 7 — is complete; its confirmation copy is what
+  Phase 8 will start sending by email once A3 (a Resend account) is resolved.
 - **Blockers:** Phase 9 (authentication) needs a Supabase project (A1) to exercise
   real auth end to end; the schema itself is already applied and verified locally.
   Phase 8+ needs a Resend account (A3). Both are owner-side setup, documented in

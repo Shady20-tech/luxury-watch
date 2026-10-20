@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AddToCartButton } from '@/components/cart/add-to-cart-button';
 import { CartContents } from '@/components/cart/cart-contents';
+import { OrderSummary } from '@/components/checkout/order-summary';
 import { WishlistToggle } from '@/components/product/wishlist-toggle';
 import { MoveToCartButton } from '@/components/wishlist/move-to-cart-button';
 import { emptyCartView, type CartLine, type CartView } from '@/lib/cart/types';
+import { emptyCheckoutOptions } from '@/lib/orders/checkout-options';
 
 /**
  * Cart and wishlist component tests.
@@ -296,13 +298,32 @@ describe('CartContents', () => {
     expect(screen.getByText(/nothing is charged/i)).toBeDefined();
   });
 
-  it('does not offer a live order-request button while that step is unbuilt', () => {
+  it('offers a live order-request link once the step exists, and names it honestly', () => {
     render(<CartContents cart={cart()} />);
 
+    // The step now exists, so the control is live rather than a disabled
+    // placeholder. It is a link to the order-request page.
+    const link = screen.getByRole('link', { name: /continue to order request/i });
+    expect(link.getAttribute('href')).toBe('/checkout');
+  });
+
+  it('refuses the order-request step while a line is unavailable, and says why', () => {
+    render(
+      <CartContents
+        cart={cart({
+          lines: [line({ isAvailable: false, purchasable: false })],
+          hasUnavailable: true,
+        })}
+      />,
+    );
+
+    // A line that cannot be requested blocks the step. The control is a real,
+    // disabled button with no destination, rather than a link that would send
+    // the customer to a checkout that cannot complete.
     const button = screen.getByRole('button', { name: /continue to order request/i });
     expect(button.hasAttribute('disabled')).toBe(true);
-    // A disabled button must say why, not merely refuse.
-    expect(button.getAttribute('title')).toBeTruthy();
+    // A disabled control must say why, not merely refuse.
+    expect(screen.getByText(/resolve the unavailable pieces above/i)).toBeDefined();
   });
 
   it('shows a price-on-request note when a line has no price', () => {
@@ -328,5 +349,30 @@ describe('CartContents', () => {
     );
 
     expect(serious).toEqual([]);
+  });
+});
+
+describe('OrderSummary reservation timing', () => {
+  // The database holds stock at submission: `submit_order_request` calls
+  // `reserve_inventory` inside the same transaction, and a rejected or cancelled
+  // request releases the hold. The summary must not tell the customer the
+  // opposite — that nothing is held until an administrator confirms — because
+  // that would misdescribe what submitting the form actually does.
+  it('says the pieces are held when the request is submitted, not only on confirmation', () => {
+    render(
+      <OrderSummary
+        cart={cart()}
+        options={emptyCheckoutOptions('database')}
+        currency="USD"
+        confirmationNote={null}
+        signedIn={false}
+      />,
+    );
+
+    const text = (document.body.textContent ?? '').toLowerCase();
+    expect(text).toContain('held for you');
+    // The hold is released on a decline, so the copy must not imply it is
+    // permanent.
+    expect(text).toContain('released');
   });
 });

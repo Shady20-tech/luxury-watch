@@ -93,7 +93,8 @@ begin
     p_fulfilment_type     => 'delivery',
     p_payment_method_code => 'bank_transfer',
     p_delivery_address    => '{"line1":"1 Test Road","city":"London","country_code":"GB"}'::jsonb,
-    p_delivery_option_code => 'standard_delivery'
+    p_delivery_option_code => 'standard_delivery',
+    p_terms_acknowledged  => true
   );
 
   if v_order.subtotal_cents <> 1250000 then
@@ -209,7 +210,8 @@ begin
     p_customer_email      => 'por@example.test',
     p_customer_phone      => null,
     p_fulfilment_type     => 'pickup',
-    p_payment_method_code => 'bank_transfer'
+    p_payment_method_code => 'bank_transfer',
+    p_terms_acknowledged  => true
   );
 
   if v_order.subtotal_cents <> 0 then
@@ -238,25 +240,29 @@ select pg_temp.assert_raises(
   'a disabled payment method is rejected',
   'select public.submit_order_request(
      ''[{"product_id":"40000000-0000-0000-0000-000000000003","quantity":1}]''::jsonb,
-     ''X'', ''x@y.test'', null, ''pickup'', ''disabled_method'')');
+     ''X'', ''x@y.test'', null, ''pickup'', ''disabled_method'',
+     p_terms_acknowledged => true)');
 
 select pg_temp.assert_raises(
   'an unknown payment method is rejected',
   'select public.submit_order_request(
      ''[{"product_id":"40000000-0000-0000-0000-000000000003","quantity":1}]''::jsonb,
-     ''X'', ''x@y.test'', null, ''pickup'', ''not_a_method'')');
+     ''X'', ''x@y.test'', null, ''pickup'', ''not_a_method'',
+     p_terms_acknowledged => true)');
 
 select pg_temp.assert_raises(
   'an empty item list is rejected',
   'select public.submit_order_request(
-     ''[]''::jsonb, ''X'', ''x@y.test'', null, ''pickup'', ''bank_transfer'')');
+     ''[]''::jsonb, ''X'', ''x@y.test'', null, ''pickup'', ''bank_transfer'',
+     p_terms_acknowledged => true)');
 
 -- A draft product cannot be ordered, even by id.
 select pg_temp.assert_raises(
   'a draft product cannot be ordered',
   'select public.submit_order_request(
      ''[{"product_id":"40000000-0000-0000-0000-000000000004","quantity":1}]''::jsonb,
-     ''X'', ''x@y.test'', null, ''pickup'', ''bank_transfer'')');
+     ''X'', ''x@y.test'', null, ''pickup'', ''bank_transfer'',
+     p_terms_acknowledged => true)');
 
 -- A disabled delivery option cannot be used.
 select pg_temp.assert_raises(
@@ -265,13 +271,30 @@ select pg_temp.assert_raises(
      ''[{"product_id":"40000000-0000-0000-0000-000000000003","quantity":1}]''::jsonb,
      ''X'', ''x@y.test'', null, ''delivery'', ''bank_transfer'',
      ''{"line1":"1 A St","city":"London","country_code":"GB"}''::jsonb,
-     null, ''disabled_delivery'')');
+     null, ''disabled_delivery'', p_terms_acknowledged => true)');
 
 -- More than available stock is refused.
 select pg_temp.assert_raises(
   'ordering more than is available is refused',
   'select public.submit_order_request(
      ''[{"product_id":"40000000-0000-0000-0000-000000000003","quantity":5}]''::jsonb,
+     ''X'', ''x@y.test'', null, ''pickup'', ''bank_transfer'',
+     p_terms_acknowledged => true)');
+
+-- Delivery without an address is refused. The address is the customer's to give,
+-- so this is a genuine validation rule rather than a formality.
+select pg_temp.assert_raises(
+  'delivery without an address is rejected',
+  'select public.submit_order_request(
+     ''[{"product_id":"40000000-0000-0000-0000-000000000003","quantity":1}]''::jsonb,
+     ''X'', ''x@y.test'', null, ''delivery'', ''bank_transfer'',
+     p_terms_acknowledged => true)');
+
+-- The terms acknowledgement is enforced in the database, not only in the form.
+select pg_temp.assert_raises(
+  'submitting without acknowledging the terms is rejected',
+  'select public.submit_order_request(
+     ''[{"product_id":"40000000-0000-0000-0000-000000000003","quantity":1}]''::jsonb,
      ''X'', ''x@y.test'', null, ''pickup'', ''bank_transfer'')');
 
 reset role;
@@ -353,7 +376,8 @@ begin
     p_customer_email      => 'confirm@example.test',
     p_customer_phone      => null,
     p_fulfilment_type     => 'pickup',
-    p_payment_method_code => 'bank_transfer'
+    p_payment_method_code => 'bank_transfer',
+    p_terms_acknowledged  => true
   );
 end
 $$;

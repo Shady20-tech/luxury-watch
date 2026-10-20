@@ -172,7 +172,8 @@ set role anon;
 set request.jwt.claims = '{{"role":"anon"}}';
 select public.submit_order_request(
   '[{{"product_id":"{pid}","quantity":1}}]'::jsonb,
-  'Racer {n}', 'race{n}@example.test', null, 'pickup', 'bank_transfer'
+  'Racer {n}', 'race{n}@example.test', null, 'pickup', 'bank_transfer',
+  p_terms_acknowledged => true
 ) is not null;
 """
 

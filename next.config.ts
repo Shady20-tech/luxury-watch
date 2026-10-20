@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
 
+import { PRIVATE_ROUTE_SEGMENTS } from './src/lib/seo/private-routes';
+
 /**
  * Security headers applied to every response.
  *
@@ -85,7 +87,7 @@ const nextConfig: NextConfig = {
       {
         // Private and transactional surfaces must never be indexed or cached
         // by shared caches.
-        source: '/:path(account|admin|cart|order-request|api)/:rest*',
+        source: `/:path(${PRIVATE_ROUTE_SEGMENTS.join('|')})/:rest*`,
         headers: [
           { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
           { key: 'Cache-Control', value: 'no-store, max-age=0' },

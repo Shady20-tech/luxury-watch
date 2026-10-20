@@ -8,6 +8,152 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 7 (second pass) — Order-request flow
+
+**Date:** 2026-10-18
+
+> The deferred half of Phase 7. The first pass built the wishlist and the cart and
+> deliberately deferred the order-request step; this pass builds it. It is called
+> Phase 8 in some working notes, but the plan numbers it correctly as the second
+> pass of Phase 7 — the next phase is Phase 8, transactional email.
+
+#### Added
+
+**Migration `supabase/migrations/0013_order_request_submission.sql`**
+
+- `order_requests.access_token_hash` — the SHA-256 of a guest access token,
+  minted and hashed in Node so the raw value never reaches the database or a
+  query log. A guest reads their own request back with the reference **and** the
+  token; the reference alone is not a credential.
+- `order_requests.idempotency_key` (unique) — a resubmitted form returns the
+  original request instead of inserting a second one and reserving stock twice.
+- `order_requests.terms_acknowledged_at`, `discount_code`, `discount_cents`,
+  `discount_redeemed_at`, `discount_released_at`, and `pickup_location`.
+- `evaluate_discount_code(code, subtotal)` — one implementation of promotion
+  eligibility and value, called by both `cart_pricing` and
+  `submit_order_request`, so the two cannot disagree about what a code is worth.
+- `redeem_discount_code(code, order)` / `release_discount_code(order)` — a
+  redemption counter taken under a row lock, and returned on rejection or
+  cancellation. **Resolves G48**: a limited code can no longer be reused
+  unbounded, and a code is not consumed by a request that never became a sale.
+- `enforce_rate_limit(...)` — a per-address and global cap on submission,
+  backed by the existing `rate_limit_counters` table.
+- `submit_order_request(...)` redefined to take the idempotency key, the access
+  token hash, the terms acknowledgement, the discount **code** and the pickup
+  location. It is granted to `anon`, `authenticated` and `service_role`.
+- `read_order_request(reference, access_token)` — returns a request only when the
+  reference and the token's hash both match one row, so a wrong token and a
+  missing reference are indistinguishable.
+
+**Order-request application layer**
+
+- `src/lib/orders/order-request.ts` — the Zod schema, the state type, the
+  field-error mapping, the safe-database-message allowlist and `toSubmission`.
+  There is no field through which a price, a subtotal or a discount amount could
+  be sent; a discount is a **code** only.
+- `src/lib/orders/checkout-options.ts` — the offline settlement and delivery
+  choices, with honest empty constructors.
+- `src/lib/orders/copy.ts` — the customer-facing wording, centralised so the one
+  claim that must never be implied (that a payment was taken) is written and
+  reviewed once.
+- `src/server/repositories/checkout-repository.ts` — the enabled payment methods,
+  delivery options and settings, read through the anon-key client.
+- `src/server/repositories/order-repository.ts` — the single submission path, the
+  guest token mint, and the guest read. It passes product ids, quantities and a
+  code; it computes no figure.
+- `src/server/services/checkout-service.ts` — one memoised view assembling the
+  cart, the options and a per-render idempotency key.
+- `src/server/actions/order-actions.ts` — the submission action, with a honeypot
+  and best-effort cart clearing after the request is committed.
+- `src/components/checkout/` — the order-request form and the display-only order
+  summary.
+- `/checkout` — the order-request page, explicitly `force-dynamic` because it
+  reads cookies.
+- `/order/[reference]` — a guest's private view of their own request, reachable
+  only with the reference and the access token. `noindex`.
+
+**Cart and wishlist**
+
+- `moveToCartFromWishlist` and `clearCartAfterOrder`; the cart's primary control
+  is now a live link to `/checkout`.
+
+#### Security
+
+- **The server is given no figure to trust.** `submit_order_request` re-prices
+  every line from `products.price_cents`, re-checks publication and availability
+  and recomputes the discount from the code. The form posts product ids,
+  quantities, who the customer is and a discount *code*; a unit test asserts that
+  `toSubmission` contains no amount-bearing key, and the schema rejects a payload
+  that carries one. That is the "server does not trust browser prices or stock"
+  criterion made true by construction rather than by review.
+- **A guest token is not an authentication credential.** It is stored hashed,
+  grants access to one request, is never consulted by any RLS policy, and is
+  minted in Node so the raw value never reaches the database.
+- **The terms acknowledgement is enforced in the database**, not only in the
+  form, and delivery without an address is refused there too.
+- **Rate limiting** now covers order submission (per address and global), the
+  most valuable endpoint to abuse.
+- **No payment gateway, SDK, card field, iframe or provider reference.** There is
+  no field that can hold a card number, and the schema-wide assertion in
+  `supabase/tests/40_order_and_inventory.sql` continues to hold.
+
+#### Changed
+
+- **Stock is held when the request is submitted.** `submit_order_request` calls
+  `reserve_inventory` inside the submission transaction, and the hold is released
+  if the request is rejected or cancelled. The customer-facing copy in the
+  checkout form, the cart and the product page, and `ARCHITECTURE.md` and
+  `DATABASE_SCHEMA.md`, were corrected to match: the pieces are held once the
+  request is sent, not only on confirmation.
+- `submit_order_request` and `database.types.ts` gained the new parameters;
+  the RLS suites and the concurrency harness pass `p_terms_acknowledged => true`.
+- **The crawl and cache boundary now names the routes that exist.** Two
+  hand-maintained lists had drifted the same way when `/order-request` became
+  `/checkout`: `src/app/robots.ts` disallowed a page that no longer existed, and
+  `next.config.ts` sent its `X-Robots-Tag: noindex` / `Cache-Control: no-store`
+  header rule to the same dead path. The pages carry their own `noindex`
+  metadata and a dynamic route is not cached by default, so the drift did not
+  expose a page — it meant the header rule silently covered nothing new while
+  naming a route that no longer existed. A literal string that matches nothing
+  looks reassuring, which is why nothing caught it.
+  - The list now lives once, in `src/lib/seo/private-routes.ts`, and both
+    `robots.ts` and `next.config.ts` derive from it.
+  - New `tests/robots.test.ts` pins the property rather than the spelling: it
+    asserts a rule for every private route that exists on disk, that the shared
+    list and `robots.txt` agree, that `AdsBot-Google` is told explicitly (it
+    ignores the wildcard), and that the catalogue stays crawlable.
+  - Verified at runtime against a production build: `/cart`, `/wishlist`,
+    `/checkout`, `/order/<reference>`, `/admin`, `/account` and `/api/health`
+    all return `X-Robots-Tag: noindex, nofollow` with `Cache-Control: no-store`,
+    while `/` and `/shop` do not.
+- `scripts/db-concurrency-test.py` still proves the oversell property against the
+  new signature.
+
+#### Verified
+
+- `npm run verify` green (392 unit tests across 22 files, typecheck, lint,
+  format, no-payment guard, production build).
+- Migration `0013` and both SQL suites apply and pass on a fresh database, run
+  through the real client path with psycopg2 against local PostgreSQL 17:
+  `supabase/tests/40_order_and_inventory.sql` and the new
+  `supabase/tests/41_order_request_guest_access.sql` (guest read with and without
+  the token, idempotent resubmission, server-side discount eligibility, a
+  limited code returned on cancellation, per-address rate limiting, and that a
+  non-owner cannot read a request).
+- Production build serves both new routes dynamically, so the SSG+cookies 500
+  trap (G42) does not apply; a request against a store that cannot be reached
+  degrades to an honest empty or error state rather than a 500.
+- `scripts/a11y-audit.mjs` now audits `/checkout` and is green across **11 pages
+  × 4 viewports** plus the age-gate passes: no critical or serious axe violation
+  and no horizontal overflow. With A1 still open the page renders its empty
+  state under the audit, so the order-summary and form controls inside a
+  populated cart are not exercised by it — recorded as G54.
+
+#### Not done, and deliberately
+
+- **No payment.** Payment is info-only and settled offline by an administrator;
+  the request has no status the customer can move to "paid".
+
 ### Phase 7 — Wishlist and cart
 
 **Date:** 2026-10-18
@@ -107,10 +253,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
   passes unchanged. Payment is settled offline by an administrator.
 - **A cart does not reserve stock.** Nothing in the cart path decrements
   `inventory` or writes a reservation, and the copy says so. The piece is held
-  when an order request is submitted and an administrator confirms it.
-- **Submitting an order request is not built.** The path from a cart to a request
-  is the next phase; the cart's control states that plainly rather than offering a
-  button that leads nowhere.
+  when an order request is *submitted*, which the second pass of this phase built.
+- **Submitting an order request was deferred to this phase's second pass.** The
+  cart's control now links to `/checkout`; see the entry above.
 
 ### Phase 5 — Catalogue and discovery
 
