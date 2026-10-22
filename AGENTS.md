@@ -131,6 +131,16 @@ Two consequences worth knowing:
   Against the fallback it only ever sees empty states, which is exactly the gap
   recorded as G54. Against the preview it sees real rows.
 
+**The guest cart and wishlist need a real `service_role` key.** They are handled
+server-side with the service-role client (`src/lib/cart/session.ts`), because the
+session token must never be forgeable from the browser. Point that key at an anon
+token and the failure is silent and misleading: the action logs `cart.add_failed`,
+the `lw_cart_session` cookie is still set, and `/cart` still renders its empty
+state. The app looks fine and the cart looks empty, so the fault reads as a cart
+bug rather than a misconfigured environment. `npm run preview` mints both an `anon`
+and a `service_role` token for this reason. When a preview cart will not fill, check
+`/tmp/lw-preview/next.log` for `cart.add_failed` before suspecting the cart code.
+
 The verification scripts are dual-mode: they use a direct `psql` connection when
 `PGHOST` is set (how CI reaches its service container) and Docker otherwise.
 `db-verify.sh` fails loudly if `PGHOST` is set but `psql` is missing, rather than
