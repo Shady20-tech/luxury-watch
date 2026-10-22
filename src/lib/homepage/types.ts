@@ -47,6 +47,13 @@ export type ProductCard = {
   summary: string | null;
   imageUrl: string | null;
   imageAlt: string;
+  /**
+   * The two attributes the fallback artwork is drawn from, when the product has
+   * no photography. `null` is meaningful: it means "no dial colour recorded",
+   * which draws the neutral dial rather than an arbitrary one.
+   */
+  dialColor: string | null;
+  caseMaterial: string | null;
   /** Formatted price, or `null` when priced on request. */
   price: string | null;
   condition: 'new' | 'unworn' | 'pre_owned' | 'vintage' | null;

@@ -194,6 +194,8 @@ create policy discount_codes_staff_write on public.discount_codes
 --         "brand_name": null|string, "brand_slug": null|string,
 --         "image_storage_path": null|string, "image_external_url": null|string,
 --         "image_alt": null|string,
+--         "dial_color": null|string,      -- drawn-thumbnail input, not an amount
+--         "case_material": null|string,   -- drawn-thumbnail input, not an amount
 --         "unit_price_cents": null|int,   -- null for price-on-request
 --         "price_on_request": bool,
 --         "quantity": int,                -- what the line will hold

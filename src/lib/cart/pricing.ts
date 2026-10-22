@@ -128,6 +128,8 @@ function toCartLine(
     brandSlug: toText(row.brand_slug),
     imageUrl: resolveImage(toText(row.image_storage_path), toText(row.image_external_url)),
     imageAlt: toText(row.image_alt) ?? title,
+    dialColor: toText(row.dial_color),
+    caseMaterial: toText(row.case_material),
     priceOnRequest,
     // `formatPrice` returns `null` for a price-on-request line, so the visible
     // price and the numeric value come from one decision and cannot disagree.

@@ -600,6 +600,18 @@ be sent, so there is nothing for a tampered request to carry.
    stock count. `is_available` and `quantity_locked` are booleans precisely so the
    result cannot be used to binary-search the business's inventory position.
 
+Each line also carries `dial_color` and `case_material`. They are presentation
+inputs for the drawn cart thumbnail, used when the catalogue holds no photograph
+for the piece, and they take no part in any amount — a wrong value changes a
+picture, not a price. They are returned per line rather than fetched separately
+so there is one source of truth for what a cart line contains.
+
+The function is defined in `0012_wishlist_and_cart.sql` and **redefined in
+`0013_order_request_submission.sql`** to delegate discount evaluation to
+`evaluate_discount_code`, so the cart and the order cannot disagree about whether
+a code applies or what it is worth. The later definition is the one that governs;
+a change to this function belongs in 0013 or a later migration, not in 0012.
+
 **A cart does not reserve stock; submitting an order request does.** `cart_pricing`
 is read-only; it does not touch `inventory`, `inventory_reservations` or
 `inventory_transactions`. Availability is reported, never claimed. The piece is held

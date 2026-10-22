@@ -91,7 +91,14 @@ function CartLineRow({ line }: { line: CartLine }) {
   return (
     <article className="flex gap-4 py-5">
       <div className="w-20 shrink-0 sm:w-24">
-        <MediaFrame src={line.imageUrl} alt={line.imageAlt} ratio="4/5" sizes="96px" />
+        <MediaFrame
+          src={line.imageUrl}
+          alt={line.imageAlt}
+          ratio="4/5"
+          sizes="96px"
+          dialColor={line.dialColor}
+          caseMaterial={line.caseMaterial}
+        />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">

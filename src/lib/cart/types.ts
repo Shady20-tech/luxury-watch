@@ -42,9 +42,16 @@ export type CartLine = {
   sku: string;
   brandName: string | null;
   brandSlug: string | null;
-  /** Resolved image URL, or `null` for the labelled placeholder. */
+  /** Resolved image URL, or `null` for the drawn thumbnail. */
   imageUrl: string | null;
   imageAlt: string;
+  /**
+   * The attributes the drawn thumbnail is built from, used only when
+   * `imageUrl` is `null`. Both are presentation data: neither is read to
+   * compute a price, and a wrong value here changes a picture, not an amount.
+   */
+  dialColor: string | null;
+  caseMaterial: string | null;
   priceOnRequest: boolean;
   /** Formatted unit price, or `null` when the piece is priced on request. */
   unitPrice: string | null;

@@ -36,32 +36,34 @@ values ('e0000000-0000-4000-8000-000000000001', 'Wc Brand', 'wc-brand', true)
 on conflict (slug) do update set is_active = excluded.is_active;
 
 insert into public.products
-  (id, sku, slug, title, brand_id, status, published_at, price_cents, price_on_request, cost_cents, compare_at_cents, currency)
+  (id, sku, slug, title, brand_id, status, published_at, price_cents, price_on_request, cost_cents, compare_at_cents, currency, dial_color, case_material)
 values
   -- Priced, two units: the only product model that permits a quantity above one.
   ('e0000000-0000-4000-8000-000000000101', 'WC-1', 'wc-priced-two', 'Wc Priced Two',
    'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '10 days',
-   100000, false, 60000, 120000, 'USD'),
+   100000, false, 60000, 120000, 'USD', 'Blue', 'Stainless steel'),
   -- Priced, one unit: a unique piece.
   ('e0000000-0000-4000-8000-000000000102', 'WC-2', 'wc-priced-one', 'Wc Priced One',
    'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '9 days',
-   250000, false, 150000, null, 'USD'),
+   250000, false, 150000, null, 'USD', 'Black', '18k yellow gold'),
   -- Price on request: contributes no amount to a subtotal.
   ('e0000000-0000-4000-8000-000000000103', 'WC-3', 'wc-por', 'Wc Price On Request',
    'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '8 days',
-   null, true, 999999, null, 'USD'),
+   null, true, 999999, null, 'USD', null, null),
   -- Draft: must never be returned by catalogue_by_ids.
   ('e0000000-0000-4000-8000-000000000104', 'WC-4', 'wc-draft', 'Wc Draft',
-   'e0000000-0000-4000-8000-000000000001', 'draft', null, 900000, false, null, null, 'USD'),
+   'e0000000-0000-4000-8000-000000000001', 'draft', null, 900000, false, null, null, 'USD', null, null),
   -- Archived: likewise.
   ('e0000000-0000-4000-8000-000000000105', 'WC-5', 'wc-archived', 'Wc Archived',
    'e0000000-0000-4000-8000-000000000001', 'archived', now() - interval '2 days',
-   900000, false, null, null, 'USD')
+   900000, false, null, null, 'USD', null, null)
 on conflict (slug) do update
   set status = excluded.status,
       price_cents = excluded.price_cents,
       price_on_request = excluded.price_on_request,
-      published_at = excluded.published_at;
+      published_at = excluded.published_at,
+      dial_color = excluded.dial_color,
+      case_material = excluded.case_material;
 
 insert into public.inventory (product_id, quantity, reserved_quantity)
 values
@@ -116,6 +118,44 @@ begin
     raise exception 'FAIL: cart_pricing exposed a stock count';
   end if;
   raise notice 'pass [cart_pricing: exposes no cost basis and no stock count]';
+
+  -- The per-line presentation inputs for the drawn thumbnail. They must be
+  -- present and must equal the product row, because a cart that dropped them
+  -- would silently show every line as the fallback drawing instead of the
+  -- piece the customer added. They are asserted here rather than in the app
+  -- tests because only the database knows what the product's columns hold.
+  v_line := v -> 'lines' -> 0;
+  if v_line ->> 'dial_color' is null then
+    raise exception 'FAIL: the line omitted dial_color';
+  end if;
+  if v_line ->> 'case_material' is null then
+    raise exception 'FAIL: the line omitted case_material';
+  end if;
+  if (v_line ->> 'dial_color') <> 'Blue' or (v_line ->> 'case_material') <> 'Stainless steel' then
+    raise exception 'FAIL: the line carried dial_color %, case_material %, expected Blue/Stainless steel',
+      v_line ->> 'dial_color', v_line ->> 'case_material';
+  end if;
+  raise notice 'pass [cart_pricing: carries the drawn-thumbnail inputs from the product row]';
+
+  -- A product whose attributes are unset must still carry the keys, as JSON
+  -- null. A missing key and an explicit null are not the same thing to the
+  -- mapper: the first is an older payload, the second is a piece with no
+  -- recorded dial colour.
+  v_line := v -> 'lines' -> 1;
+  if not (v_line ? 'dial_color') or not (v_line ? 'case_material') then
+    raise exception 'FAIL: the keys are absent rather than null for an unset attribute';
+  end if;
+  if v_line -> 'dial_color' <> 'null'::jsonb then
+    raise exception 'FAIL: an unset dial_color was not null';
+  end if;
+  raise notice 'pass [cart_pricing: an unset attribute is a present null, not a missing key]';
+
+  -- Presentation data must not become a second money path. Adding those two
+  -- fields must leave every amount exactly as it was.
+  if (v ->> 'subtotal_cents')::bigint <> 200000 then
+    raise exception 'FAIL: the presentation fields moved the subtotal';
+  end if;
+  raise notice 'pass [cart_pricing: the presentation fields do not affect an amount]';
 end
 $$;
 

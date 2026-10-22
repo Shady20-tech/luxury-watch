@@ -60,6 +60,8 @@ function line(overrides: Partial<CartLine> = {}): CartLine {
     brandSlug: 'test-brand',
     imageUrl: null,
     imageAlt: 'A test watch',
+    dialColor: 'black',
+    caseMaterial: 'steel',
     priceOnRequest: false,
     unitPrice: '$12,500',
     unitPriceCents: 1250000,

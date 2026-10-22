@@ -197,7 +197,7 @@ export default function DesignSystemPage() {
           <SectionHeading
             eyebrow="Primitives"
             title="Product presentation"
-            description="A consistent frame with generous space. A missing image renders an honest placeholder rather than a broken box or a stock photo."
+            description="A consistent frame with generous space. A product with no photograph yet renders a drawing of the piece built from its own attributes — never a stock photo, and never a claim to be the real item. Media that is not a watch still renders an honest labelled placeholder."
           />
           {/* The cards below use invented reference numbers and prices. They are
               a typographic and spacing reference for the product card, not
@@ -209,7 +209,7 @@ export default function DesignSystemPage() {
           </p>
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Card interactive className="overflow-hidden">
-              <MediaFrame src={null} alt="" ratio="4/5" />
+              <MediaFrame src={null} alt="" ratio="4/5" dialColor="White" caseMaterial="Steel" />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-display text-lg">Reference 126500LN</h3>
@@ -222,7 +222,13 @@ export default function DesignSystemPage() {
               </div>
             </Card>
             <Card interactive className="overflow-hidden">
-              <MediaFrame src={null} alt="" ratio="4/5" />
+              <MediaFrame
+                src={null}
+                alt=""
+                ratio="4/5"
+                dialColor="Blue"
+                caseMaterial="Stainless steel"
+              />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-display text-lg">Reference 5711/1A</h3>

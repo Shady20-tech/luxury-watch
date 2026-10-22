@@ -133,6 +133,7 @@ function catalogueSummary(row: Omit<CatalogueSearchRow, 'total_count'>): string 
     case_size_mm: toNumber(row.case_size_mm),
     movement: row.movement,
     dial_color: row.dial_color,
+    case_material: row.case_material,
     published_at: row.published_at,
     brand_name: row.brand_name,
     image_url: null,

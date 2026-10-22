@@ -326,9 +326,15 @@ grant execute on function public.release_discount_code(uuid) to service_role;
 -- -----------------------------------------------------------------------------
 -- cart_pricing — replaced to delegate discount evaluation
 --
--- The body is otherwise unchanged; only the inline discount block is replaced by
--- a call to `evaluate_discount_code`, so the cart and the order cannot disagree
--- about whether a code applies or what it is worth.
+-- The discount block is replaced by a call to `evaluate_discount_code`, so the
+-- cart and the order cannot disagree about whether a code applies or what it is
+-- worth.
+--
+-- Two presentation fields are also added per line, `dial_color` and
+-- `case_material`. They are what the cart's drawn thumbnail is built from when
+-- the catalogue holds no photograph for the piece, and they take no part in any
+-- amount. Reading them here rather than from a second function keeps one source
+-- of truth for what a cart line contains.
 -- -----------------------------------------------------------------------------
 
 create or replace function public.cart_pricing(
@@ -455,6 +461,8 @@ begin
       'image_storage_path', v_image_path,
       'image_external_url', v_image_url,
       'image_alt',          v_image_alt,
+      'dial_color',         v_product.dial_color,
+      'case_material',      v_product.case_material,
       'unit_price_cents',   v_unit,
       'price_on_request',   v_product.price_on_request,
       'currency',           coalesce(nullif(p_currency, ''), v_product.currency)::text,
@@ -497,7 +505,9 @@ $$;
 comment on function public.cart_pricing(jsonb, text, char(3)) is
   'Re-derives every cart line, the subtotal and any discount from the database. '
   'Never reads a client-supplied price or amount, never returns cost or stock '
-  'counts, and never reserves stock.';
+  'counts, and never reserves stock. The per-line `dial_color` and '
+  '`case_material` are presentation inputs for the drawn thumbnail and take no '
+  'part in any amount.';
 
 -- -----------------------------------------------------------------------------
 -- Status-transition side effects

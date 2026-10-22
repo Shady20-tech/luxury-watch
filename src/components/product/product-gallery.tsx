@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 import type { ProductImage } from '@/lib/product/types';
+import { MediaFrame } from '@/components/ui/media-frame';
 
 /**
  * Product image gallery.
@@ -104,11 +105,19 @@ function GalleryImage({
 export function ProductGallery({
   images,
   title,
+  dialColor,
+  caseMaterial,
   className,
 }: {
   images: ProductImage[];
   /** Used for the dialog title when a product has no brand context. */
   title: string;
+  /**
+   * Drawn-artwork inputs for a product with no photography yet. Passed through
+   * to `MediaFrame` only in the empty state, so a real image always wins.
+   */
+  dialColor?: string | null;
+  caseMaterial?: string | null;
   className?: string;
 }) {
   const [active, setActive] = useState(0);
@@ -184,23 +193,20 @@ export function ProductGallery({
     }
   }, [active]);
 
-  // A product with no images. Stated plainly rather than rendered as an empty
-  // box, and the zoom control is absent because there is nothing to zoom.
+  // A product with no images. `MediaFrame` owns this state — the same drawn
+  // artwork and the same caption the cards use — so the gallery cannot drift
+  // from the grid. The zoom control is absent because there is nothing to zoom.
   if (count === 0) {
     return (
       <div className={cn('w-full', className)}>
-        <div
-          className={cn(
-            'bg-surface-100 border-line-200 relative overflow-hidden rounded-sm border',
-            RATIO_CLASS,
-          )}
-        >
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            <p className="text-ink-500 text-center text-xs tracking-[0.14em] uppercase">
-              Photography to follow
-            </p>
-          </div>
-        </div>
+        <MediaFrame
+          src={null}
+          alt=""
+          ratio="4/5"
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          dialColor={dialColor}
+          caseMaterial={caseMaterial}
+        />
       </div>
     );
   }

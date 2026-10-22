@@ -58,6 +58,7 @@ const product = (over: Partial<ProductRow> & { id: string }): ProductRow => ({
   case_size_mm: null,
   movement: null,
   dial_color: null,
+  case_material: null,
   published_at: NOW,
   brand_name: 'Rolex',
   image_url: null,

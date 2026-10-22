@@ -87,6 +87,7 @@ export type ProductRow = {
   case_size_mm: number | null;
   movement: string | null;
   dial_color: string | null;
+  case_material: string | null;
   published_at: string | null;
   brand_name: string | null;
   image_url: string | null;
@@ -240,6 +241,8 @@ export function toProductCard(row: ProductRow, now: string): ProductCard {
     summary: composeSummary(row),
     imageUrl: row.image_url,
     imageAlt: productAlt(row),
+    dialColor: row.dial_color,
+    caseMaterial: row.case_material,
     price: formatPrice(row.price_cents, row.currency, row.price_on_request),
     condition: row.condition,
     // `null` means the availability function returned no row for this product,

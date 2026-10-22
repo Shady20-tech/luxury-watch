@@ -69,6 +69,8 @@ const card: ProductCardModel = {
   summary: 'Ref. 116400 · 40 mm',
   imageUrl: null,
   imageAlt: 'A watch',
+  dialColor: null,
+  caseMaterial: null,
   price: null,
   condition: 'new',
   available: true,

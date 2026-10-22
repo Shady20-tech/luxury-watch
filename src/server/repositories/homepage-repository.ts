@@ -92,6 +92,7 @@ type RawProduct = {
   case_size_mm: number | null;
   movement: string | null;
   dial_color: string | null;
+  case_material: string | null;
   published_at: string | null;
   brands: { name: string } | null;
   product_images: {
@@ -106,7 +107,7 @@ type RawProduct = {
 const PRODUCT_SELECT = `
   id, slug, title, short_description, price_cents, currency, price_on_request,
   condition, reference_number, production_year, case_size_mm, movement,
-  dial_color, published_at,
+  dial_color, case_material, published_at,
   brands ( name ),
   product_images ( storage_path, external_url, alt_text, is_primary, sort_order )
 `;
@@ -142,6 +143,7 @@ function toProductRow(raw: RawProduct, available: boolean | null): ProductRow {
     case_size_mm: raw.case_size_mm,
     movement: raw.movement,
     dial_color: raw.dial_color,
+    case_material: raw.case_material,
     published_at: raw.published_at,
     brand_name: raw.brands?.name ?? null,
     image_url: primary ? resolveImageUrl(primary.storage_path, primary.external_url) : null,

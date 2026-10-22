@@ -238,7 +238,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
       <Breadcrumbs entries={breadcrumbs} className="mb-6" />
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
-        <ProductGallery images={product.images} title={product.title} />
+        <ProductGallery
+          images={product.images}
+          title={product.title}
+          dialColor={product.dialColor}
+          caseMaterial={product.caseMaterial}
+        />
 
         <div className="flex flex-col gap-6">
           <header>

@@ -475,14 +475,14 @@ isOneToOne: false
                   ]
                 },"order_requests": {
                   Row: {
-                    "admin_note": string | null,"created_at": string,"currency": string,"customer_email": string,"customer_name": string,"customer_note": string | null,"customer_phone": string | null,"delivery_address": Json | null,"delivery_fee_cents": number,"fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"id": string,"ip_hash": string | null,"payment_method_code": string | null,"pickup_location": string | null,"reference": string,"settled_offline_at": string | null,"settled_offline_by": string | null,"status": Database["public"]['Enums']["order_status"],"subtotal_cents": number,"total_cents": number,"updated_at": string,"user_agent": string | null,"user_id": string | null
+                    "access_token_hash": string | null,"admin_note": string | null,"created_at": string,"currency": string,"customer_email": string,"customer_name": string,"customer_note": string | null,"customer_phone": string | null,"delivery_address": Json | null,"delivery_fee_cents": number,"discount_cents": number,"discount_code": string | null,"discount_redeemed_at": string | null,"discount_released_at": string | null,"fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"id": string,"idempotency_key": string | null,"ip_hash": string | null,"payment_method_code": string | null,"pickup_location": string | null,"reference": string,"settled_offline_at": string | null,"settled_offline_by": string | null,"status": Database["public"]['Enums']["order_status"],"subtotal_cents": number,"terms_acknowledged_at": string | null,"total_cents": number,"updated_at": string,"user_agent": string | null,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "admin_note"?: string | null,"created_at"?: string,"currency"?: string,"customer_email": string,"customer_name": string,"customer_note"?: string | null,"customer_phone"?: string | null,"delivery_address"?: Json | null,"delivery_fee_cents"?: number,"fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"id"?: string,"ip_hash"?: string | null,"payment_method_code"?: string | null,"pickup_location"?: string | null,"reference"?: string,"settled_offline_at"?: string | null,"settled_offline_by"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"subtotal_cents"?: number,"total_cents"?: number,"updated_at"?: string,"user_agent"?: string | null,"user_id"?: string | null
+                    "access_token_hash": string | null,"admin_note"?: string | null,"created_at"?: string,"currency"?: string,"customer_email": string,"customer_name": string,"customer_note"?: string | null,"customer_phone"?: string | null,"delivery_address"?: Json | null,"delivery_fee_cents"?: number,"discount_cents"?: number,"discount_code": string | null,"discount_redeemed_at": string | null,"discount_released_at": string | null,"fulfilment_type": Database["public"]['Enums']["fulfilment_type"],"id"?: string,"idempotency_key": string | null,"ip_hash"?: string | null,"payment_method_code"?: string | null,"pickup_location"?: string | null,"reference"?: string,"settled_offline_at"?: string | null,"settled_offline_by"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"subtotal_cents"?: number,"terms_acknowledged_at": string | null,"total_cents"?: number,"updated_at"?: string,"user_agent"?: string | null,"user_id"?: string | null
                   }
                   Update: {
-                    "admin_note"?: string | null,"created_at"?: string,"currency"?: string,"customer_email"?: string,"customer_name"?: string,"customer_note"?: string | null,"customer_phone"?: string | null,"delivery_address"?: Json | null,"delivery_fee_cents"?: number,"fulfilment_type"?: Database["public"]['Enums']["fulfilment_type"],"id"?: string,"ip_hash"?: string | null,"payment_method_code"?: string | null,"pickup_location"?: string | null,"reference"?: string,"settled_offline_at"?: string | null,"settled_offline_by"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"subtotal_cents"?: number,"total_cents"?: number,"updated_at"?: string,"user_agent"?: string | null,"user_id"?: string | null
+                    "access_token_hash": string | null,"admin_note"?: string | null,"created_at"?: string,"currency"?: string,"customer_email"?: string,"customer_name"?: string,"customer_note"?: string | null,"customer_phone"?: string | null,"delivery_address"?: Json | null,"delivery_fee_cents"?: number,"discount_cents"?: number,"discount_code": string | null,"discount_redeemed_at": string | null,"discount_released_at": string | null,"fulfilment_type"?: Database["public"]['Enums']["fulfilment_type"],"id"?: string,"idempotency_key": string | null,"ip_hash"?: string | null,"payment_method_code"?: string | null,"pickup_location"?: string | null,"reference"?: string,"settled_offline_at"?: string | null,"settled_offline_by"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"subtotal_cents"?: number,"terms_acknowledged_at": string | null,"total_cents"?: number,"updated_at"?: string,"user_agent"?: string | null,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -1049,8 +1049,13 @@ isOneToOne: false
 "customer_phone": string | null,
 "delivery_address": Json | null,
 "delivery_fee_cents": number,
+"discount_cents": number,
+"discount_code": string | null,
+"discount_redeemed_at": string | null,
+"discount_released_at": string | null,
 "fulfilment_type": Database["public"]['Enums']["fulfilment_type"],
 "id": string,
+"idempotency_key": string | null,
 "ip_hash": string | null,
 "payment_method_code": string | null,
 "pickup_location": string | null,
@@ -1059,6 +1064,7 @@ isOneToOne: false
 "settled_offline_by": string | null,
 "status": Database["public"]['Enums']["order_status"],
 "subtotal_cents": number,
+"terms_acknowledged_at": string | null,
 "total_cents": number,
 "updated_at": string,
 "user_agent": string | null,
