@@ -52,6 +52,10 @@ const ALLOWED_FILES = new Set([
   'src/lib/logger.ts',
   'tests/logger.test.ts',
   'tests/payment-guard.test.ts',
+  // Asserts the order emails never claim a payment. The forbidden terms appear
+  // here only as the patterns it searches *for*, which is the opposite of
+  // collecting them — the same reasoning as the logger denylist above.
+  'tests/email.test.ts',
   'IMPLEMENTATION_PLAN.md',
   'ARCHITECTURE.md',
   'CHANGELOG.md',

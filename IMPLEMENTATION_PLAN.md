@@ -40,7 +40,7 @@ This ordering exists so each phase continues the real implementation instead of 
 | 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | **done** | 2, 3, 4 |
 | 6 | Product detail page, media gallery, specs, related/recently viewed, wishlist | **done** | 5 |
 | 7 | Cart, manual order-request flow, payment-method selection, delivery/pickup, confirmation | **done** | 5, 6 |
-| 8 | Resend transactional email, templates, admin notifications | not started | 7 |
+| 8 | Resend transactional email, templates, admin notifications | **in progress** | 7 |
 | 9 | Authentication, customer account area (orders, wishlist, profile, addresses) and roles | not started | 7, 8 |
 | 10 | Admin platform (products, brands, models, collections, inventory, orders, inquiries, media, pages, announcements, payment methods, settings) | not started | 2, 4, 7, 9 |
 | 11 | Service flows (sell/trade, sourcing, repair), contact, CMS pages, FAQ, testimonials | not started | 3, 8, 9, 10 |
@@ -510,16 +510,31 @@ database-driven sitemap with real per-product `<lastmod>` is Phase 12.
 ## Phase 8 — Transactional email (Resend)
 
 **Scope**
-- `lib/email/resend.ts` transport with a no-key fallback that logs instead of sending
-- Templates: order request received (customer), new order request (admin), status changed
-  (customer), inquiry received (admin), inquiry reply (customer), welcome, newsletter confirmation
-- Send from services after the database write succeeds; email failure must not roll back data
-- Delivery/failure logging surfaced in admin
+- `src/lib/email/transport.ts` calls Resend over its HTTPS API with `fetch`, with a no-key fallback
+  that logs the recipient and subject (never the body) instead of sending. The SDK is deliberately
+  not used: it wraps one POST.
+- Templates live in `src/lib/email/orders.ts` as plain functions returning `{ subject, text, html }`.
+  Done: order request received (customer), new order request (admin). Remaining: status changed
+  (customer), inquiry received (admin), inquiry reply (customer), welcome, newsletter confirmation.
+  Each needs a trigger that does not exist yet — the account area (Phase 9) and the admin platform
+  (Phase 10) — so the transport and message model are in place ahead of them.
+- Sent from services after the database write succeeds; email failure must not roll back data.
+  `sendEmail` returns a result and never throws, and `notifyOrderRequestSubmitted` swallows its own
+  failures.
+- Delivery/failure logging is emitted (`email.sent`, `email.skipped`, `email.send_failed`); surfacing
+  it in the admin UI arrives with Phase 10.
 
 **Acceptance criteria**
-- Emails send in a configured environment and are logged in an unconfigured one
-- Every template states offline payment clearly and never claims payment
-- No API key in the repo or the client bundle
+- Emails send in a configured environment and are logged in an unconfigured one — **met** for the two
+  order-request messages (`tests/email-transport.test.ts`).
+- Every template states offline payment clearly and never claims payment — **met**, and enforced:
+  `tests/email.test.ts` scans every rendered message for a payment claim and fails if one appears.
+- No API key in the repo or the client bundle — **met**; the key is server-only and the transport is
+  behind `server-only`.
+
+**Verification note.** Email delivery itself is unverified end to end: A3 (no Resend account or
+verified sending domain) is still open, so no message has been sent through Resend from this
+repository. What is verified is the rendered message, the request shape and the no-key path.
 
 ---
 

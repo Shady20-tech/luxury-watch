@@ -188,6 +188,39 @@ must not be the only signal, because it says "static" while the data layer says
 routes. `next build` alone does not fail. The `●` marker in the build output means
 SSG; if the page reads cookies, that combination is the bug.
 
+### The migration that last defines a function is the one that governs
+
+`create or replace function` means a later migration can redefine an earlier
+one. `cart_pricing` is created in `0012_wishlist_and_cart.sql` and **redefined in
+`0013_order_request_submission.sql`** to delegate discount evaluation. A change
+made to the 0012 body is dead code: it applies, then is overwritten, and the
+database suite still passes because it only ever sees the final definition.
+
+Before editing a function, `grep -n 'create or replace function public.<name>'
+supabase/migrations/*.sql` and edit the **last** one. The payload-contract comment
+in 0012 is still the document of record for the shape, so update it too — but the
+behaviour belongs in 0013.
+
+### Email
+
+`src/lib/email/transport.ts` calls Resend over its HTTPS API with `fetch`, not the
+SDK. `sendEmail` returns a result and **never throws**, so a mail outage cannot
+turn a placed order into an error page; the caller logs and carries on. With no
+`RESEND_API_KEY` it logs the recipient and subject — never the body, which can
+hold a customer's address and phone number — and reports `skipped`.
+
+Templates are plain functions returning `{ subject, text, html }` in
+`src/lib/email/orders.ts`. The text part is written first and is complete on its
+own. **No template may claim a payment was taken**; `tests/email.test.ts` scans
+every rendered message for such a claim and fails if one appears, so this is
+enforced rather than reviewed. A new template that mentions money must be added
+to that test's fixture.
+
+Every figure an email quotes is read back from the committed row, never from the
+browser payload. The guest's access token goes in the customer's message and no
+other — it is a capability, and copying it into the admin mailbox widens who holds
+it for no benefit.
+
 ### Things that will bite you
 
 - **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency

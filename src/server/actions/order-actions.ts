@@ -12,6 +12,7 @@ import {
 } from '@/lib/orders/order-request';
 import { submitOrderRequest } from '@/server/repositories/order-repository';
 import { clearCartAfterOrder } from '@/server/services/cart-service';
+import { notifyOrderRequestSubmitted } from '@/server/services/email-service';
 
 /**
  * The order-request submission.
@@ -119,6 +120,12 @@ export async function submitOrderRequestAction(
         message: error instanceof Error ? error.message : 'unknown error',
       });
     }
+
+    // Also after the commit, and also best-effort. `notifyOrderRequestSubmitted`
+    // swallows its own failures, so a mail outage cannot turn a placed order
+    // into an error page. It is awaited so the work is attributed to this
+    // request rather than racing the response.
+    await notifyOrderRequestSubmitted(result);
 
     return { status: 'success', receipt: result };
   } catch (error) {

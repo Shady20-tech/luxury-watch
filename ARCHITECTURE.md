@@ -381,12 +381,21 @@ Transactional only, sent from server services, never from the browser.
 | Newsletter signup | Customer | Confirmation / double opt-in |
 
 Implementation notes:
-- `lib/email/resend.ts` wraps the SDK; `lib/email/templates/*` holds React Email-style templates.
+- `src/lib/email/transport.ts` calls the Resend HTTPS API with `fetch` rather than pulling in the
+  SDK: the SDK wraps one POST, in exchange for a dependency, a version to track and another entry
+  in the bundle graph. `src/lib/email/message.ts` holds the message model and escaping;
+  `src/lib/email/orders.ts` holds the templates as plain functions returning
+  `{ subject, text, html }`, so there is no templating engine and no second escaping surface.
 - Sending is **best-effort and non-blocking**: a failed email must not roll back a stored order
-  request. Failures are logged and surfaced in admin.
-- `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are server-only.
-- In local/preview environments without a key, the transport logs the rendered payload instead of
-  sending, so flows remain testable without a real key.
+  request. `sendEmail` returns a result and never throws, and the caller logs and carries on.
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `RESEND_ADMIN_EMAIL` are server-only. With no key the
+  transport logs the recipient and subject — never the body, which can hold a customer's address
+  and phone number — and reports `skipped`, so a fresh clone and CI exercise the same path.
+- The text part is written first and is complete on its own; the HTML part is built from the same
+  data. A client that strips HTML gets every fact rather than "view this email in a browser".
+- No template may claim a payment was taken. That is asserted by `tests/email.test.ts`, not left to
+  review, because it is the same invariant the schema enforces by having no customer-reachable
+  `paid` status.
 
 ---
 

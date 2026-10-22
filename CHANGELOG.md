@@ -8,6 +8,104 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 8 — Transactional email, and drawn product artwork
+
+**Date:** 2026-10-18
+
+> Phase 8 in the plan is transactional email. Alongside it, and for the same
+> reason — the storefront has no photography it is allowed to use — the product
+> media fallback became original drawn artwork rather than an empty placeholder.
+> Both changes are additive; neither touches the payment boundary, which remains
+> absent by design.
+
+#### Added
+
+**Email (`src/lib/email/`, `src/server/services/email-service.ts`)**
+
+- `message.ts` — the message model, `escapeHtml`, and `summariseItems`. Templates
+  are functions returning `{ subject, text, html }`; there is no templating
+  engine and therefore no second escaping surface.
+- `orders.ts` — `orderRequestReceivedEmail` (customer) and `newOrderRequestEmail`
+  (admin). The text part is written first and is complete on its own. `NOT_PAID`
+  is the single place the offline-settlement fact is stated, and it appears in
+  both parts of both messages.
+- `transport.ts` — Resend over its HTTPS API with `fetch`, not the SDK: the SDK
+  wraps one POST in exchange for a dependency, a version to track and another
+  entry in the bundle graph. `sendEmail` returns a result and never throws. With
+  no key it logs the recipient and subject — never the body, which can hold a
+  customer's address and phone number — and reports `skipped`, so a fresh clone,
+  CI and a pre-Resend deployment all exercise the same path.
+- `email-service.ts` — `notifyOrderRequestSubmitted`, called from
+  `submitOrderRequestAction` **after** the commit. Every figure it quotes is read
+  back from the committed row, and the item list is read from
+  `order_request_items`, so a message cannot quote a title or a price the
+  database did not record. A mail failure is logged and swallowed: turning a
+  placed order into an error page would be worse than a missing courtesy email.
+- `RESEND_ADMIN_EMAIL` added to the server environment. Unset is not a failure —
+  the customer is still notified and the log says why the internal copy was
+  skipped.
+- `tests/email.test.ts` (31 tests) and `tests/email-transport.test.ts` (5 tests).
+  The former scans every rendered message for a claim that money moved and fails
+  if one appears, so the wording cannot drift back.
+
+**Drawn product artwork (`src/components/ui/watch-illustration.tsx`)**
+
+- The seed carries no image URLs (a licensing decision, A6/G5), so most products
+  rendered an empty placeholder. `WatchIllustration` draws an original watch from
+  the attributes the row actually holds — `dial_color` and `case_material` — so
+  each piece gets distinct artwork that is nobody else's asset and is not a stock
+  photograph.
+- It is inline SVG, so there is no request, no lazy-loading gap and no layout
+  shift. It defines no `<defs>` and no ids: the same dial colour appears many
+  times on one page, and duplicate ids are invalid HTML whose resolution depends
+  on document order. The metallic case and dial sheen are layered shapes at
+  varying opacity instead.
+- It is `aria-hidden` and captioned "Illustration · photography to follow", so a
+  drawing never passes for the real piece. It carries no logo, no text and no
+  complication the product row does not record.
+- `MediaFrame` gained `dialColor`/`caseMaterial`. When a caller passes either —
+  even `null` — the fallback is the drawing; when it passes neither, the fallback
+  stays the neutral labelled placeholder, which is what a hero or an editorial
+  section wants. A real `product_images` row always wins over both.
+- `ProductGallery`'s empty state now delegates to `MediaFrame` rather than
+  reimplementing the frame, caption and contrast decision.
+- The two attributes are threaded end to end: `cart_pricing` (migration 0013)
+  returns them per line, `CartLine` carries them, and the catalogue and homepage
+  card assemblers pass them through. They are presentation only — a wrong value
+  changes a picture, not an amount — and the migration suite asserts both that
+  they arrive and that they leave every figure untouched.
+
+#### Changed
+
+- `supabase/migrations/0013_order_request_submission.sql` — `cart_pricing` returns
+  `dial_color` and `case_material` per line. The migration that last defines a
+  function is the one that governs, and 0013 redefines `cart_pricing` to delegate
+  discount evaluation, so the fields were added there rather than in 0012 where
+  they would have been dead code. 0012's payload-contract comment is updated to
+  match, since it is the document of record for the payload's shape.
+- `supabase/tests/18_wishlist_and_cart.sql` — the fixture rows now carry a dial
+  colour and a case material, and two assertions were added: the attributes reach
+  the line, and an unset attribute is a present JSON `null` rather than a missing
+  key (the mapper treats those differently). A third asserts the subtotal did not
+  move.
+- `ARCHITECTURE.md` §9 — the email notes described an SDK wrapper at
+  `lib/email/resend.ts` that was never built. They now describe the `fetch`
+  transport, the template functions, the no-key path and the payment-claim test.
+- `KNOWN_ISSUES.md` — G39 and E6 updated: the fallback is original drawn artwork
+  captioned as an illustration, not a placeholder, and still not photography.
+
+#### Not done, and deliberately
+
+- **No payment gateway.** No card field, no provider SDK, no checkout session.
+  `scripts/check-no-payment-providers.mjs` enforces it and still passes;
+  `tests/email.test.ts` was added to its `ALLOWED_FILES` because it names the
+  forbidden terms only as the patterns it searches *for*.
+- **Status-change, inquiry, welcome and newsletter emails** are in the Phase 8
+  scope but are not sent yet: the triggers for the first three arrive with the
+  account area (Phase 9) and the admin platform (Phase 10), and the newsletter
+  double opt-in needs a subscriber table that does not exist. The transport and
+  the templates they will use are in place.
+
 ### Phase 7 (second pass) — Order-request flow
 
 **Date:** 2026-10-18

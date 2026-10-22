@@ -72,11 +72,42 @@ export type OrderRequestSubmission = {
 export type OrderRequestResult = {
   reference: string;
   /**
+   * The row's primary key. Server-side only — it is used to read the items back
+   * for the notification email, and is never rendered or returned to a browser.
+   */
+  id: string;
+  /**
    * The raw guest token, returned once and never stored. `null` for a signed-in
    * customer, who is scoped by RLS and needs no token.
    */
   accessToken: string | null;
   isGuest: boolean;
+  /**
+   * The figures the database computed, echoed straight from the committed row.
+   *
+   * These are read back from the row the function returned rather than from
+   * anything the browser sent, so a confirmation email that quotes them is
+   * quoting the database. Nothing here is recalculated in Node — a second
+   * implementation of the pricing would be a second thing to keep in step.
+   */
+  summary: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string | null;
+    fulfilmentType: string;
+    pickupLocation: string | null;
+    /** The structured delivery address, when the request is for delivery. */
+    deliveryAddress: Record<string, string | undefined> | null;
+    paymentMethodCode: string | null;
+    customerNote: string | null;
+    subtotalCents: number;
+    deliveryFeeCents: number;
+    discountCents: number;
+    discountCode: string | null;
+    totalCents: number;
+    currency: string;
+    status: string;
+  };
 };
 
 /** A fresh guest token and the hash the database stores. */
@@ -165,15 +196,110 @@ export async function submitOrderRequest(
     throw error;
   }
 
-  const row = data as { reference: string };
+  const row = data as {
+    id: string;
+    reference: string;
+    customer_name: string;
+    customer_email: string;
+    customer_phone: string | null;
+    fulfilment_type: string;
+    pickup_location: string | null;
+    delivery_address: Record<string, string | undefined> | null;
+    payment_method_code: string | null;
+    customer_note: string | null;
+    subtotal_cents: number;
+    delivery_fee_cents: number;
+    discount_cents: number;
+    discount_code: string | null;
+    total_cents: number;
+    currency: string;
+    status: string;
+  };
 
   logger.info('order_request.submitted', { reference: row.reference, isGuest });
 
   return {
     reference: row.reference,
+    id: row.id,
     accessToken: token?.token ?? null,
     isGuest,
+    summary: {
+      customerName: row.customer_name,
+      customerEmail: row.customer_email,
+      customerPhone: row.customer_phone,
+      fulfilmentType: row.fulfilment_type,
+      pickupLocation: row.pickup_location,
+      deliveryAddress: row.delivery_address,
+      paymentMethodCode: row.payment_method_code,
+      customerNote: row.customer_note,
+      subtotalCents: Number(row.subtotal_cents),
+      deliveryFeeCents: Number(row.delivery_fee_cents),
+      discountCents: Number(row.discount_cents ?? 0),
+      discountCode: row.discount_code,
+      totalCents: Number(row.total_cents),
+      currency: row.currency,
+      status: row.status,
+    },
   };
+}
+
+/**
+ * The line items of a just-submitted request, for the notification email.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THERE ARE TWO PATHS
+ * -----------------------------------------------------------------------------
+ *
+ * A signed-in customer can read their own items through RLS
+ * (`order_request_items_select_own`), so a plain select works.
+ *
+ * A guest cannot: that policy requires `authenticated`, and a guest is `anon`.
+ * Their items are reachable only through `read_order_request`, which is
+ * `security definer` and matches on the access-token hash. The raw token exists
+ * in this process for exactly as long as it takes to email it, so it is used
+ * here and then dropped.
+ *
+ * Both paths read committed rows. Neither recomputes anything.
+ */
+export type OrderRequestItemView = {
+  title: string;
+  quantity: number;
+  unitPriceCents: number | null;
+};
+
+export async function fetchOrderRequestItems(
+  orderRequestId: string,
+  guest: { reference: string; token: string } | null,
+): Promise<OrderRequestItemView[]> {
+  if (guest) {
+    const view = await readGuestOrderRequest(guest.reference, guest.token);
+    return (view?.items ?? []).map((item) => ({
+      title: item.title,
+      quantity: item.quantity,
+      unitPriceCents: item.unitPriceCents,
+    }));
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('order_request_items')
+    .select('product_title_snapshot, unit_price_cents, quantity')
+    .eq('order_request_id', orderRequestId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    // Not fatal: the email is a courtesy about a request that is already
+    // committed. The caller logs and sends a message without the item list
+    // rather than failing the submission.
+    logger.warn('order_request.items_read_failed', { message: error.message });
+    throw error;
+  }
+
+  return (data ?? []).map((row) => ({
+    title: row.product_title_snapshot,
+    quantity: row.quantity,
+    unitPriceCents: row.unit_price_cents,
+  }));
 }
 
 /**
