@@ -574,7 +574,7 @@ administrator, and never by submission.
 ## 8a. Cart pricing at the database level (Phase 7)
 
 The cart has the same shape as the order path, for the same reason: the browser is
-a display surface, never a source of truth. `cart_pricing(p_lines jsonb,
+a display surface, never a source of truth. `cart_pricing(p_items jsonb,
 p_discount_code text, p_currency char(3))` is the single entry point for every
 number the cart shows, and it is `SECURITY DEFINER` so an anonymous visitor with
 only the anon key can call it.
