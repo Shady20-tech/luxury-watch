@@ -70,19 +70,24 @@ fi
 
 stop_all
 
-# --- 1. anon JWT signed with a secret we control ------------------------------
+# --- 1. JWTs signed with a secret we control --------------------------------
+# Two roles are needed, not one. Public pages read through `anon` and its RLS
+# policies, but the guest cart and wishlist are deliberately handled server-side
+# with the service-role client (see src/lib/cart/session.ts). Setting the
+# service-role key to an anon token does not fail loudly — the action logs
+# `cart.add_failed` and the cart stays empty — so both tokens are minted here.
 SECRET="lw-preview-local-jwt-secret-not-for-production"
-ANON_JWT="$(
-  python3 - "$SECRET" <<'PY'
+mint_jwt() {
+  python3 - "$SECRET" "$1" <<'PY'
 import base64, hmac, hashlib, json, sys, time
 
 def b64(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
-secret = sys.argv[1]
+secret, role = sys.argv[1], sys.argv[2]
 header = {"alg": "HS256", "typ": "JWT"}
 now = int(time.time())
-payload = {"role": "anon", "iss": "supabase", "iat": now, "exp": now + 315_360_000}
+payload = {"role": role, "iss": "supabase", "iat": now, "exp": now + 315_360_000}
 signing = (
     f"{b64(json.dumps(header, separators=(',', ':')).encode())}."
     f"{b64(json.dumps(payload, separators=(',', ':')).encode())}"
@@ -90,7 +95,9 @@ signing = (
 sig = hmac.new(secret.encode(), signing.encode(), hashlib.sha256).digest()
 print(f"{signing}.{b64(sig)}")
 PY
-)"
+}
+ANON_JWT="$(mint_jwt anon)"
+SERVICE_JWT="$(mint_jwt service_role)"
 
 # --- 2. PostgREST -------------------------------------------------------------
 if [ ! -x "$WORKDIR/postgrest" ]; then
@@ -125,10 +132,10 @@ if [ ! -f .env.local ]; then
   exit 1
 fi
 cp .env.local "$WORKDIR/env.local.backup"
-python3 - "$ANON_JWT" "$PROXY_PORT" <<'PY'
+python3 - "$ANON_JWT" "$SERVICE_JWT" "$PROXY_PORT" <<'PY'
 import io, re, sys
 
-token, proxy_port = sys.argv[1], sys.argv[2]
+anon, service, proxy_port = sys.argv[1], sys.argv[2], sys.argv[3]
 text = io.open(".env.local", encoding="utf-8").read()
 
 
@@ -141,8 +148,10 @@ def set_var(text: str, key: str, value: str) -> str:
 
 
 text = set_var(text, "NEXT_PUBLIC_SUPABASE_URL", f"http://127.0.0.1:{proxy_port}")
-text = set_var(text, "NEXT_PUBLIC_SUPABASE_ANON_KEY", token)
-text = set_var(text, "SUPABASE_SERVICE_ROLE_KEY", token)
+text = set_var(text, "NEXT_PUBLIC_SUPABASE_ANON_KEY", anon)
+# The guest cart and wishlist go through the service-role client, so this must be
+# a service_role token. An anon token here fails silently at runtime.
+text = set_var(text, "SUPABASE_SERVICE_ROLE_KEY", service)
 io.open(".env.local", "w", encoding="utf-8").write(text)
 PY
 
