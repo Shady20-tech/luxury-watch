@@ -5,7 +5,8 @@ import { getPublicEnv } from '@/lib/env';
 import type { Database } from '@/lib/database.types';
 
 /**
- * Refresh the Supabase auth session on every navigation.
+ * Refresh the Supabase auth session on every navigation, and forward the
+ * pathname to the render.
  *
  * Why this exists: Server Components cannot write cookies. If the auth token is
  * refreshed during a Server Component render, the new token cannot be
@@ -18,7 +19,24 @@ import type { Database } from '@/lib/database.types';
  * same `response` object whose cookies were mutated.
  */
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  /**
+   * The pathname is forwarded to Server Components.
+   *
+   * A layout cannot see the URL it is rendering, so the account guard has no way
+   * to know which page the visitor was heading for and would have to send
+   * everyone to the same place after sign-in. Forwarding it as a request header
+   * is the documented way to make it available.
+   *
+   * The header is built once and reused for every `NextResponse.next()` below.
+   * The Supabase `setAll` callback rebuilds the response, and a rebuilt response
+   * made from a bare `NextResponse.next({ request })` would drop this header.
+   */
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', request.nextUrl.pathname);
+
+  const next = () => NextResponse.next({ request: { headers: requestHeaders } });
+
+  let response = next();
 
   const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
 
@@ -37,7 +55,7 @@ export async function middleware(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
-        response = NextResponse.next({ request });
+        response = next();
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
         }

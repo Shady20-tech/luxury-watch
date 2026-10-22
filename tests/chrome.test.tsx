@@ -121,6 +121,30 @@ describe('HeaderActions', () => {
     expect(screen.getByText('99+')).toBeDefined();
     expect(screen.getByRole('link', { name: 'Cart, 250 items' })).toBeDefined();
   });
+
+  it('sends a signed-out visitor straight to sign-in, not via a redirect', () => {
+    render(<HeaderActions signedIn={false} />);
+
+    // `/account` would bounce a signed-out visitor through the account guard's
+    // redirect. Pointing at `/login` makes the link do what its label says.
+    const account = screen.getByRole('link', { name: 'Sign in' });
+    expect(account.getAttribute('href')).toBe('/login');
+  });
+
+  it('points a signed-in visitor at their account', () => {
+    render(<HeaderActions signedIn />);
+
+    const account = screen.getByRole('link', { name: 'Account' });
+    expect(account.getAttribute('href')).toBe('/account');
+  });
+
+  it('assumes signed in when the caller does not know', () => {
+    // The header is prerendered, so the first paint is the default. Rendering
+    // "Sign in" at someone who is signed in is the more jarring of the two
+    // wrong states, so the default is the neutral one.
+    render(<HeaderActions />);
+    expect(screen.getByRole('link', { name: 'Account' }).getAttribute('href')).toBe('/account');
+  });
 });
 
 describe('MobileNav', () => {

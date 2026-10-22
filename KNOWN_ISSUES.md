@@ -227,6 +227,31 @@ are hard-denied (`401`, SQLSTATE `42501`) rather than filtered to an empty resul
 This is recorded as D10 and was proven against the real client path before and after
 the fix.
 
+## M. Authentication and account items (raised in Phase 9)
+
+| ID | Finding | Severity | Status | Resolution or next step |
+|---|---|---|---|---|
+| G57 | **Registration, confirmation, sign-in, sign-out and password reset have never been run against a real Supabase project** (A1 still open). The pages render, the guard redirects, the schemas validate and the build is clean, but no session has ever been created. | high | open | Follows A1, G1, G46 and G52. Register a throwaway account, confirm the email, sign in, sign out, and run one reset, then record the result here. |
+| G58 | **The `/account/*` pages are not in the browser audit.** They redirect a signed-out visitor to `/login`, so the audit cannot reach them without a seeded session. Their chrome and tokens are covered through the public pages, but a contrast or overflow defect in an account page's own content would not be caught. | medium | open | Needs the audit to sign in first, or a seeded session injected as a cookie. Until then the account pages are covered only by jsdom component tests, which do not evaluate geometry. |
+| G59 | **A customer can save more than one address but there is no notion of a default, and no reuse of a saved address at checkout.** `addresses` rows are listed and edited; nothing marks one as preferred and the order-request form does not offer them. | low | open | Deliberate: the order-request form was built in Phase 7, before addresses existed. Adding a default flag and a picker is a small change, but it touches `submit_order_request`'s address handling, so it belongs with Phase 10's admin work or a later pass. |
+| G60 | **Email-address changes are not supported.** `profiles` and the auth user carry the address, and Supabase requires a confirmation round trip to change it, so the profile form does not offer the field. | low | open | The form says the address is managed by sign-in rather than showing a disabled input with no explanation. Revisit if customers ask for it. |
+| G61 | **The account overview's order count and the order list read the customer's own rows through RLS, but there is no test that a *second* customer cannot see the first customer's orders.** The policy exists (`order_requests` is scoped to `user_id`) and is exercised by the RLS suites from Phase 7, but the account repository's queries have not been run as a second, different signed-in user. | medium | open | Needs A1 or a seeded local session for two users. Add a two-customer test to the RLS suite when the local auth fixture exists. |
+| G62 | **A signed-out visitor who reaches `/account` is redirected, but the redirect drops any query string on the requested path.** `x-pathname` carries the pathname only, not the search, so a customer heading for `/account/orders?page=2` returns to page 1. | low | open | Harmless while no account route paginates. If one does, forward `nextUrl.search` alongside the pathname and extend the guard's `startsWith('/account')` check to cover the search. |
+| G63 | **Password-change re-authentication signs the user back in but does not rotate the session on the other devices.** Supabase's `updateUser` changes the password; sessions already issued elsewhere stay valid until they expire. | low | accepted | The default Supabase behaviour. A global sign-out after a password change would be the stronger posture; it is a product decision rather than a defect, and it would sign the customer out of the tab they are using. |
+| G64 | **The sign-in form's `next` value round-trips through a hidden field, so it is sanitised twice by design and the second sanitisation is what protects the redirect.** The first runs when the page renders the field; the action re-validates before navigating. Removing either would not be caught by the page test alone. | low | accepted | Deliberate defence in depth. `tests/auth-redirect.test.ts` covers the guard and `scripts/a11y-audit.mjs` walks `/login?next=/account/orders`; the action's own re-validation is exercised end to end only when a real sign-in can run, which is G57. |
+| G65 | **Migration `0014_account_portal.sql` and the four SQL suites it touches were never executed.** The environment this phase was built in has no local Postgres 17 and no usable Docker daemon, so `./scripts/db-verify.sh` could not run — the first phase in this project where that is true. The migration revokes the table-level `select` grant on the customer-facing tables and re-grants the public columns, which is the same class of change as the Phase 6 fix that a reading of the policies had missed. | high | open | Run `./scripts/db-reset.sh && ./scripts/db-verify.sh` and record the result. The static cross-check (every selected column is granted, no `select('*')` on a restricted table, the guest item read uses the RPC) found no mismatch, but it is a reading, not a proof. |
+
+**Phase 9 added section M.** Authentication and the account area are implemented and
+verified as far as an unconfigured Supabase project allows: the guard runs in the
+layout, every protected route redirects to `/login?next=<that route>`, the
+open-redirect guard is covered by 13 unit tests and was exercised through the running
+production build, and the browser audit is green including the new auth pages. The
+three defects fixed during the phase — a deprecated Zod email validator that ignored
+its message, an optional-text helper that rejected whitespace, and a missing
+`revalidatePath` — were all found by tests and by looking at the running build, not by
+reading the code. The one design error found by running the server was G62's cause: the
+guard sent every protected route to `/account` until middleware forwarded the pathname.
+
 ---
 
 ## Summary
@@ -234,9 +259,9 @@ the fix.
 | Severity | Count | Open |
 |---|---|---|
 | critical | 7 | 1 |
-| high | 22 | 11 |
-| medium | 27 | 15 |
-| low | 36 | 8 |
+| high | 24 | 13 |
+| medium | 29 | 17 |
+| low | 41 | 11 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.

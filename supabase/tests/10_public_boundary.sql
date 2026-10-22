@@ -115,7 +115,14 @@ reset role;
 
 set role anon;
 
-select pg_temp.assert_no_rows(
+-- Migration 0014 revokes the table-level `select` grant on the customer-facing
+-- tables and re-grants the customer-facing columns, so `anon` now reaches none
+-- of them at all. These were "0 rows" assertions; they are hard denials now,
+-- which is the stronger property — a future policy mistake cannot re-expose a
+-- table whose grant is gone. The assertion was tightened rather than the grant
+-- loosened.
+
+select pg_temp.assert_denied(
   'anon cannot read any profile',
   'select count(*) from public.profiles');
 
@@ -123,15 +130,15 @@ select pg_temp.assert_no_rows(
   'anon cannot read user_roles',
   'select count(*) from public.user_roles');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read addresses',
   'select count(*) from public.addresses');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read order_requests',
   'select count(*) from public.order_requests');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read inquiries',
   'select count(*) from public.inquiries');
 
@@ -175,19 +182,19 @@ select pg_temp.assert_no_rows(
   'anon cannot read messages',
   'select count(*) from public.messages');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read appointments',
   'select count(*) from public.appointments');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read sell_trade_requests',
   'select count(*) from public.sell_trade_requests');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read sourcing_requests',
   'select count(*) from public.sourcing_requests');
 
-select pg_temp.assert_no_rows(
+select pg_temp.assert_denied(
   'anon cannot read repair_requests',
   'select count(*) from public.repair_requests');
 

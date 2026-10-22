@@ -1,6 +1,6 @@
 # Implementation Plan — Luxury Watch E-commerce Platform
 
-Last updated: 2026-10-18 (end of Phase 7, both passes; order-request flow)
+Last updated: 2026-10-18 (end of Phase 9; authentication and the customer account area)
 Reference: https://carbonwatchcompany.com/ · Deployment: Vercel · Data: Supabase · Email: Resend
 Payments: **manual/offline selection only — no gateway, no online processing**
 
@@ -40,8 +40,8 @@ This ordering exists so each phase continues the real implementation instead of 
 | 5 | Catalogue: brands, models, collections, product listing, filters, sort, search | **done** | 2, 3, 4 |
 | 6 | Product detail page, media gallery, specs, related/recently viewed, wishlist | **done** | 5 |
 | 7 | Cart, manual order-request flow, payment-method selection, delivery/pickup, confirmation | **done** | 5, 6 |
-| 8 | Resend transactional email, templates, admin notifications | **in progress** | 7 |
-| 9 | Authentication, customer account area (orders, wishlist, profile, addresses) and roles | not started | 7, 8 |
+| 8 | Resend transactional email, templates, admin notifications | **done** | 7 |
+| 9 | Authentication, customer account area (orders, wishlist, profile, addresses) and roles | **in progress** | 7, 8 |
 | 10 | Admin platform (products, brands, models, collections, inventory, orders, inquiries, media, pages, announcements, payment methods, settings) | not started | 2, 4, 7, 9 |
 | 11 | Service flows (sell/trade, sourcing, repair), contact, CMS pages, FAQ, testimonials | not started | 3, 8, 9, 10 |
 | 12 | SEO hardening: dynamic sitemap with real `lastmod`, structured data, robots, canonicals, invalidation | not started | 5, 6, 11 |
@@ -561,6 +561,100 @@ repository. What is verified is the rendered message, the request shape and the 
 - Tests cover the role guard on both route and service level
 - A customer sees only their own data (verified by RLS tests)
 - Status timeline reads from `order_request_events`
+
+### What was built
+
+**Authentication (`src/lib/auth/`, `src/components/auth/`, `src/server/repositories/auth-repository.ts`)**
+
+- `validation.ts` — Zod schemas for registration, sign-in, password reset, password change, the
+  profile and an address. No React and no client, so the schemas are unit-testable directly. This
+  file also holds the `AuthFormState` type, which is why it is not a `'use server'` module: every
+  export of one of those must be an async function.
+- `redirect.ts` — `safeRedirectPath`, the open-redirect guard. It exists as one module because the
+  check is needed in three places (the sign-in action, the sign-in page and `/auth/callback`), and
+  three copies of a security check is three chances for one to be fixed and the others forgotten.
+- `auth-repository.ts` — every Supabase Auth call, plus profile and address persistence. It uses
+  the request-scoped, cookie-aware anon client throughout: the service-role client would
+  authenticate the *call* but not the *caller*, and would bypass the RLS policies that make a
+  customer's own rows the only rows they can reach. Passwords are handed to Supabase and never
+  hashed, stored, compared or logged here.
+- Pages at `/login`, `/register`, `/forgot-password`, `/reset-password`, and `/auth/callback` — a
+  Route Handler rather than a page, because exchanging the emailed code sets cookies and a Server
+  Component cannot set cookies during render.
+
+**Account area (`src/app/(site)/account/`, `src/components/account/`)**
+
+- `layout.tsx` holds the guard. A layout wraps every page beneath it, so a check here runs for every
+  `/account/*` route including ones added later; a guard per page works until someone adds a page
+  and forgets, and the failure mode of that omission is a page that renders another customer's data.
+- `/account` overview, `/account/orders`, `/account/orders/[id]`, `/account/profile`,
+  `/account/addresses`, `/account/security`. `/account/wishlist` redirects to `/wishlist`, which
+  already renders both the signed-in and guest cases and owns the guest-to-account merge; a second
+  rendering would be a second place for the merge to happen, and it must run exactly once.
+- `authorization-service.ts` resolves identity and staff standing once per request through
+  `cache()`, so a layout, a page and a component cannot disagree about who the caller is. Role
+  checks read the `SECURITY DEFINER` helpers `is_staff()`/`is_admin()`/`has_permission()` rather
+  than a column, because a customer can update their own profile row and a role stored there would
+  be one policy mistake away from self-promotion. They fail closed.
+
+### Verification
+
+**Status: implemented and verified to the limit of an unconfigured Supabase project.** `npm run
+verify` is green at 486 tests, and `npm run build` followed by `next start` was exercised against
+the real production output — not `next dev`, which does not reproduce the cookie/SSG failure.
+
+- **The account guard was verified against the running production build.** Every `/account/*` route
+  returns `307` to `/login?next=<that route>` for a signed-out visitor, and no route returns a
+  `500`. This is the check that `next build` alone cannot make: a cookie-reading route classified as
+  static fails only at request time with "Page changed from static to dynamic at runtime".
+- **The return destination is per-route, not generic.** A layout cannot see the URL it is rendering,
+  so middleware forwards the pathname as `x-pathname` and the guard uses it. Before that, every
+  protected route sent the customer to `/account` after sign-in, losing the page they asked for.
+- **The open-redirect guard was verified end to end.** `/auth/callback?next=https://evil.test`,
+  `?next=//evil.test` and `?next=javascript:alert(1)` all fall back to `/account`, and the sanitised
+  value is what reaches the sign-in form's hidden field, so a tampered `next` cannot survive a round
+  trip through the form either. 13 unit tests cover the four rejection forms.
+- **The browser audit passes** — no critical or serious axe violations and no horizontal overflow,
+  across 15 pages × 4 viewports, including the three new auth pages at 320px.
+
+### Defects found and fixed while building this phase
+
+- **Zod 4 misuse in the validation schemas.** `z.string().email('...')` is deprecated in Zod 4 and
+  silently ignores the custom message, reporting its own instead; it is now `z.email({ message })`.
+  The optional-text helper was written as `.optional().or(z.literal(''))`, which looks right and is
+  not: the empty string is not trimmed before the branch is chosen, so a form submitting whitespace
+  (`'   '`) failed both branches and was rejected. It is now a single transform that folds `''` to
+  `undefined`, so an optional column is written as null rather than as an empty string. Both are
+  covered by tests that assert the whitespace case specifically.
+- **`revalidatePath` was missing after profile and address writes.** Without it the account header
+  kept showing the old name after a save, because the render was cached.
+- **A registration was logged with the customer's email address.** The logger redacts *keys* that
+  look sensitive, not values, so the address was written to the log in clear. The address is now
+  omitted: the event name is enough to count registrations without keeping a list of who signed up.
+
+### What remains open
+
+- **A1 still blocks the end-to-end criterion.** No Supabase project exists, so "register → confirm
+  → login → logout against real Supabase" has not been run. Everything provable without an auth
+  server has been proven: the guard, the redirects, the sanitisation, the schemas and the build.
+- **No `/admin` route exists yet**, so the "a `customer` cannot reach any `/admin` route" criterion
+  cannot be met until Phase 10. The role helpers and `authorization-service.ts` it will use are in
+  place and fail closed.
+- **`scripts/db-verify.sh` was not run for this phase.** It needs a Postgres 17
+  instance, and the environment this phase was built in has neither a local server
+  nor a Docker daemon the build user can reach, so migration `0014` and the three
+  amended SQL suites (`10_public_boundary`, `40_order_and_inventory`,
+  `41_order_request_guest_access`) and the new `21_customer_column_privacy` are
+  **unexecuted**. They were reviewed against the code instead: every column the
+  repositories select on a restricted table is in that table's grant list, no
+  repository uses `select('*')` on one, the guest item read goes through the
+  `SECURITY DEFINER` RPC rather than the table, and `assert_denied` is defined
+  before its first use. That is a reading, not a proof, and it is the first phase
+  in this project where the database suites have not been run. Run
+  `./scripts/db-reset.sh && ./scripts/db-verify.sh` before trusting `0014`.
+- **Account pages are not covered by the browser audit.** They redirect for a signed-out visitor, so
+  auditing them needs a seeded session; their chrome is audited through the public pages, but their
+  own content is not.
 
 ---
 

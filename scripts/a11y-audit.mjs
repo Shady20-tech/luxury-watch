@@ -45,6 +45,15 @@ const PAGES = [
   // the audit is the only check that will catch a contrast or overflow defect in
   // the order summary or the form controls.
   '/checkout',
+  // The authentication pages. Public, chrome-bearing, and form-heavy, so they
+  // are exactly where a contrast or overflow defect would hide: a mis-sized
+  // input at 320px, or a hint rendered in a token that fails AA. `/login` is
+  // audited with a `next` parameter so the hidden field the guard sanitises is
+  // part of the rendered form.
+  '/login',
+  '/login?next=/account/orders',
+  '/register',
+  '/forgot-password',
   // An unmatched path, so the not-found template is audited in every
   // configuration. `/brands/rolex` cannot stand in for it: it renders a real
   // brand page when a database is configured and only falls back to the 404

@@ -307,6 +307,45 @@ it for no benefit.
   auditing, and never audit while a second server for this repo is still
   listening; the results are meaningless and inconsistent between runs.
 
+### Authentication and the account area
+
+**A layout cannot see the URL it is rendering.** The `/account` guard lives in
+`src/app/(site)/account/layout.tsx`, so it runs for every route beneath it —
+including ones added later. But a layout receives no pathname, so it cannot know
+which page the visitor was heading for, and it will send everyone to the same
+place after sign-in unless told otherwise. `src/middleware.ts` forwards it as the
+`x-pathname` request header. Two traps there: the header must be built once and
+reused for _every_ `NextResponse.next()` — the Supabase cookie callback rebuilds
+the response and a bare rebuild drops it — and the header is attacker-influenced
+in principle, so the guard checks `startsWith('/account')` before using it and the
+sign-in action validates it again.
+
+**The open-redirect guard is one module, and it must stay one.** `safeRedirectPath`
+in `src/lib/auth/redirect.ts` is used by the sign-in action, the sign-in page and
+`/auth/callback`. A security check copied into three places is one that will
+eventually be fixed in only one of them. It rejects absolute URLs,
+protocol-relative `//host` (a single-leading-slash check accepts this, which is the
+classic way the guard is written wrongly), backslash variants browsers normalise
+to a slash, and non-http schemes. It always returns a usable path, never `null`, so
+a caller cannot mistake "rejected" for "no redirect".
+
+**Roles are read through functions, never a column.** `authorization-service.ts`
+calls the `SECURITY DEFINER` helpers `is_staff()`/`is_admin()`/`has_permission()`,
+which derive the user from `auth.uid()` inside the database and take no user
+argument, so there is no parameter a caller could forge. They fail closed. There is
+still deliberately no `role` column on `profiles`: a customer can update their own
+profile row, so a role there would be one policy mistake away from self-promotion.
+
+**Use the anon client, not the service-role client, for anything a customer does.**
+`auth-repository.ts` uses the request-scoped cookie-aware anon client throughout.
+The service-role client authenticates the _call_ but not the _caller_: it would
+bypass the RLS policies that make a customer's own rows the only rows they can
+reach.
+
+**The logger redacts keys, not values.** A log call that passes an email address as
+a value writes it in clear, whatever the key is named. Pass an event name and
+counts, not identifiers.
+
 ## Content and licensing
 
 The seed carries factual attributes only — brand, reference number, case size,

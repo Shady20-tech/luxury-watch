@@ -43,6 +43,24 @@ begin
 end;
 $$;
 
+-- Assert a statement is refused at the privilege layer, not merely filtered to
+-- zero rows. Used where migration 0014 removed the grant outright.
+create or replace function pg_temp.assert_denied(
+  p_label text, p_sql text
+) returns void
+language plpgsql
+as $$
+begin
+  begin
+    execute p_sql;
+  exception when insufficient_privilege then
+    raise notice 'pass [%] (denied)', p_label;
+    return;
+  end;
+  raise exception 'FAIL [%]: expected permission denied, but the statement succeeded', p_label;
+end;
+$$;
+
 -- -----------------------------------------------------------------------------
 -- Fixtures: a priced watch with two in stock, and a price-on-request watch with
 -- one in stock (the scarce one used for the concurrency test).
@@ -148,14 +166,19 @@ select pg_temp.assert_count(
 reset role;
 
 -- And confirm the guest genuinely cannot read those rows back.
+--
+-- Migration 0014 revoked `anon`'s table-level grant on both tables, so this is a
+-- hard denial rather than an empty result. The guest reaches their own order
+-- only through `read_order_request`, which is SECURITY DEFINER and returns a
+-- hand-built document with no internal field in it.
 set role anon;
 set request.jwt.claims = '{"role":"anon"}';
-select pg_temp.assert_count(
+select pg_temp.assert_denied(
   'an anonymous caller cannot read order_request_items',
-  'select count(*) from public.order_request_items', 0);
-select pg_temp.assert_count(
+  'select count(*) from public.order_request_items');
+select pg_temp.assert_denied(
   'an anonymous caller cannot read order_request_events',
-  'select count(*) from public.order_request_events', 0);
+  'select count(*) from public.order_request_events');
 reset role;
 
 -- =============================================================================

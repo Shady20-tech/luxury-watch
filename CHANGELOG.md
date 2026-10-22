@@ -8,6 +8,121 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 9 — Authentication and the customer account area
+
+**Date:** 2026-10-18
+
+> Supabase Auth through `@supabase/ssr`, with cookie-based sessions refreshed in
+> middleware. The account area is server-guarded, and the one redirect that takes
+> a value from the URL is sanitised in a single tested module. Nothing here
+> introduces a payment path; the offline-settlement boundary is untouched.
+
+#### Added
+
+**Validation and guards (`src/lib/auth/`)**
+
+- `validation.ts` — Zod schemas for registration, sign-in, forgot/reset password,
+  password change, the profile and an address, plus `authFieldErrors`, which keeps
+  the first issue per field. Deliberately not a `'use server'` module: every export
+  of one of those must be an async function, and these are plain values. Being
+  free of React and of the Supabase client is what lets the schemas be tested
+  directly.
+- `redirect.ts` — `safeRedirectPath`, the open-redirect guard, with 13 unit tests.
+  One module rather than three copies, because the check is needed by the sign-in
+  action, the sign-in page and the callback route, and a security check duplicated
+  three ways is one that will eventually be fixed in only one of them.
+
+**Auth surfaces (`src/app/(site)/{login,register,forgot-password,reset-password}/`, `src/app/auth/callback/`, `src/components/auth/`)**
+
+- Four pages and their client forms, sharing `AuthPanel`, `AuthField`, `FormAlert`
+  and `SubmitButton` so field wiring, error rendering and the pending state are
+  defined once.
+- `/auth/callback` is a Route Handler, not a page: exchanging the emailed code for
+  a session sets cookies, and a Server Component cannot set cookies during render.
+
+**Account area (`src/app/(site)/account/`, `src/components/account/`)**
+
+- `layout.tsx` carries the guard for every `/account/*` route, including ones added
+  later. A guard per page would work until someone added a page and forgot, and the
+  failure mode of that omission is rendering another customer's data.
+- Overview, order history, order detail, profile, addresses and security. The order
+  detail page renders stored line snapshots and re-derives nothing, so a later price
+  change cannot rewrite the history of a placed request.
+- `/account/wishlist` redirects to `/wishlist`, which already serves both the
+  signed-in and guest cases and owns the one-time guest merge.
+
+**Server (`src/server/`)**
+
+- `repositories/auth-repository.ts` — all Supabase Auth calls plus profile and
+  address persistence, through the request-scoped anon client so RLS applies. The
+  service-role client is not used: it authenticates the call, not the caller.
+- `repositories/account-repository.ts` — the customer's own order requests and the
+  overview counts.
+- `services/authorization-service.ts` — identity and staff standing resolved once
+  per request via `cache()`, reading the `SECURITY DEFINER` role helpers rather than
+  a column. Fails closed.
+- `actions/auth-actions.ts` — one action per operation, each re-resolving the user
+  from the session rather than trusting anything in the form.
+
+#### Changed
+
+- `src/components/chrome/header-actions.tsx` is now auth-aware: the account link
+  points at `/login` for a signed-out visitor instead of bouncing through the
+  account guard, and the accessible name follows the destination.
+- `src/middleware.ts` forwards the pathname as `x-pathname`, so the account guard
+  can return a customer to the page they asked for. The header is built once and
+  reused by the Supabase cookie callback, which otherwise rebuilds the response and
+  drops it.
+- `src/components/auth/auth-form.tsx`: `SubmitButton` gained a `block` prop so the
+  account forms are not forced full width.
+
+#### Fixed
+
+- **Zod 4 misuse.** `z.string().email('...')` is deprecated in Zod 4 and ignores the
+  custom message; it is now `z.email({ message })`. The optional-text helper was
+  `.optional().or(z.literal(''))`, which rejects a whitespace-only value because the
+  empty string is not trimmed before the branch is chosen. It is now a transform
+  that folds `''` to `undefined`, so an optional column is written as null.
+- **Missing `revalidatePath`** after profile and address writes left the account
+  header showing the previous name.
+- **A registration logged the customer's email address in clear.** The logger
+  redacts sensitive *keys*, not values; the address is now omitted.
+
+#### Security
+
+- The account guard is a layout-level check that runs before any page data is
+  fetched, so a protected page never begins loading another customer's rows.
+- The open-redirect guard rejects absolute URLs, protocol-relative `//host`,
+  backslash variants and non-http schemes, and always returns a usable path rather
+  than null, so a caller cannot mistake "rejected" for "no redirect".
+- A password change requires the current password, verified by re-authenticating
+  first, because Supabase's `updateUser` does not ask for it and an unattended
+  signed-in browser would otherwise be enough to lock the owner out.
+- Sign-in, reset and resend report the same message whether or not an address
+  exists, so the forms are not an account-enumeration oracle.
+
+#### Verified
+
+- `npm run verify` green: 486 tests across 27 files, lint, format, typecheck and a
+  production build.
+- The production build was served with `next start` and every `/account/*` route
+  requested. Each returns `307` to `/login?next=<that route>` for a signed-out
+  visitor; none returns a `500`. `next build` alone cannot make this check, and
+  `next dev` does not reproduce the failure.
+- The open-redirect guard was exercised through the running server: hostile `next`
+  values fall back to `/account` at the callback and again in the sign-in form's
+  hidden field.
+- The Chromium audit passes with no critical or serious violations and no horizontal
+  overflow across 15 pages × 4 viewports, including the new auth pages at 320px.
+
+#### Not verified
+
+- Registration, confirmation, sign-in and sign-out have **not** been run against a
+  real Supabase project: A1 is still open. Everything provable without an auth
+  server has been proven.
+- The account pages themselves are not in the browser audit, because they redirect
+  for a signed-out visitor and need a seeded session to render.
+
 ### Phase 8 — Transactional email, and drawn product artwork
 
 **Date:** 2026-10-18

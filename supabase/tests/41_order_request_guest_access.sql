@@ -58,6 +58,24 @@ begin
 end;
 $$;
 
+-- Assert a statement is refused at the privilege layer, not merely filtered to
+-- zero rows. Used where migration 0014 removed `anon`'s grant outright.
+create or replace function pg_temp.assert_denied(
+  p_label text, p_sql text
+) returns void
+language plpgsql
+as $$
+begin
+  begin
+    execute p_sql;
+  exception when insufficient_privilege then
+    raise notice 'pass [%] (denied)', p_label;
+    return;
+  end;
+  raise exception 'FAIL [%]: expected permission denied, but the statement succeeded', p_label;
+end;
+$$;
+
 -- -----------------------------------------------------------------------------
 -- Fixtures
 -- -----------------------------------------------------------------------------
@@ -396,9 +414,12 @@ reset role;
 
 set role anon;
 set request.jwt.claims = '{"role":"anon"}';
-select pg_temp.assert_count(
+-- Migration 0014 revoked `anon`'s grant on the table entirely; the guest reaches
+-- their own request only through `read_order_request`. A hard denial is the
+-- stronger claim, so it is asserted instead of an empty result.
+select pg_temp.assert_denied(
   'anon sees no order_requests through the table',
-  'select count(*) from public.order_requests', 0);
+  'select count(*) from public.order_requests');
 reset role;
 
 -- =============================================================================

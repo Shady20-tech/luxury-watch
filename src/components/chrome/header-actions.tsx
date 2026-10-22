@@ -21,10 +21,20 @@ import { cn } from '@/lib/utils';
 export function HeaderActions({
   cartCount = 0,
   wishlistCount = 0,
+  signedIn = true,
   className,
 }: {
   cartCount?: number;
   wishlistCount?: number;
+  /**
+   * Whether the visitor is signed in.
+   *
+   * The account link points at `/account` when they are and `/login` when they
+   * are not, so a signed-out visitor is not bounced through a redirect to reach
+   * the sign-in form. `signedIn` defaults to `true` so a caller that does not
+   * know renders the neutral case rather than an incorrect "Sign in" prompt.
+   */
+  signedIn?: boolean;
   className?: string;
 }) {
   const actions = [
@@ -34,7 +44,13 @@ export function HeaderActions({
     // overflow a 320px viewport, and truncating the business name to make room
     // would be the wrong thing to sacrifice. Search and Cart are the two that
     // earn their place on the smallest screen.
-    { href: '/account', label: 'Account', Icon: User, count: 0, hideBelowSm: true },
+    {
+      href: signedIn ? '/account' : '/login',
+      label: signedIn ? 'Account' : 'Sign in',
+      Icon: User,
+      count: 0,
+      hideBelowSm: true,
+    },
     { href: '/wishlist', label: 'Wishlist', Icon: Heart, count: wishlistCount, hideBelowSm: true },
     { href: '/cart', label: 'Cart', Icon: ShoppingBag, count: cartCount },
   ];
