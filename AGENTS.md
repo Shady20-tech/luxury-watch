@@ -37,6 +37,10 @@ npm run dev           # dev server
 #   npm run build && npm run start
 npm run audit:a11y
 CHROMIUM_PATH=/path/to/chrome npm run audit:a11y   # reuse a local Chromium
+
+# Serve a preview against the real local database (PostgREST + proxy + app):
+npm run preview          # public URL printed on success
+npm run preview:stop
 ```
 
 `npm run verify` runs the same steps in the same order as CI. If you add a check
@@ -101,6 +105,31 @@ in `source` (`database` or `fallback`). While Supabase is unconfigured (A1) the
 deployed site uses the fallback fixture; this is recorded as G10, not a bug.
 
 ## Database
+
+### A preview needs PostgREST, not just `next start`
+
+`npm run start` alone renders an **empty catalogue**. The seed rows live in
+Postgres and the app reaches them through `supabase-js` → PostgREST → Postgres, so
+without PostgREST every product query fails and the pages fall back to the fixture
+or to nothing. That is not a bug in the page — it is the documented A1/G10
+degradation — but it makes a bare `next start` useless for showing catalogue, cart
+or wishlist work.
+
+`npm run preview` brings up the three processes a real preview needs (PostgREST on
+3001, the `/rest/v1` proxy on 3002, the app on 12000) and prints the public URL.
+It also mints an anon JWT signed with a secret it controls, because the seed anon
+key is signed with a secret we do not hold; the key is only ever forwarded to
+PostgREST, so a locally-generated one behaves identically. It backs up `.env.local`
+before rewriting the Supabase URL and key.
+
+Two consequences worth knowing:
+
+- **`NEXT_PUBLIC_*` is inlined at build time**, so the script must rebuild after
+  repointing the app. Editing `.env.local` and restarting `next start` alone has no
+  effect on an existing build.
+- **`npm run audit:a11y` should run against the preview**, not a bare `next start`.
+  Against the fallback it only ever sees empty states, which is exactly the gap
+  recorded as G54. Against the preview it sees real rows.
 
 The verification scripts are dual-mode: they use a direct `psql` connection when
 `PGHOST` is set (how CI reaches its service container) and Docker otherwise.

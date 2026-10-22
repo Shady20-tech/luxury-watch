@@ -20,7 +20,9 @@
     "test:coverage": "vitest run --coverage",
     "check:no-payment": "node scripts/check-no-payment-providers.mjs",
     "verify": "npm run check:no-payment && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
-    "audit:a11y": "node scripts/a11y-audit.mjs"
+    "audit:a11y": "node scripts/a11y-audit.mjs",
+    "preview": "bash scripts/preview.sh",
+    "preview:stop": "bash scripts/preview.sh stop"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.3.1",
