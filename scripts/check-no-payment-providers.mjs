@@ -56,6 +56,10 @@ const ALLOWED_FILES = new Set([
   // here only as the patterns it searches *for*, which is the opposite of
   // collecting them — the same reasoning as the logger denylist above.
   'tests/email.test.ts',
+  // The same assertion for the service-flow emails. The card and payment terms
+  // are the patterns it scans the rendered messages for; finding one would fail
+  // the test, so their presence here rules them out rather than adding them.
+  'tests/service-email.test.ts',
   'IMPLEMENTATION_PLAN.md',
   'ARCHITECTURE.md',
   'CHANGELOG.md',

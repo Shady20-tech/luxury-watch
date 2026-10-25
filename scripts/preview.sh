@@ -40,13 +40,33 @@ WORKDIR="${LW_PREVIEW_WORKDIR:-/tmp/lw-preview}"
 
 mkdir -p "$WORKDIR"
 
-# --- Docker, via sudo when the daemon is root-owned ---------------------------
-if docker info >/dev/null 2>&1; then
-  DOCKER=(docker)
-elif sudo -n docker info >/dev/null 2>&1; then
-  DOCKER=(sudo -n docker)
+# --- Reach Postgres, over TCP when possible -----------------------------------
+#
+# PostgREST connects over TCP, so a Docker daemon is not actually needed — only a
+# reachable Postgres. The daemon was previously required as a proxy for "the
+# development database exists", which excluded the CI-style setup where Postgres
+# is a service reachable on PGHOST and no daemon is present. `db-verify.sh` is
+# dual-mode for the same reason; this matches it.
+#
+# Set PGHOST/PGPORT (and PGPASSWORD) to use an existing server, otherwise the
+# script falls back to the Docker container it knows how to start.
+PG_HOST="${PGHOST:-127.0.0.1}"
+PG_PORT="${PGPORT:-55432}"
+PG_PASSWORD="${PGPASSWORD:-postgres}"
+
+db_reachable() {
+  command -v psql >/dev/null 2>&1 \
+    && PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+         -d postgres -tAc 'select 1' >/dev/null 2>&1
+}
+
+if db_reachable; then
+  echo "Using the Postgres server at $PG_HOST:$PG_PORT."
+elif docker info >/dev/null 2>&1 || sudo -n docker info >/dev/null 2>&1; then
+  echo "No server at $PG_HOST:$PG_PORT; start the database container first." >&2
+  exit 1
 else
-  echo "Cannot reach the Docker daemon." >&2
+  echo "No Postgres at $PG_HOST:$PG_PORT and no Docker daemon to start one." >&2
   exit 1
 fi
 
@@ -109,7 +129,7 @@ if [ ! -x "$WORKDIR/postgrest" ]; then
 fi
 
 cat > "$WORKDIR/pgrst.conf" <<CONF
-db-uri = "postgres://authenticator:postgres@127.0.0.1:55432/postgres"
+db-uri = "postgres://authenticator:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/postgres"
 db-schemas = "public"
 db-anon-role = "anon"
 jwt-secret = "$SECRET"

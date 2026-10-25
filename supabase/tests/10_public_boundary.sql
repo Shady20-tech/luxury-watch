@@ -142,7 +142,11 @@ select pg_temp.assert_denied(
   'anon cannot read inquiries',
   'select count(*) from public.inquiries');
 
-select pg_temp.assert_no_rows(
+-- Migration 0015 revoked the inherited table-level grant, so `anon` is now
+-- denied at the privilege check rather than filtered to zero rows by a policy.
+-- The stronger property is the one asserted: a future policy mistake cannot
+-- re-expose a submission the way a row-level filter could.
+select pg_temp.assert_denied(
   'anon cannot read contact_submissions',
   'select count(*) from public.contact_submissions');
 

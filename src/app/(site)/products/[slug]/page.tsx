@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { Breadcrumbs } from '@/components/product/breadcrumbs';
 import { EnquiryForm } from '@/components/product/enquiry-form';
+import { OfferForm } from '@/components/service/offer-form';
 import { PriceBlock } from '@/components/product/price-block';
 import { ProductGallery } from '@/components/product/product-gallery';
 import { PurchaseActions } from '@/components/product/purchase-actions';
@@ -334,6 +335,17 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
         />
         <div className="mt-8 max-w-2xl">
           <EnquiryForm productSlug={product.slug} productTitle={product.title} />
+        </div>
+      </section>
+
+      <section id="offer" aria-labelledby="offer-heading" className="mt-16 scroll-mt-24">
+        <SectionHeading
+          eyebrow="Make an offer"
+          title="Make an offer on this piece"
+          description="If you would like to propose a price, send it to us and a member of the team will respond. An offer does not reserve the piece, and nothing is agreed until the store accepts."
+        />
+        <div className="mt-8 max-w-2xl">
+          <OfferForm productSlug={product.slug} productTitle={product.title} />
         </div>
       </section>
 

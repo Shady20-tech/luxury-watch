@@ -38,6 +38,8 @@ done
 | `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger                                                                                                                              |
 | `0012_wishlist_and_cart.sql`                 | `discount_kind`, `discount_codes`, `carts.discount_code`, `cart_pricing`, `catalogue_by_ids`, the wishlist tables and the cart quantity/uniqueness constraints                                                                                |
 | `0013_order_request_submission.sql`          | `order_requests` guest token, idempotency, terms, discount and pickup columns; `evaluate_discount_code`, `redeem_discount_code`, `release_discount_code`, `enforce_rate_limit`, the redefined `submit_order_request` and `read_order_request` |
+| `0014_account_portal.sql`                    | Column-level `select` grants for the account area, so a self-editable profile row exposes no internal column                                                                                                                                  |
+| `0015_service_workflows.sql`                 | `service_status_events`, `product_offers`, `appointment_availability`, per-flow `workflow_status`, `service_reference_seq`, `generate_service_reference`, `service_form_guard`, `assert_submission_shape` and the six submission RPCs         |
 
 ### 1.2 Verify locally
 
@@ -623,6 +625,55 @@ if the request is rejected or cancelled. Being in a cart does not hold anything.
 product that has since been unpublished. It re-applies the publication and
 active-taxonomy gates inside the function, so a saved id returns no row for a
 draft — an id the browser holds is not an oracle for the catalogue.
+
+---
+
+## 8b. Service submissions at the database level (Phase 11)
+
+Six `SECURITY DEFINER` functions are the only public write path into the service
+tables: `submit_sell_trade_request`, `submit_sourcing_request`,
+`submit_repair_request`, `submit_contact_message`, `submit_product_offer` and
+`request_appointment`. A direct insert is not granted to `anon`, so a submission
+cannot choose its own status, its own reference or its own audit row.
+
+**Routing.** The three flows that have a staff workflow — sell/trade, sourcing and
+repair — write an `inquiries` row whose `type` is the queue, plus their own detail
+table and an opening `service_status_events` row. A **contact message is not an
+inquiry**: it writes `contact_submissions` and nothing else, because there is no
+workflow to track and no detail row to attach. Product offers write
+`product_offers` and an `inquiries` row of type `product_question`. An
+appointment writes `appointments`.
+
+**Reference numbers.** `submit_contact_message` and `request_appointment` return a
+customer-facing reference; the other flows return the order-style
+`generate_order_reference()`. Service references come from
+`generate_service_reference(p_prefix)` (section 9 of `0015`), which draws from a
+dedicated `service_reference_seq`.
+
+This is deliberately **not** derived from the clock. The first implementation took
+`extract(epoch from now()) % 1000000`, which is not unique: two submissions in the
+same second produce the same string, so a reference could not identify one row.
+The tests now submit five messages in a loop inside one second and assert five
+distinct references. If you are tempted to derive a reference from a timestamp
+anywhere in this schema, that is the defect this replaced — use a sequence.
+
+`service_reference_seq` carries the same ACL as `order_reference_seq`: USAGE and
+SELECT to the API roles, from the shim's default privileges. That is not a leak,
+because **a reference is not a credential**. Reading a submission back needs more
+than the number — `read_order_request` (0013) also requires an access token — and
+`anon` cannot read any of these tables at all.
+
+**Validation and rate limiting are inside the function**, not only in the form.
+`assert_submission_shape` rejects an empty name, a malformed address or an empty
+message, so calling the RPC directly does not bypass the form's checks.
+`service_form_guard(scope, email, global_limit, email_limit)` applies a per-address
+and an aggregate hourly cap, counted in `rate_limit_counters`. A submission with no
+usable email is still counted against the aggregate cap rather than getting a free
+pass.
+
+**An offer records an offer; it reserves nothing.** `submit_product_offer` writes
+the amount and stops. Nothing in the service flows touches `inventory`,
+`inventory_reservations` or `inventory_transactions`.
 
 ---
 

@@ -33,6 +33,19 @@ const PAGES = [
   '/brands/rolex',
   '/contact',
   '/pages/faq',
+  // The rest of the CMS and service surfaces this phase adds. They are
+  // chrome-bearing, form-heavy and, for the policy pages, rendered from stored
+  // blocks rather than markup — so a contrast or overflow defect in a block or a
+  // form control would only ever show up here.
+  '/pages/about',
+  '/pages/shipping',
+  '/pages/warranty',
+  '/pages/terms',
+  '/pages/privacy',
+  '/appointments',
+  '/services/sell-trade',
+  '/services/sourcing',
+  '/services/repair-restoration',
   '/design-system',
   // The cart and the wishlist are per-visitor and are not in the sitemap, but
   // they are the two surfaces this phase adds and both render chrome, cards and

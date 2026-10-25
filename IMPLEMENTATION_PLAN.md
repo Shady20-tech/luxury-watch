@@ -684,7 +684,7 @@ the real production output — not `next dev`, which does not reproduce the cook
 
 ---
 
-## Phase 11 — Service flows, contact and CMS pages
+## Phase 11 — Service flows, contact and CMS pages ✅ done
 
 **Scope**
 - `/services/sell-trade`, `/services/sourcing`, `/services/repair-restoration` — each with the
@@ -699,6 +699,36 @@ the real production output — not `next dev`, which does not reproduce the cook
 - All three service flows create real inquiries routed to the right admin queue
 - Contact form works and is rate-limited
 - FAQ and policy pages render from the database, not hardcoded text
+
+**Verification notes**
+- Every submission RPC was driven through the real client path — PostgREST
+  behind the dev proxy, with the `anon` key — not only in SQL. Results:
+  - `submit_sell_trade_request`, `submit_sourcing_request`,
+    `submit_repair_request` and `submit_product_offer` each wrote an `inquiries`
+    row with the expected `type` (`sell_trade`, `sourcing`, `repair`,
+    `product_question`), so the four queue-routed flows are genuinely reachable
+    by a visitor.
+  - `submit_contact_message` wrote a `contact_submissions` row and returned a
+    reference. Contact is deliberately **not** an inquiry: it has no workflow and
+    no detail row, so there is no queue for it and it writes none.
+  - `request_appointment` wrote an `appointments` row in an available slot.
+  - An offer against a **draft** slug is refused with "Unknown product", which
+    does not disclose that the slug exists.
+  - The FAQ and policy pages render real rows; an unpublished slug 404s through
+    RLS rather than through an application filter.
+- A defect was found and fixed here, and it is the reason this section reads the
+  way it does: two service submissions in the same second were handed the **same
+  reference**, because the reference was derived from the clock. Five submissions
+  73 ms apart all returned one string. See the CHANGELOG entry and
+  `DATABASE_SCHEMA.md` §8b. `50_service_flows.sql` now submits five messages in a
+  loop inside one second and asserts five distinct references; it fails against
+  the old implementation, which was checked rather than assumed.
+- `scripts/smoke-routes.sh` checks every public route for a 5xx under a
+  production server; `npm run audit:a11y` covers the new surfaces at four
+  viewports. Both are green.
+- Not verified: the admin queues themselves, which arrive in Phase 10. Nothing
+  consumes `inquiries.type` yet — a submission is routed by writing that column
+  and no reader exists.
 
 ---
 

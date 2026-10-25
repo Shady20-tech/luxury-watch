@@ -180,3 +180,10 @@ jobs:
 
       - name: Audit accessibility and responsive layout
         run: npm run audit:a11y
+
+      # `next build` never renders a dynamic route, so a page that throws at
+      # request time passes the build and fails in production. The server is
+      # already running here, so this is the cheapest place to ask every public
+      # route for a response and fail on a 5xx.
+      - name: Smoke-test public routes
+        run: bash scripts/smoke-routes.sh http://localhost:3000

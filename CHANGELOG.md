@@ -8,6 +8,114 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 11 — Service flows, contact and CMS pages
+
+**Date:** 2026-10-18
+
+> Service request forms, the contact page and database-backed CMS pages. No
+> payment path is introduced: the email templates say explicitly that a request
+> is not an agreement and that no payment has been taken, and the existing
+> `check:no-payment` guard covers the new files.
+
+#### Added
+
+**Migration `supabase/migrations/0015_service_workflows.sql`**
+
+- The five service write paths go through `SECURITY DEFINER` RPCs rather than
+  direct inserts, so a submission cannot choose its own status, reference or
+  audit row. Rate limiting reuses `rate_limit_counters`.
+
+**Service flows (`src/lib/service/`, `src/server/actions/service-actions.ts`)**
+
+- `validation.ts` — the five form schemas plus `safeDatabaseMessage`, which maps
+  a database error to a customer-readable sentence without leaking the SQL.
+- `slots.ts` — `buildBookableSlots`, which turns the active availability windows
+  into concrete bookable times. An unrestricted window (`purpose: null`) applies
+  to every flow; a restricted one applies only to the flow it names.
+- Sell/trade, sourcing, repair/restoration, contact and appointment forms, each
+  with a honeypot field. A honeypot submission is accepted in shape, never
+  reaches the repository, and returns the same reference format as a real one so
+  a bot learns nothing.
+
+**CMS pages (`src/app/(site)/pages/`, `src/components/content/`)**
+
+- `/pages/about`, `/pages/faq`, `/pages/privacy`, `/pages/shipping`,
+  `/pages/terms`, `/pages/warranty` as their own static segments, plus
+  `/pages/[slug]` for anything the owner publishes later. Content is stored as
+  JSON blocks in `pages.content` and rendered by `PageBlocks`; the renderer
+  decides the emitted elements, so stored content cannot inject markup.
+- `content-service.ts` — the three-way read (`ok` / `missing` / `unavailable`)
+  that keeps a policy page from 500ing when the database is unreachable. See
+  Fixed, below.
+
+#### Fixed
+
+- **Two service submissions in the same second were handed the same reference
+  number.** `submit_contact_message` and `request_appointment` built their
+  reference from the clock — the epoch seconds modulo a million — so the number
+  was not an identifier at all. Five submissions 73 ms apart returned the same
+  `LW-C-…` string, which means a customer quoting a reference in a follow-up
+  email could not be matched to a single row, and staff answering "your request"
+  had no way to know which one. The single-submission assertion in
+  `50_service_flows.sql` could not see it, because one submission in one second
+  is unique by construction. References now come from a dedicated
+  `service_reference_seq` through `generate_service_reference()`, the same
+  approach `generate_order_reference()` has used since 0001. A loop-based
+  regression test now submits five messages inside one second and asserts five
+  distinct references; it fails against the old implementation with exactly the
+  collision signature. Found by driving the real client path rather than by
+  reading the SQL.
+- **The whole `/pages/*` tree returned 500 under `next start` when the database
+  was unreachable.** The pages called the repository directly and inherited its
+  throw. `next build` could not catch it: every one of these routes is dynamic,
+  so none is rendered at build time. It was found only by requesting the real
+  routes from a production server — the same class of defect as the Phase 6
+  product-page 500, and the reason `scripts/smoke-routes.sh` now exists.
+  `content-service.ts` now distinguishes `missing` (the database answered, the
+  row is not published) from `unavailable` (the database did not answer). Only
+  the first 404s; the second renders an explanation, because a 404 would tell
+  the visitor and a crawler that a footer-linked page does not exist.
+- **`/appointments` rendered "no times configured" when the availability query
+  failed**, which is not the same statement as "the business has published no
+  hours". A failed query now renders a distinct error state.
+- **A `<p>` inside the contact page's `<dl>`** — an axe `definition-list`
+  violation. A `dl` may only directly contain `dt`, `dd`, `div`, `script` or
+  `template`. Found by the browser audit, not by jsdom.
+- **`scripts/db-verify.sh` counted seed FAQs with the wrong id prefix.** The
+  filter was `…045%`, which matches ids `…0451`–`…0459` and misses `…0460`, so
+  the seed's tenth question was never counted and the check reported 9 against
+  an expected 10. The filter is now the seed's whole `…04xx` namespace.
+- **`scripts/preview.sh` required a Docker daemon** even though it only needs a
+  reachable Postgres. It is now dual-mode like `db-verify.sh`, so the preview can
+  run where Postgres is a service and no daemon is present.
+
+#### Added (tooling)
+
+- `scripts/smoke-routes.sh` and `npm run smoke:routes` — requests every public
+  route from a running production server and fails on any 5xx. Wired into the CI
+  browser-audit job, where a server is already up. A route being slow or empty is
+  not a defect; returning 500 is, so that is the only thing asserted, and the
+  check is meaningful with or without a database.
+- The browser audit now covers the new surfaces: `/pages/about`,
+  `/pages/shipping`, `/pages/warranty`, `/pages/terms`, `/pages/privacy`,
+  `/appointments` and the three service pages, at all four viewports.
+
+#### Tests
+
+- `tests/content-service.test.ts` — the three-way read, including that a failed
+  query degrades rather than throws and is logged at `warn` with the message
+  only. `tests/service-*.test.ts` and `tests/content-blocks.test.ts` cover
+  validation, slot building, block rendering and the email disclaimers.
+
+#### Notes
+
+- The policy pages are seeded as drafts with placeholder wording. The owner must
+  supply the real policy text (A6); until then the pages render the seed text and
+  must not be treated as the business's actual terms.
+- The service email templates state that a request is not an agreement and that
+  no payment has been taken. That wording is asserted by
+  `tests/service-email.test.ts` so it cannot be dropped in a later edit.
+
 ### Phase 9 — Authentication and the customer account area
 
 **Date:** 2026-10-18

@@ -49,14 +49,14 @@ export type Database = {
                   ]
                 },"appointments": {
                   Row: {
-                    "assigned_to": string | null,"created_at": string,"customer_note": string | null,"email": string,"id": string,"location": string | null,"name": string,"phone": string | null,"purpose": string | null,"requested_at": string,"scheduled_at": string | null,"staff_note": string | null,"status": Database["public"]['Enums']["appointment_status"],"updated_at": string,"user_id": string | null
+                    "assigned_to": string | null,"created_at": string,"customer_note": string | null,"email": string,"id": string,"location": string | null,"name": string,"phone": string | null,"purpose": string | null,"requested_at": string,"scheduled_at": string | null,"staff_note": string | null,"status": Database["public"]['Enums']["appointment_status"],"updated_at": string,"user_id": string | null,"slot_start": string | null,"workflow_status": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "assigned_to"?: string | null,"created_at"?: string,"customer_note"?: string | null,"email": string,"id"?: string,"location"?: string | null,"name": string,"phone"?: string | null,"purpose"?: string | null,"requested_at": string,"scheduled_at"?: string | null,"staff_note"?: string | null,"status"?: Database["public"]['Enums']["appointment_status"],"updated_at"?: string,"user_id"?: string | null
+                    "assigned_to"?: string | null,"created_at"?: string,"customer_note"?: string | null,"email": string,"id"?: string,"location"?: string | null,"name": string,"phone"?: string | null,"purpose"?: string | null,"requested_at": string,"scheduled_at"?: string | null,"staff_note"?: string | null,"status"?: Database["public"]['Enums']["appointment_status"],"updated_at"?: string,"user_id"?: string | null,"slot_start"?: string | null,"workflow_status"?: string
                   }
                   Update: {
-                    "assigned_to"?: string | null,"created_at"?: string,"customer_note"?: string | null,"email"?: string,"id"?: string,"location"?: string | null,"name"?: string,"phone"?: string | null,"purpose"?: string | null,"requested_at"?: string,"scheduled_at"?: string | null,"staff_note"?: string | null,"status"?: Database["public"]['Enums']["appointment_status"],"updated_at"?: string,"user_id"?: string | null
+                    "assigned_to"?: string | null,"created_at"?: string,"customer_note"?: string | null,"email"?: string,"id"?: string,"location"?: string | null,"name"?: string,"phone"?: string | null,"purpose"?: string | null,"requested_at"?: string,"scheduled_at"?: string | null,"staff_note"?: string | null,"status"?: Database["public"]['Enums']["appointment_status"],"updated_at"?: string,"user_id"?: string | null,"slot_start": string | null,"workflow_status": string
                   }
                   Relationships: [
                     
@@ -637,14 +637,14 @@ isOneToOne: false
                   ]
                 },"repair_requests": {
                   Row: {
-                    "brand_name": string | null,"created_at": string,"id": string,"inquiry_id": string,"is_watch_insured": boolean | null,"issue_summary": string | null,"model_name": string | null,"preferred_contact_method": string | null,"reference_number": string | null,"service_type": string | null,"updated_at": string
+                    "brand_name": string | null,"created_at": string,"id": string,"inquiry_id": string,"is_watch_insured": boolean | null,"issue_summary": string | null,"model_name": string | null,"preferred_contact_method": string | null,"reference_number": string | null,"service_type": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["repair_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id": string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string
+                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id": string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["repair_status"]
                   }
                   Update: {
-                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id"?: string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string
+                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id"?: string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["repair_status"]
                   }
                   Relationships: [
                     {
@@ -717,14 +717,14 @@ isOneToOne: false
                   ]
                 },"sell_trade_requests": {
                   Row: {
-                    "asking_price_cents": number | null,"brand_name": string | null,"condition_notes": string | null,"created_at": string,"currency": string,"has_box": boolean | null,"has_papers": boolean | null,"id": string,"inquiry_id": string,"model_name": string | null,"production_year": number | null,"reference_number": string | null,"updated_at": string
+                    "asking_price_cents": number | null,"brand_name": string | null,"condition_notes": string | null,"created_at": string,"currency": string,"has_box": boolean | null,"has_papers": boolean | null,"id": string,"inquiry_id": string,"model_name": string | null,"production_year": number | null,"reference_number": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["sell_trade_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id": string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string
+                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id": string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["sell_trade_status"]
                   }
                   Update: {
-                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id"?: string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string
+                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id"?: string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["sell_trade_status"]
                   }
                   Relationships: [
                     {
@@ -751,14 +751,14 @@ isOneToOne: false
                   ]
                 },"sourcing_requests": {
                   Row: {
-                    "bracelet_type": string | null,"brand_name": string | null,"case_size_mm": number | null,"created_at": string,"currency": string,"dial_color": string | null,"id": string,"inquiry_id": string,"max_budget_cents": number | null,"max_year": number | null,"min_year": number | null,"model_name": string | null,"reference_number": string | null,"updated_at": string
+                    "bracelet_type": string | null,"brand_name": string | null,"case_size_mm": number | null,"created_at": string,"currency": string,"dial_color": string | null,"id": string,"inquiry_id": string,"max_budget_cents": number | null,"max_year": number | null,"min_year": number | null,"model_name": string | null,"reference_number": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["sourcing_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id": string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string
+                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id": string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["sourcing_status"]
                   }
                   Update: {
-                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id"?: string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string
+                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id"?: string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["sourcing_status"]
                   }
                   Relationships: [
                     {
@@ -856,6 +856,48 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                }                ,"service_status_events": {
+                  Row: {
+                    "actor_id": string | null,"actor_label": string | null,"created_at": string,"entity_id": string,"entity_type": Database["public"]['Enums']["service_entity_type"],"from_status": string | null,"id": string,"is_customer_visible": boolean,"note": string | null,"to_status": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actor_id"?: string | null,"actor_label"?: string | null,"created_at"?: string,"entity_id": string,"entity_type": Database["public"]['Enums']["service_entity_type"],"from_status"?: string | null,"id"?: string,"is_customer_visible"?: boolean,"note"?: string | null,"to_status": string
+                  }
+                  Update: {
+                    "actor_id"?: string | null,"actor_label"?: string | null,"created_at"?: string,"entity_id"?: string,"entity_type"?: Database["public"]['Enums']["service_entity_type"],"from_status"?: string | null,"id"?: string,"is_customer_visible"?: boolean,"note"?: string | null,"to_status"?: string
+                  }
+                  Relationships: [
+
+                  ]
+                },"product_offers": {
+                  Row: {
+                    "amount_cents": number,"counter_of": string | null,"created_at": string,"currency": string,"email": string,"id": string,"inquiry_id": string | null,"message": string | null,"name": string,"phone": string | null,"product_id": string,"status": Database["public"]['Enums']["offer_status"],"updated_at": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount_cents": number,"counter_of"?: string | null,"created_at"?: string,"currency"?: string,"email": string,"id"?: string,"inquiry_id"?: string | null,"message"?: string | null,"name": string,"phone"?: string | null,"product_id": string,"status"?: Database["public"]['Enums']["offer_status"],"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "amount_cents"?: number,"counter_of"?: string | null,"created_at"?: string,"currency"?: string,"email"?: string,"id"?: string,"inquiry_id"?: string | null,"message"?: string | null,"name"?: string,"phone"?: string | null,"product_id"?: string,"status"?: Database["public"]['Enums']["offer_status"],"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+
+                  ]
+                },"appointment_availability": {
+                  Row: {
+                    "created_at": string,"day_of_week": number,"end_time": string,"id": string,"is_active": boolean,"purpose": string | null,"slot_minutes": number,"start_time": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"day_of_week": number,"end_time": string,"id"?: string,"is_active"?: boolean,"purpose"?: string | null,"slot_minutes"?: number,"start_time": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"day_of_week"?: number,"end_time"?: string,"id"?: string,"is_active"?: boolean,"purpose"?: string | null,"slot_minutes"?: number,"start_time"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+
                   ]
                 }
           }
@@ -1035,6 +1077,24 @@ isOneToOne: false
 "role_permissions":
 { Args: { "r": Database["public"]['Enums']["staff_role"] }; Returns: (string)[]
                            },
+"submit_sell_trade_request":
+{ Args: { "p_asking_price_cents"?: number | null,"p_brand_name"?: string | null,"p_condition_notes"?: string | null,"p_description": string,"p_email": string,"p_has_box"?: boolean | null,"p_has_papers"?: boolean | null,"p_model_name"?: string | null,"p_name": string,"p_phone"?: string | null,"p_production_year"?: number | null,"p_reference_number"?: string | null,"p_transaction_type"?: string | null }; Returns: string
+                           },
+"submit_sourcing_request":
+{ Args: { "p_bracelet_type"?: string | null,"p_brand_name"?: string | null,"p_dial_color"?: string | null,"p_email": string,"p_max_budget_cents"?: number | null,"p_max_year"?: number | null,"p_min_year"?: number | null,"p_model_name"?: string | null,"p_name": string,"p_notes": string,"p_phone"?: string | null,"p_reference_number"?: string | null }; Returns: string
+                           },
+"submit_repair_request":
+{ Args: { "p_brand_name"?: string | null,"p_description": string,"p_email": string,"p_is_insured"?: boolean | null,"p_issue_summary"?: string | null,"p_model_name"?: string | null,"p_name": string,"p_phone"?: string | null,"p_preferred_contact"?: string | null,"p_reference_number"?: string | null,"p_service_type"?: string | null }; Returns: string
+                           },
+"submit_contact_message":
+{ Args: { "p_email": string,"p_message": string,"p_name": string,"p_phone"?: string | null,"p_subject"?: string | null }; Returns: string
+                           },
+"submit_product_offer":
+{ Args: { "p_amount_cents": number,"p_counter_of"?: string | null,"p_email": string,"p_message"?: string | null,"p_name": string,"p_phone"?: string | null,"p_product_slug": string }; Returns: string
+                           },
+"request_appointment":
+{ Args: { "p_customer_note"?: string | null,"p_email": string,"p_name": string,"p_phone"?: string | null,"p_purpose"?: string | null,"p_slot_start": string }; Returns: string
+                           },
 "submit_product_question":
 { Args: { "p_email": string,"p_message": string,"p_name": string,"p_phone"?: string,"p_product_slug": string }; Returns: string
                            },
@@ -1078,7 +1138,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "appointment_status": "requested"|"confirmed"|"completed"|"cancelled","collection_kind": "taxonomy"|"merchandising"|"featured"|"novelty","discount_kind": "percentage"|"fixed_amount"|"free_delivery","fulfilment_type": "delivery"|"pickup","inquiry_status": "new"|"in_review"|"responded"|"closed"|"spam","inquiry_type": "sell_trade"|"sourcing"|"repair"|"general"|"product_question","inventory_transaction_kind": "acquisition"|"adjustment"|"reservation"|"reservation_release"|"sale"|"return"|"correction","navigation_location": "header"|"footer"|"topbar","notification_kind": "order_request"|"inquiry"|"appointment"|"system","order_status": "submitted"|"under_review"|"confirmed"|"awaiting_payment"|"paid_offline"|"fulfilled"|"cancelled"|"rejected","page_status": "draft"|"published"|"archived","product_condition": "new"|"unworn"|"pre_owned"|"vintage","product_status": "draft"|"published"|"archived","staff_role": "SUPER_ADMIN"|"ADMIN"|"SALES_MANAGER"|"INVENTORY_MANAGER"|"WATCH_EXPERT"|"CUSTOMER_SUPPORT"|"CONTENT_MANAGER"
+            "offer_status": "pending"|"accepted"|"declined"|"countered"|"withdrawn","repair_status": "submitted"|"inspection"|"estimate_sent"|"customer_approval"|"in_repair"|"quality_control"|"ready"|"shipped"|"completed"|"cancelled","sell_trade_status": "submitted"|"under_review"|"more_information_required"|"valuation"|"offer_sent"|"counteroffer"|"accepted"|"declined"|"shipping_pending"|"received"|"authentication"|"final_review"|"payment_pending"|"completed"|"cancelled","service_entity_type": "sell_trade"|"sourcing"|"repair"|"appointment"|"product_offer"|"product_question"|"contact","sourcing_status": "submitted"|"searching"|"potential_match"|"offer_sent"|"customer_review"|"accepted"|"purchase_pending"|"shipping"|"delivered"|"completed"|"cancelled","appointment_status": "requested"|"confirmed"|"completed"|"cancelled","collection_kind": "taxonomy"|"merchandising"|"featured"|"novelty","discount_kind": "percentage"|"fixed_amount"|"free_delivery","fulfilment_type": "delivery"|"pickup","inquiry_status": "new"|"in_review"|"responded"|"closed"|"spam","inquiry_type": "sell_trade"|"sourcing"|"repair"|"general"|"product_question","inventory_transaction_kind": "acquisition"|"adjustment"|"reservation"|"reservation_release"|"sale"|"return"|"correction","navigation_location": "header"|"footer"|"topbar","notification_kind": "order_request"|"inquiry"|"appointment"|"system","order_status": "submitted"|"under_review"|"confirmed"|"awaiting_payment"|"paid_offline"|"fulfilled"|"cancelled"|"rejected","page_status": "draft"|"published"|"archived","product_condition": "new"|"unworn"|"pre_owned"|"vintage","product_status": "draft"|"published"|"archived","staff_role": "SUPER_ADMIN"|"ADMIN"|"SALES_MANAGER"|"INVENTORY_MANAGER"|"WATCH_EXPERT"|"CUSTOMER_SUPPORT"|"CONTENT_MANAGER"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1194,7 +1254,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "appointment_status": ["requested", "confirmed", "completed", "cancelled"],"collection_kind": ["taxonomy", "merchandising", "featured", "novelty"],"discount_kind": ["percentage", "fixed_amount", "free_delivery"],"fulfilment_type": ["delivery", "pickup"],"inquiry_status": ["new", "in_review", "responded", "closed", "spam"],"inquiry_type": ["sell_trade", "sourcing", "repair", "general", "product_question"],"inventory_transaction_kind": ["acquisition", "adjustment", "reservation", "reservation_release", "sale", "return", "correction"],"navigation_location": ["header", "footer", "topbar"],"notification_kind": ["order_request", "inquiry", "appointment", "system"],"order_status": ["submitted", "under_review", "confirmed", "awaiting_payment", "paid_offline", "fulfilled", "cancelled", "rejected"],"page_status": ["draft", "published", "archived"],"product_condition": ["new", "unworn", "pre_owned", "vintage"],"product_status": ["draft", "published", "archived"],"staff_role": ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "INVENTORY_MANAGER", "WATCH_EXPERT", "CUSTOMER_SUPPORT", "CONTENT_MANAGER"]
+            "offer_status": ["pending", "accepted", "declined", "countered", "withdrawn"],"repair_status": ["submitted", "inspection", "estimate_sent", "customer_approval", "in_repair", "quality_control", "ready", "shipped", "completed", "cancelled"],"sell_trade_status": ["submitted", "under_review", "more_information_required", "valuation", "offer_sent", "counteroffer", "accepted", "declined", "shipping_pending", "received", "authentication", "final_review", "payment_pending", "completed", "cancelled"],"service_entity_type": ["sell_trade", "sourcing", "repair", "appointment", "product_offer", "product_question", "contact"],"sourcing_status": ["submitted", "searching", "potential_match", "offer_sent", "customer_review", "accepted", "purchase_pending", "shipping", "delivered", "completed", "cancelled"],"appointment_status": ["requested", "confirmed", "completed", "cancelled"],"collection_kind": ["taxonomy", "merchandising", "featured", "novelty"],"discount_kind": ["percentage", "fixed_amount", "free_delivery"],"fulfilment_type": ["delivery", "pickup"],"inquiry_status": ["new", "in_review", "responded", "closed", "spam"],"inquiry_type": ["sell_trade", "sourcing", "repair", "general", "product_question"],"inventory_transaction_kind": ["acquisition", "adjustment", "reservation", "reservation_release", "sale", "return", "correction"],"navigation_location": ["header", "footer", "topbar"],"notification_kind": ["order_request", "inquiry", "appointment", "system"],"order_status": ["submitted", "under_review", "confirmed", "awaiting_payment", "paid_offline", "fulfilled", "cancelled", "rejected"],"page_status": ["draft", "published", "archived"],"product_condition": ["new", "unworn", "pre_owned", "vintage"],"product_status": ["draft", "published", "archived"],"staff_role": ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "INVENTORY_MANAGER", "WATCH_EXPERT", "CUSTOMER_SUPPORT", "CONTENT_MANAGER"]
           }
         }
 } as const

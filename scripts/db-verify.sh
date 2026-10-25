@@ -128,25 +128,38 @@ CONTENT_COUNTS=$("${PSQL[@]}" -tA -c "
     (select count(*) from public.navigation_items where location = 'header') || '/' ||
     (select count(*) from public.navigation_items where location = 'footer') || '/' ||
     (select count(*) from public.announcements) || '/' ||
-    (select count(*) from public.site_settings);
+    (select count(*) from public.site_settings) || '/' ||
+    (select count(*) from public.pages where status = 'published' and is_system = false) || '/' ||
+    (select count(*) from public.faqs where is_published and id::text like '00000000-0000-4000-8000-0000000004%');
 " 2>"$LOGDIR/counts.log") || { cat "$LOGDIR/counts.log"; fail "content count query"; }
 
 # header/footer/announcements/settings. Navigation counts are minimums because
 # the seed is not the only writer; settings and announcements are exact.
+#
+# `pages` counts only non-system published rows, because migration 0006 creates
+# system pages as drafts and the seed publishes six of them; a `is_system = false`
+# filter isolates the ones the seed writes. The `faqs` filter is on the seed's
+# fixed id namespace for the same reason: the RLS suite inserts its own FAQ rows
+# with generated ids, so filtering to the `…0000000004xx` block counts the seed's
+# rows and nothing else. (A `…045%` prefix would have missed `…0460`.)
 HEADER_MIN=8
 FOOTER_MIN=12
 ANNOUNCEMENT_MIN=1
 SETTINGS_MIN=1
-IFS='/' read -r header_count footer_count announcement_count settings_count <<<"$CONTENT_COUNTS"
+PAGES_MIN=6
+FAQS_MIN=10
+IFS='/' read -r header_count footer_count announcement_count settings_count page_count faq_count <<<"$CONTENT_COUNTS"
 
 if [ "${header_count:-0}" -ge "$HEADER_MIN" ] \
   && [ "${footer_count:-0}" -ge "$FOOTER_MIN" ] \
   && [ "${announcement_count:-0}" -ge "$ANNOUNCEMENT_MIN" ] \
-  && [ "${settings_count:-0}" -ge "$SETTINGS_MIN" ]; then
+  && [ "${settings_count:-0}" -ge "$SETTINGS_MIN" ] \
+  && [ "${page_count:-0}" -ge "$PAGES_MIN" ] \
+  && [ "${faq_count:-0}" -ge "$FAQS_MIN" ]; then
   echo "ok ($CONTENT_COUNTS)"
 else
   echo "FAILED"
-  echo "    expected at least $HEADER_MIN/$FOOTER_MIN/$ANNOUNCEMENT_MIN/$SETTINGS_MIN," \
+  echo "    expected at least $HEADER_MIN/$FOOTER_MIN/$ANNOUNCEMENT_MIN/$SETTINGS_MIN/$PAGES_MIN/$FAQS_MIN," \
        "got $CONTENT_COUNTS" >&2
   fail "seed content counts"
 fi

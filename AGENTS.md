@@ -143,8 +143,12 @@ and a `service_role` token for this reason. When a preview cart will not fill, c
 
 The verification scripts are dual-mode: they use a direct `psql` connection when
 `PGHOST` is set (how CI reaches its service container) and Docker otherwise.
-`db-verify.sh` fails loudly if `PGHOST` is set but `psql` is missing, rather than
-silently falling back to a Docker daemon that CI does not have.
+`db-verify.sh` and `db-reset.sh` both fail loudly if `PGHOST` is set but `psql`
+is missing, rather than silently falling back to a Docker daemon that CI does not
+have. `db-reset.sh` was Docker-only until Phase 11, so the reset was impossible
+anywhere Postgres is a service rather than a container — CI never hit it, because
+a service container starts empty, but a developer verifying the way CI does would
+have. Use it after a suite leaves fixtures behind.
 
 To verify locally the way CI does:
 
@@ -262,6 +266,18 @@ it for no benefit.
 
 ### Things that will bite you
 
+- **Never derive a customer-facing identifier from the clock.** The service
+  reference was `extract(epoch from now()) % 1000000`, which looks unique and is
+  not: two submissions in the same second get the same string, so a customer
+  quoting a reference cannot be matched to one row. `order_reference_seq` exists
+  precisely to avoid this; `service_reference_seq` now does the same for service
+  submissions. The lesson is in the _shape_ of the test as much as the fix: one
+  submission per test can never see a collision, because a single call in a single
+  second is unique by construction. Any uniqueness claim needs a loop.
+- **A green single-submission test says nothing about uniqueness.** This is why
+  the defect above survived to the browser stage while `50_service_flows.sql` was
+  green. When you assert that something is unique, produce several of them in the
+  smallest interval the system can distinguish, not one.
 - **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency
   harness insert their own rows. A database that has run `db-verify.sh` shows
   **4120 products and 5 brands**, not the seed's 4110 and 4. This is expected, not
