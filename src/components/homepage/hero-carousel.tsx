@@ -157,7 +157,7 @@ export function HeroCarousel({
       ref={regionRef}
       aria-roledescription="carousel"
       aria-labelledby={headingId}
-      className={cn('border-line-200 bg-surface-50 border-b', className)}
+      className={cn('bg-night-950', className)}
       onKeyDown={onKeyDown}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -168,27 +168,37 @@ export function HeroCarousel({
     >
       <div className="container-page grid gap-12 py-16 lg:grid-cols-2 lg:items-center lg:py-24">
         <div>
-          {slide.eyebrow ? <p className="eyebrow">{slide.eyebrow}</p> : null}
+          {slide.eyebrow ? (
+            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+              {slide.eyebrow}
+            </p>
+          ) : null}
 
           {/* The `h1` is on the first slide only. Later slides use a `p` styled
               identically, so the page never has two `h1`s. */}
           {isFirst ? (
-            <h1 id={headingId} className="mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
+            <h1
+              id={headingId}
+              className="text-on-night mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+            >
               {slide.title}
             </h1>
           ) : (
-            <p id={headingId} className="mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
+            <p
+              id={headingId}
+              className="text-on-night mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+            >
               {slide.title}
             </p>
           )}
 
           {slide.body ? (
-            <p className="text-foreground-muted mt-6 max-w-prose text-lg">{slide.body}</p>
+            <p className="text-on-night-muted mt-6 max-w-prose text-lg">{slide.body}</p>
           ) : null}
 
           {slide.cta ? (
             <div className="mt-9">
-              <Button asChild size="lg">
+              <Button asChild size="lg" className="bg-gold-300 text-night-950 hover:bg-gold-bright">
                 <Link href={slide.cta.href}>{slide.cta.label}</Link>
               </Button>
             </div>
@@ -197,7 +207,7 @@ export function HeroCarousel({
           {count > 1 ? (
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Button
-                variant="secondary"
+                variant="onNight"
                 size="icon"
                 onClick={() => goTo(index - 1)}
                 disabled={index === 0}
@@ -206,7 +216,7 @@ export function HeroCarousel({
                 <span className="sr-only">Previous slide</span>
               </Button>
               <Button
-                variant="secondary"
+                variant="onNight"
                 size="icon"
                 onClick={() => goTo(index + 1)}
                 disabled={index === count - 1}
@@ -217,7 +227,7 @@ export function HeroCarousel({
 
               {autoplayActive ? (
                 <Button
-                  variant="ghost"
+                  variant="onNight"
                   size="sm"
                   onClick={() => setIsPaused((paused) => !paused)}
                   aria-pressed={isPaused}
@@ -240,14 +250,14 @@ export function HeroCarousel({
                       type="button"
                       onClick={() => goTo(slideIndex)}
                       aria-current={slideIndex === index ? 'true' : undefined}
-                      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700 group flex h-11 w-6 items-center justify-center"
+                      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 group flex h-11 w-6 items-center justify-center"
                     >
                       <span
                         className={cn(
                           'block h-1.5 rounded-full transition-colors',
                           slideIndex === index
-                            ? 'bg-ink-900 w-5'
-                            : 'bg-ink-300 group-hover:bg-ink-500 w-1.5',
+                            ? 'bg-gold-300 w-5'
+                            : 'bg-white/30 group-hover:bg-white/60 w-1.5',
                         )}
                       />
                       <span className="sr-only">{`Slide ${slideIndex + 1} of ${count}: ${item.title}`}</span>

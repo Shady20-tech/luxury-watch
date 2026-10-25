@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
+import { PageHero } from '@/components/layout/page-hero';
 import { SearchForm } from '@/components/catalogue/search-form';
-import { SectionHeading } from '@/components/ui/section';
 import { parseCatalogueParams, type RawSearchParams } from '@/lib/catalogue/params';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { getListing } from '@/server/services/catalogue-service';
@@ -41,21 +41,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   const listing = await getListing(params);
 
   return (
-    <div className="container-page py-10 sm:py-14">
-      <CatalogueListingView
-        listing={listing}
-        header={
-          <div className="flex flex-col gap-6">
-            <SectionHeading
-              as="h1"
-              eyebrow="Search"
-              title={params.query !== '' ? `Results for “${params.query}”` : 'Search the catalogue'}
-              description="Search by brand, model, reference number or keyword. Every result is a real, published piece."
-            />
-            <SearchForm params={params} defaultQuery={params.query} />
-          </div>
-        }
+    <>
+      <PageHero
+        eyebrow="Search"
+        title={params.query !== '' ? `Results for “${params.query}”` : 'Search the catalogue'}
+        intro="Search by brand, model, reference number or keyword. Every result is a real, published piece."
       />
-    </div>
+
+      <div className="container-page py-10 sm:py-14">
+        {/* The form stays on the light ground with the results, not in the dark
+            band: it is a control the visitor acts on, not page furniture. */}
+        <SearchForm params={params} defaultQuery={params.query} />
+        <div className="mt-8">
+          <CatalogueListingView listing={listing} />
+        </div>
+      </div>
+    </>
   );
 }

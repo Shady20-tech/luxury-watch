@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { CartContents } from '@/components/cart/cart-contents';
+import { PageHero } from '@/components/layout/page-hero';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { getCart } from '@/server/services/cart-service';
 
@@ -39,17 +40,16 @@ export default async function Page() {
   const cart = await getCart();
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="mb-8">
-        <p className="eyebrow">Shop</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">Your cart</h1>
-        <p className="text-foreground-muted mt-3 max-w-prose text-base">
-          Pieces you have set aside. Prices and availability are confirmed from the catalogue every
-          time this page loads.
-        </p>
-      </header>
+    <main id="main-content">
+      <PageHero
+        eyebrow="Shop"
+        title="Your cart"
+        intro="Pieces you have set aside. Prices and availability are confirmed from the catalogue every time this page loads."
+      />
 
-      <CartContents cart={cart} />
+      <div className="container-page py-10 lg:py-14">
+        <CartContents cart={cart} />
+      </div>
     </main>
   );
 }

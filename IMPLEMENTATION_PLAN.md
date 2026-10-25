@@ -732,6 +732,37 @@ the real production output — not `next dev`, which does not reproduce the cook
 
 ---
 
+## Phase 11b — Storefront visual refresh ✅ done
+
+**Scope**
+- Reproduce the reference's dark-cap rhythm: a black homepage hero and a dark
+  page-title band on every interior template, with the light body below it.
+- Keep the header as glass (`glass-panel-night`) over the dark ground. This is
+  the one deliberate departure from the reference, which uses a solid bar.
+
+**Acceptance criteria**
+- Every page opens on the dark band the reference opens on.
+- Exactly one `h1` per page.
+- The browser audit stays green at four viewports, including contrast and
+  horizontal overflow, with the glass header over both dark and light grounds.
+
+**Verification notes**
+- The band structure was measured from the built pages, not eyeballed:
+  `/`, `/shop`, `/cart`, `/wishlist`, `/contact` and `/brands/[slug]` each open
+  with a `rgb(8,8,8)` band of 269–293px (the homepage hero is `rgb(0,0,0)` at
+  922px), matching the reference's dark cap.
+- The header was confirmed as glass in a real browser:
+  `rgba(8,8,8,0.8)` with `backdrop-filter: blur(12px) saturate(1.5)`. Without the
+  `@supports` fallback the ground would be fully transparent and the header text
+  would sit on whatever is behind it, so the fallback is part of the fix rather
+  than a nicety.
+- `npm run audit:a11y` is green across 24 pages × 4 viewports; the unit suite is
+  636 tests, up from 628 with the eight new `PageHero` tests.
+- Presentation only: no route, query, action or database behaviour changed, so
+  the Phase 7 wishlist/cart guarantees are untouched.
+
+---
+
 ## Phase 12 — SEO hardening
 
 **Scope**

@@ -8,6 +8,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Storefront visual refresh — dark band rhythm and glass chrome
+
+**Date:** 2026-10-18
+
+> A presentation-only pass that brings the storefront in line with the approved
+> reference design: a black homepage hero and dark page-title band on interior
+> pages, with the header deliberately rendered as glass over the dark ground
+> rather than as a solid bar. No commerce behaviour changes; no payment path is
+> introduced.
+
+#### Added
+
+**`src/components/layout/page-hero.tsx`**
+
+- `PageHero` — the shared dark page-title band used by every interior page.
+  Renders the eyebrow, `h1` and optional intro on `ink-950`, so a page opens on
+  the same ground as the homepage hero instead of starting white.
+- Wired into `/shop`, `/collections/[slug]`, `/brands/[slug]`, `/cart`,
+  `/wishlist`, `/contact`, `/appointments`, `/search`, `/checkout`,
+  `/order/[reference]`, `/pages/[slug]` and the three service pages. Each page
+  keeps exactly one `h1`; the band replaces the previous inline
+  eyebrow-and-heading `<header>` block rather than adding to it.
+
+**`tests/page-hero.test.tsx`** — 8 tests covering the band's structure, the
+optional intro, and the single-`h1` invariant on the pages that use it.
+
+#### Changed
+
+- The homepage hero and the closing sections render on the dark ground, so the
+  page alternates dark/light the way the reference does.
+- The header keeps its `glass-panel-night` treatment. This is a deliberate
+  deviation from the reference, which uses a solid bar: glass over the dark hero
+  is the approved look, and it is the hardest contrast case on the site, which
+  is why the header contrast is asserted rather than eyeballed.
+- `npm run audit:a11y` remains green across 24 pages × 4 viewports after the
+  change, including the age-gate modal.
+
+---
+
 ### Phase 11 — Service flows, contact and CMS pages
 
 **Date:** 2026-10-18

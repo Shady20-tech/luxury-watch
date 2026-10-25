@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { HeroCarousel } from '@/components/homepage/hero-carousel';
+import { CommunityPanel, PromoBanner, SocialPanel } from '@/components/homepage/dark-sections';
 import {
   BrandShowcase,
   CopyBlock,
@@ -28,10 +29,15 @@ export const metadata: Metadata = buildMetadata({
 /**
  * Home page.
  *
- * The composition follows the reference site's section order — hero, brand
- * showcase, curated selection, brand story, new arrivals, sell/trade and
- * sourcing calls to action, trust row, testimonials, newsletter, final CTA —
+ * The composition follows the reference site's section order — dark hero, trust
+ * row, brand story, curated selection, brand showcase, new arrivals, a dark
+ * promotional banner, the community panel, the social panel, and a final CTA —
  * rebuilt with our own layout, typography and copy.
+ *
+ * The reference alternates full-bleed near-black panels with off-white ones, and
+ * that alternation is most of its visual character, so the order below
+ * deliberately interleaves the two grounds rather than grouping the dark
+ * sections together.
  *
  * -----------------------------------------------------------------------------
  * WHAT DRIVES THE PAGE
@@ -128,13 +134,43 @@ export default async function HomePage() {
     <>
       {home.hero.length > 0 ? <HeroCarousel slides={home.hero} /> : null}
 
+      {/* The trust row sits on the light ground directly beneath the dark hero,
+          which is where the reference puts it. It is the first thing after the
+          hero because it answers "why here" before the catalogue asks "what
+          have you got". */}
+      {home.trust.length > 0 ? (
+        <section className="bg-surface-0">
+          <div className="container-page py-14 lg:py-16">
+            <TrustRow items={home.trust} />
+          </div>
+        </section>
+      ) : null}
+
+      {home.brandStory ? (
+        <section className="border-line-200 bg-surface-50 border-y">
+          <div className="container-page py-16 lg:py-20">
+            <EditorialSplit section={home.brandStory} />
+          </div>
+        </section>
+      ) : null}
+
+      {home.featured ? (
+        <section className="border-line-200 bg-surface-0 border-b">
+          <div className="container-page py-16 lg:py-20">
+            <ProductRailSection rail={home.featured} />
+          </div>
+        </section>
+      ) : null}
+
       {home.brandShowcase || home.brands.length > 0 ? (
-        <section className="border-line-200 border-b">
+        <section className="border-line-200 bg-surface-0 border-b">
           <div className="container-page py-16 lg:py-20">
             {home.brandShowcase ? (
-              <CopyBlock section={home.brandShowcase} headingAs="h2" />
+              <CopyBlock section={home.brandShowcase} headingAs="h2" align="center" />
             ) : (
-              <h2 className="text-3xl sm:text-4xl">The houses we handle</h2>
+              <h2 className="text-ink-950 text-center text-3xl sm:text-4xl">
+                The houses we handle
+              </h2>
             )}
 
             {home.brands.length > 0 ? (
@@ -150,55 +186,36 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      {home.featured ? (
-        <section className="border-line-200 border-b">
-          <div className="container-page py-16 lg:py-20">
-            <ProductRailSection rail={home.featured} />
-          </div>
-        </section>
-      ) : null}
-
-      {home.brandStory ? (
-        <section className="border-line-200 border-b">
-          <div className="container-page py-16 lg:py-20">
-            <EditorialSplit section={home.brandStory} />
-          </div>
-        </section>
-      ) : null}
-
       {home.newArrivals ? (
-        <section className="border-line-200 border-b">
+        <section className="border-line-200 bg-surface-0 border-b">
           <div className="container-page py-16 lg:py-20">
             <ProductRailSection rail={home.newArrivals} />
           </div>
         </section>
       ) : null}
 
-      {home.sellTradeCta || home.sourcingCta ? (
-        <section className="border-line-200 border-b">
-          <div className="container-page grid gap-12 py-16 lg:grid-cols-2 lg:py-20">
-            {home.sellTradeCta ? <CopyBlock section={home.sellTradeCta} /> : null}
-            {home.sourcingCta ? <CopyBlock section={home.sourcingCta} /> : null}
-          </div>
-        </section>
+      {/* The dark promotional banner. The reference pairs the sell/trade and
+          sourcing calls to action into one promotional strip; they are rendered
+          here as one banner when either exists, because two stacked banners of
+          the same shape read as an accident. */}
+      {home.sellTradeCta ? (
+        <PromoBanner section={home.sellTradeCta} />
+      ) : home.sourcingCta ? (
+        <PromoBanner section={home.sourcingCta} />
       ) : null}
 
-      {home.trust.length > 0 ? (
-        <section className="border-line-200 bg-surface-50 border-b">
-          <div className="container-page py-16 lg:py-20">
-            <TrustRow items={home.trust} />
-          </div>
-        </section>
-      ) : null}
+      {/* The community panel, on its own dark ground so it reads as a distinct
+          invitation rather than a second half of the banner above. */}
+      {home.newsletter ? <CommunityPanel section={home.newsletter} /> : null}
 
       {/* Rendered only when real testimonials exist. The heading is inside this
           guard, so an empty list never leaves an orphaned heading behind. */}
       {home.testimonials.length > 0 ? (
-        <section className="border-line-200 border-b">
+        <section className="border-line-200 bg-surface-0 border-b">
           <div className="container-page py-16 lg:py-20">
             {home.testimonialsSection ? (
               <div className="mb-10">
-                <CopyBlock section={home.testimonialsSection} />
+                <CopyBlock section={home.testimonialsSection} align="center" />
               </div>
             ) : null}
             <TestimonialList testimonials={home.testimonials} />
@@ -206,18 +223,12 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      {home.newsletter ? (
-        <section className="border-line-200 bg-surface-50 border-b">
-          <div className="container-page py-16 lg:py-20">
-            <div className="mx-auto max-w-2xl">
-              <CopyBlock section={home.newsletter} align="center" />
-            </div>
-          </div>
-        </section>
-      ) : null}
+      {/* The social panel needs both a section row and a real social link from
+          the identity, so it cannot render an empty grid. */}
+      {home.social ? <SocialPanel section={home.social} socials={home.socials} /> : null}
 
       {home.finalCta ? (
-        <section className="border-line-200 border-b">
+        <section className="border-line-200 bg-surface-0 border-b">
           <div className="container-page py-16 lg:py-20">
             <div className="mx-auto max-w-2xl">
               <CopyBlock section={home.finalCta} align="center" />

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
-import { SectionHeading } from '@/components/ui/section';
+import { PageHero } from '@/components/layout/page-hero';
 import {
   canonicalListingPath,
   isIndexableListing,
@@ -66,18 +66,12 @@ export default async function Page({
   const listing = await getListing(parseCatalogueParams(await searchParams, 'collection', slug));
 
   return (
-    <div className="container-page py-10 sm:py-14">
-      <CatalogueListingView
-        listing={listing}
-        header={
-          <SectionHeading
-            as="h1"
-            eyebrow="Collection"
-            title={collection.title}
-            description={collection.description ?? undefined}
-          />
-        }
-      />
-    </div>
+    <>
+      <PageHero eyebrow="Collection" title={collection.title} intro={collection.description} />
+
+      <div className="container-page py-10 sm:py-14">
+        <CatalogueListingView listing={listing} />
+      </div>
+    </>
   );
 }

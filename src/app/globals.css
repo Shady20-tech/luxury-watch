@@ -12,12 +12,16 @@
    use `--color-gold-700` (5.6:1 on white, 5.1:1 on surface-100).
    ========================================================================== */
 @theme {
-  /* Brand gold */
+  /* Brand gold.
+     `--color-gold-300` is the accent as it appears in the reference's bright
+     gold (`#f8b858` on the special-deals banner). It is safe for *large* text
+     and decoration on a dark ground, and is not a body-text token. */
   --color-gold-100: #f7f1e4;
   --color-gold-300: #d9bc7a;
   --color-gold-500: #a18040;
   --color-gold-700: #806428;
   --color-gold-900: #4d3c18;
+  --color-gold-bright: #f8b858;
 
   /* Neutrals */
   --color-ink-950: #111111;
@@ -35,6 +39,25 @@
   --color-surface-100: #f5f5f5;
   --color-surface-200: #e9e9e9;
 
+  /* Dark ground.
+     The reference storefront is black-dominant: the hero, the "special deals"
+     banner, the community panel and the footer are all full-bleed near-black,
+     with off-white content sections between them. These tokens name that ground
+     once so a dark section and a dark surface agree.
+
+     `--color-night-900` is the page ground (`#080808`, which is what the
+     reference's panels actually sample to) and `--color-night-950` is the
+     darker of the two so an inset panel can sit on it. */
+  --color-night-800: #1c1c1c;
+  --color-night-900: #080808;
+  --color-night-950: #000000;
+
+  /* Text on a dark ground. Both clear 4.5:1 on `night-900` and on the header
+     glass composited over any backdrop, which `tests/design-tokens.test.ts`
+     asserts rather than assumes. */
+  --color-on-night: #f5f5f5;
+  --color-on-night-muted: #b0b0b0;
+
   /* Status */
   --color-success-600: #1f7a4d;
   --color-warning-700: #8a5a00;
@@ -44,10 +67,23 @@
      These carry alpha, so they are deliberately NOT hex: the effective colour
      depends on what is behind them. `tests/design-tokens.test.ts` composites
      each one over the lightest and darkest plausible backdrop and asserts the
-     resulting text contrast, rather than trusting the nominal value. */
+     resulting text contrast, rather than trusting the nominal value.
+
+     There are two families because the header and the light panels sit on
+     different grounds:
+
+      - `--color-glass*` is a light frosted panel, used over page content for the
+        mega menu, drawers and the gallery controls.
+      - `--color-glass-night*` is the dark frosted panel the header uses. The
+        reference header is opaque black; glassmorphism over a black hero needs
+        the panel to be dark and translucent so the hero reads through it, while
+        the light text on top still clears AA at every scroll position. */
   --color-glass: rgb(255 255 255 / 0.82);
   --color-glass-strong: rgb(255 255 255 / 0.96);
   --color-glass-border: rgb(17 17 17 / 0.08);
+  --color-glass-night: rgb(8 8 8 / 0.8);
+  --color-glass-night-strong: rgb(8 8 8 / 0.92);
+  --color-glass-night-border: rgb(255 255 255 / 0.14);
   --color-scrim: rgb(17 17 17 / 0.5);
 
   /* Elevation. Restrained: luxury retail reads as flat, so shadows are a
@@ -122,18 +158,43 @@
 }
 
 /* Frosted panel used by the sticky header, mega menu and drawers.
-   `backdrop-filter` is not universally supported; the fallback is the token's
-   own alpha over a solid, so text stays readable when it is unsupported. */
+ *
+ * The blur is applied with Tailwind's own `backdrop-blur-*` and
+ * `backdrop-saturate-*` utilities rather than a hand-written `backdrop-filter`
+ * declaration. That is deliberate and load-bearing: this project's CSS pipeline
+ * (Lightning CSS, through Next.js) rewrites a literal `backdrop-filter` into
+ * only its `-webkit-` form for the configured browser targets, and modern
+ * Chromium does not support the `-webkit-` alias. A hand-written declaration
+ * therefore compiles to a blur that never applies — the panel keeps its
+ * translucent background and is silently *not* frosted. Tailwind's utilities
+ * emit both properties, which is why they are used here.
+ *
+ * The translucent `background-color` is the part that must not depend on the
+ * filter: a browser without `backdrop-filter` keeps the alpha over a solid, so
+ * the text on the panel stays readable and only the frost is lost. Nothing
+ * depends on the blur having applied.
+ */
 @utility glass-panel {
   background-color: var(--color-glass);
-  backdrop-filter: saturate(180%) blur(12px);
-  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  @apply backdrop-blur-md backdrop-saturate-150;
 }
 
 @utility glass-panel-strong {
   background-color: var(--color-glass-strong);
-  backdrop-filter: saturate(180%) blur(16px);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  @apply backdrop-blur-lg backdrop-saturate-150;
+}
+
+/* The dark frosted header. */
+@utility glass-panel-night {
+  background-color: var(--color-glass-night);
+  @apply backdrop-blur-md backdrop-saturate-150;
+}
+
+/* The dark frosted surface for panels that must stay readable over a
+   photograph, where the lighter glass would let too much through. */
+@utility glass-panel-night-strong {
+  background-color: var(--color-glass-night-strong);
+  @apply backdrop-blur-lg backdrop-saturate-150;
 }
 
 /* Editorial eyebrow: the small uppercase label above a heading.

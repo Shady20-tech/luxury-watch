@@ -43,8 +43,8 @@ export function DesktopNav({ items }: { items: NavItem[] }) {
                     href={item.href}
                     aria-current={isCurrent(item.href) ? 'page' : undefined}
                     className={cn(
-                      'text-foreground hover:text-accent-text inline-flex h-10 items-center rounded-sm px-3 text-sm font-medium',
-                      'data-[active]:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700',
+                      'text-on-night hover:text-gold-300 inline-flex h-10 items-center rounded-sm px-3 text-sm font-medium',
+                      'data-[active]:text-gold-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300',
                       'whitespace-nowrap',
                     )}
                   >
@@ -59,14 +59,14 @@ export function DesktopNav({ items }: { items: NavItem[] }) {
             <NavigationMenu.Item key={item.id}>
               <NavigationMenu.Trigger
                 className={cn(
-                  'text-foreground hover:text-accent-text group inline-flex h-10 items-center gap-1 rounded-sm px-3 text-sm font-medium',
-                  'data-[state=open]:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700',
+                  'text-on-night hover:text-gold-300 group inline-flex h-10 items-center gap-1 rounded-sm px-3 text-sm font-medium',
+                  'data-[state=open]:text-gold-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300',
                 )}
               >
                 {item.label}
                 <span
                   aria-hidden="true"
-                  className="text-ink-500 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  className="text-on-night-muted transition-transform duration-200 group-data-[state=open]:rotate-180"
                 >
                   ▾
                 </span>

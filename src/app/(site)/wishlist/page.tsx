@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { CatalogueCard } from '@/components/catalogue/catalogue-card';
+import { PageHero } from '@/components/layout/page-hero';
 import { MoveToCartButton } from '@/components/wishlist/move-to-cart-button';
 import { WishlistRemoveButton } from '@/components/wishlist/wishlist-remove-button';
 import { GuestWishlist } from '@/components/wishlist/guest-wishlist';
@@ -48,16 +49,16 @@ export default async function Page() {
   const viewer = await getViewerState();
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="mb-8">
-        <p className="eyebrow">Account</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">Your wishlist</h1>
-        <p className="text-foreground-muted mt-3 max-w-prose text-base">
-          {viewer.signedIn
+    <main id="main-content">
+      <PageHero
+        eyebrow="Account"
+        title="Your wishlist"
+        intro={
+          viewer.signedIn
             ? 'Pieces you have saved to your account. Availability is confirmed from the catalogue each time you view this page.'
-            : 'Pieces you have saved on this device. Sign in to keep them in your account.'}
-        </p>
-      </header>
+            : 'Pieces you have saved on this device. Sign in to keep them in your account.'
+        }
+      />
 
       {viewer.signedIn && viewer.userId ? (
         <SignedInWishlist userId={viewer.userId} />

@@ -6,6 +6,7 @@ import { isSupabaseConfigured } from '@/lib/env';
 import { assembleHomepage } from '@/lib/homepage/assemble';
 import { emptyHomepage, type HomepageContent } from '@/lib/homepage/types';
 import { logger } from '@/lib/logger';
+import { getChrome } from '@/server/services/chrome-service';
 import {
   fetchBrandsWithCounts,
   fetchHomepageSections,
@@ -50,11 +51,16 @@ async function loadHomepage(): Promise<HomepageContent> {
       return emptyHomepage('database');
     }
 
-    const [railProducts, brandsAndCounts, models, testimonials] = await Promise.all([
+    const [railProducts, brandsAndCounts, models, testimonials, chrome] = await Promise.all([
       fetchRailProducts(sections),
       fetchBrandsWithCounts(),
       fetchModelNames(),
       fetchTestimonials(),
+      // `getChrome` is wrapped in `cache()`, so this is the same read the header
+      // and footer already made for this request rather than a new query. The
+      // social links live in `site_settings` and the chrome is what assembles
+      // them, so reusing it here avoids a second `site_settings` read.
+      getChrome(),
     ]);
 
     return assembleHomepage({
@@ -64,6 +70,7 @@ async function loadHomepage(): Promise<HomepageContent> {
       models,
       publishedCountByBrand: brandsAndCounts.publishedCountByBrand,
       testimonials,
+      socials: chrome.identity.socials,
       // Captured once so every product on the page is judged against the same
       // instant; otherwise two cards could disagree at the window boundary.
       now: new Date().toISOString(),

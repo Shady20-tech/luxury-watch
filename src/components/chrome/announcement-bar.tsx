@@ -83,7 +83,7 @@ export function AnnouncementBar({ announcements }: { announcements: Announcement
     <div
       role="region"
       aria-label="Announcements"
-      className="bg-ink-950 text-surface-0 relative"
+      className="bg-gold-500 text-ink-950 relative"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -102,7 +102,7 @@ export function AnnouncementBar({ announcements }: { announcements: Announcement
               {' '}
               <Link
                 href={current.linkUrl}
-                className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 underline underline-offset-2"
+                className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-950 underline underline-offset-2"
               >
                 {current.linkLabel ?? 'Learn more'}
               </Link>
@@ -111,7 +111,11 @@ export function AnnouncementBar({ announcements }: { announcements: Announcement
         </p>
 
         {visible.length > 1 ? (
-          <span className="text-surface-200/70 hidden text-[0.625rem] tracking-widest sm:inline">
+          // Solid ink, not a tint. `ink-950/70` over the gold bar composites to
+          // 3.4:1, which fails AA — the browser audit caught it on every page.
+          // At 10px this is the smallest text on the site, so it gets the full
+          // contrast rather than a decorative fade.
+          <span className="text-ink-950 hidden text-[0.625rem] tracking-widest sm:inline">
             {(index % visible.length) + 1}/{visible.length}
           </span>
         ) : null}
@@ -120,7 +124,7 @@ export function AnnouncementBar({ announcements }: { announcements: Announcement
       <button
         type="button"
         onClick={() => dismiss(current.id)}
-        className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-1.5 hover:bg-white/10"
+        className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-950 absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-1.5 hover:bg-ink-950/10"
         aria-label="Dismiss announcement"
       >
         <X aria-hidden="true" className="h-4 w-4" />

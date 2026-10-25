@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ShoppingBag } from 'lucide-react';
 
 import { CheckoutForm } from '@/components/checkout/checkout-form';
+import { PageHero } from '@/components/layout/page-hero';
 import { OrderSummary } from '@/components/checkout/order-summary';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/states';
@@ -81,14 +82,10 @@ export default async function Page() {
   }
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="mb-8 max-w-prose">
-        <p className="eyebrow">Shop</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">{ORDER_COPY.pageTitle}</h1>
-        <p className="text-foreground-muted mt-3 text-base">{ORDER_COPY.intro}</p>
-      </header>
+    <main id="main-content">
+      <PageHero eyebrow="Shop" title={ORDER_COPY.pageTitle} intro={ORDER_COPY.intro} />
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:py-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <CheckoutForm checkout={checkout} />
         <OrderSummary
           cart={cart}

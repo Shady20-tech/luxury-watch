@@ -62,7 +62,10 @@ export function HeaderActions({
           key={href}
           href={href}
           className={cn(
-            'text-foreground hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700 relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm',
+            // Light icons on the dark glass header. The badge keeps the light
+            // gold fill with dark ink on it, which is the one pairing that
+            // clears AA at 10px.
+            'text-on-night hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm',
             hideBelowSm && 'hidden sm:inline-flex',
           )}
         >
@@ -76,7 +79,7 @@ export function HeaderActions({
           {count > 0 ? (
             <span
               aria-hidden="true"
-              className="bg-gold-700 text-surface-0 absolute top-1.5 right-1 min-w-4 rounded-full px-1 text-[0.625rem] leading-4 font-semibold"
+              className="bg-gold-300 text-night-950 absolute top-1.5 right-1 min-w-4 rounded-full px-1 text-[0.625rem] leading-4 font-semibold"
             >
               {count > 99 ? '99+' : count}
             </span>

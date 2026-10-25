@@ -15,12 +15,21 @@ export function Wordmark({
   identity,
   className,
   size = 'md',
+  tone = 'dark',
 }: {
   identity: SiteIdentity;
   className?: string;
   size?: 'md' | 'lg';
+  /**
+   * The ground the wordmark sits on. `light` is for the dark header, where the
+   * near-black ink would be invisible; `dark` is for the light footer. Naming
+   * the ground rather than a colour keeps the two call sites consistent and
+   * means a token change cannot make one of them unreadable.
+   */
+  tone?: 'light' | 'dark';
 }) {
   const textClass = size === 'lg' ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl';
+  const isLight = tone === 'light';
 
   return (
     <Link
@@ -30,7 +39,8 @@ export function Wordmark({
         // name comes from the database and its length is not known at build
         // time, so the text is allowed to truncate rather than push the action
         // icons off the edge of a narrow screen.
-        'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-700 inline-flex min-w-0 items-center',
+        'focus-visible:outline-2 focus-visible:outline-offset-4 inline-flex min-w-0 items-center',
+        isLight ? 'focus-visible:outline-gold-300' : 'focus-visible:outline-gold-700',
         className,
       )}
     >
@@ -46,11 +56,22 @@ export function Wordmark({
         />
       ) : (
         <span className="flex min-w-0 flex-col leading-none">
-          <span className={cn('font-display text-ink-950 truncate tracking-[0.02em]', textClass)}>
+          <span
+            className={cn(
+              'font-display truncate tracking-[0.02em]',
+              isLight ? 'text-on-night' : 'text-ink-950',
+              textClass,
+            )}
+          >
             {identity.businessName}
           </span>
           {identity.tagline ? (
-            <span className="text-ink-500 mt-1 truncate text-[0.625rem] tracking-[0.18em] uppercase">
+            <span
+              className={cn(
+                'mt-1 truncate text-[0.625rem] tracking-[0.18em] uppercase',
+                isLight ? 'text-on-night-muted' : 'text-ink-500',
+              )}
+            >
               {identity.tagline}
             </span>
           ) : null}

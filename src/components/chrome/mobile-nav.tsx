@@ -29,7 +29,7 @@ export function MobileNav({ data }: { data: ChromeData }) {
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger
-        className="text-foreground hover:bg-surface-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm lg:hidden"
+        className="text-on-night hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm lg:hidden"
         aria-label="Open menu"
       >
         <Menu aria-hidden="true" className="h-5 w-5" />

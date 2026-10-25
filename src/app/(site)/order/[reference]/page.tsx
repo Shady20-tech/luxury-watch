@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FileQuestion } from 'lucide-react';
 
+import { PageHero } from '@/components/layout/page-hero';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { noIndexMetadata } from '@/lib/seo/metadata';
@@ -95,17 +96,14 @@ export default async function Page({
   }
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="mb-8 max-w-prose">
-        <p className="eyebrow">Order request</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">{request.reference}</h1>
-        <p className="text-foreground-muted mt-3 text-base">
-          This is what we have on record. To change anything, reply to the email address you gave us
-          and quote this reference.
-        </p>
-      </header>
+    <main id="main-content">
+      <PageHero
+        eyebrow="Order request"
+        title={request.reference}
+        intro="This is what we have on record. To change anything, reply to the email address you gave us and quote this reference."
+      />
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:py-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <div className="flex flex-col gap-8">
           <section aria-labelledby="order-items-heading">
             <h2 id="order-items-heading" className="text-lg">

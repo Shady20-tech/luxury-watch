@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
-import { SectionHeading } from '@/components/ui/section';
+import { PageHero } from '@/components/layout/page-hero';
 import {
   canonicalListingPath,
   isIndexableListing,
@@ -65,18 +65,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   const listing = await getListing(params);
 
   return (
-    <div className="container-page py-10 sm:py-14">
-      <CatalogueListingView
-        listing={listing}
-        header={
-          <SectionHeading
-            as="h1"
-            eyebrow="Shop"
-            title={params.query !== '' ? `Search results for “${params.query}”` : 'The Collection'}
-            description="Every piece is sourced and inspected by us. Prices are shown where a figure is published; otherwise request pricing and availability and we will respond directly."
-          />
-        }
+    <>
+      <PageHero
+        eyebrow="Shop"
+        title={params.query !== '' ? `Search results for “${params.query}”` : 'The Collection'}
+        intro="Every piece is sourced and inspected by us. Prices are shown where a figure is published; otherwise request pricing and availability and we will respond directly."
       />
-    </div>
+
+      <div className="container-page py-10 sm:py-14">
+        <CatalogueListingView listing={listing} />
+      </div>
+    </>
   );
 }

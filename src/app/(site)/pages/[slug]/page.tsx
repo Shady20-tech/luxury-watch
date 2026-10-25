@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { PageBlocks } from '@/components/content/page-blocks';
+import { PageHero } from '@/components/layout/page-hero';
 import { ErrorState } from '@/components/ui/states';
 import { buildMetadata, noIndexMetadata } from '@/lib/seo/metadata';
 import { fetchPublishedPageSlugs } from '@/server/repositories/content-repository';
@@ -95,15 +96,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const page = result.page;
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="max-w-prose">
-        <h1 className="text-3xl sm:text-4xl">{page.title}</h1>
-        {page.excerpt ? (
-          <p className="text-foreground-muted mt-3 text-base">{page.excerpt}</p>
-        ) : null}
-      </header>
+    <main id="main-content">
+      <PageHero title={page.title} intro={page.excerpt} />
 
-      <div className="mt-8 max-w-3xl">
+      <div className="container-page max-w-3xl py-10 lg:py-14">
         {page.blocks.length > 0 ? (
           <PageBlocks blocks={page.blocks} />
         ) : (

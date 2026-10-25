@@ -182,6 +182,88 @@ describe('glass surfaces keep text readable', () => {
   });
 });
 
+describe('the dark glass header keeps its light text readable', () => {
+  /**
+   * The header is dark frosted glass, not the reference's opaque black.
+   *
+   * Glass over a sticky header is the hardest contrast case on the site,
+   * because the header sits on top of whatever the visitor has scrolled to and
+   * the backdrop is therefore unknown. A light backdrop is the *worst* case for
+   * dark glass: white page content behind a translucent dark panel lifts the
+   * composite towards mid-grey and drags light text down towards it.
+   *
+   * That is the case these assert. The nominal token value proves nothing on its
+   * own, so every check composites the real alpha over the real backdrop.
+   */
+  function compositeNight(tokenValue: string, backdropHex: string): string {
+    const match = /^rgb\((\d+)\s+(\d+)\s+(\d+)\s*\/\s*([\d.]+)\)$/.exec(tokenValue.trim());
+    if (!match) throw new Error(`Not an rgba token: ${tokenValue}`);
+
+    const [r, g, b, a] = [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
+    const back = backdropHex.replace('#', '');
+    const backdrop = [0, 2, 4].map((offset) => parseInt(back.slice(offset, offset + 2), 16));
+
+    const blended = [r, g, b].map((channel, index) =>
+      Math.round(channel * a + (backdrop[index] ?? 0) * (1 - a)),
+    );
+
+    return `#${blended.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  function nightToken(name: string): string {
+    const declaration = new RegExp(`--${name}:\\s*([^;]+);`).exec(css);
+    if (!declaration?.[1]) throw new Error(`Token --${name} not found`);
+    return declaration[1].trim();
+  }
+
+  const backdrops = [
+    ['a white page', '#ffffff'],
+    ['a mid-grey photograph', '#808080'],
+    ['a dark hero image', '#111111'],
+  ] as const;
+
+  it.each(backdrops)('header text over %s stays at 4.5:1', (_label, backdrop) => {
+    const surface = compositeNight(nightToken('color-glass-night'), backdrop);
+    expect(contrastRatio(token('color-on-night'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(backdrops)('muted header text over %s stays at 4.5:1', (_label, backdrop) => {
+    const surface = compositeNight(nightToken('color-glass-night'), backdrop);
+    expect(contrastRatio(token('color-on-night-muted'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(backdrops)(
+    'header text on the stronger panel over %s stays at 4.5:1',
+    (_label, backdrop) => {
+      // The search field and the mega menu use the stronger token, and both are
+      // the surfaces a visitor types into.
+      const surface = compositeNight(nightToken('color-glass-night-strong'), backdrop);
+      expect(contrastRatio(token('color-on-night'), surface)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it('light text on the solid dark ground meets AA', () => {
+    expect(contrastRatio(token('color-on-night'), token('color-night-900'))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+  });
+
+  it('muted light text on the solid dark ground meets AA', () => {
+    expect(
+      contrastRatio(token('color-on-night-muted'), token('color-night-900')),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the bright gold accent is legible on the dark ground for large text', () => {
+    // Bright gold is the reference's call-to-action colour on the dark banners.
+    // It is asserted at the large-text threshold, not the normal-text one, so it
+    // cannot quietly become a body-text colour.
+    expect(
+      contrastRatio(token('color-gold-bright'), token('color-night-900')),
+    ).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('muted text tokens are contrast-safe on every surface', () => {
   /**
    * `ink-400` exists as a token but must not be used for readable text. On
@@ -233,6 +315,60 @@ describe('muted text tokens are contrast-safe on every surface', () => {
           // Skip the line if it is a disabled-state utility, or a comment
           // explaining the rule.
           if (line.includes('data-[disabled]')) continue;
+          if (line.trim().startsWith('*') || line.trim().startsWith('//')) continue;
+          offenders.push(`${full}: ${line.trim()}`);
+        }
+      }
+    };
+
+    walk(join(process.cwd(), 'src'));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe('no text colour is applied at reduced opacity', () => {
+  /**
+   * The bug this guards against, and why it is a source-level check.
+   *
+   * A Tailwind opacity modifier on a *text* colour — `text-ink-950/70` — lowers
+   * the effective contrast of that text against whatever it sits on. On the gold
+   * announcement bar it composites to 3.4:1, which fails AA, and it did so on
+   * every page of the site at once.
+   *
+   * It is invisible to `tests/a11y-shell.test.tsx`: jsdom does not lay out the
+   * document, so axe skips colour-contrast entirely there. It was found by the
+   * Chromium audit. A source guard is the only thing that stops it coming back
+   * by copy-paste, because the class itself looks reasonable.
+   *
+   * Backgrounds are a different matter and are deliberately not covered: a
+   * translucent *panel* composites against an unknown backdrop, which is what
+   * `--color-glass-night` is for, and the token tests assert those.
+   *
+   * A line that needs a faded text colour should use a dedicated token such as
+   * `text-on-night-muted`, whose contrast is asserted, rather than an alpha
+   * modifier.
+   */
+  it('no source file fades a text colour with an opacity modifier', () => {
+    const offenders: string[] = [];
+
+    // `text-<colour>/<alpha>` and nothing else. The pattern is anchored to a
+    // known token prefix so a legitimate class like `w-1/2` or
+    // `bg-white/10` cannot match, and `text-white/…` is included because the
+    // dark panels use white text.
+    const fadedText = /\btext-(?:ink|surface|gold|night|on-night|foreground|accent|line)-\d+\/\d+/;
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.(tsx|ts)$/.test(entry.name)) continue;
+
+        for (const line of readFileSync(full, 'utf8').split('\n')) {
+          if (!fadedText.test(line)) continue;
+          // Comments that document the rule are allowed to name it.
           if (line.trim().startsWith('*') || line.trim().startsWith('//')) continue;
           offenders.push(`${full}: ${line.trim()}`);
         }

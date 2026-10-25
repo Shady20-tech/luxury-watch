@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { PageHero } from '@/components/layout/page-hero';
 import { SellTradeForm } from '@/components/service/sell-trade-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 
@@ -42,45 +43,40 @@ const STEPS = [
 
 export default function Page() {
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="max-w-prose">
-        <p className="eyebrow">Services</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">Sell or trade</h1>
-        <p className="text-foreground-muted mt-3 text-base">
-          We buy pre-owned luxury watches outright and take trades against pieces in our collection.
-          Send us the details and a member of the team will come back with a valuation.
-        </p>
-      </header>
+    <main id="main-content">
+      <PageHero eyebrow="Services" title="Sell or trade" />
 
-      <section className="mt-10" aria-labelledby="how-it-works">
-        <h2 id="how-it-works" className="text-xl font-semibold">
-          How it works
-        </h2>
-        <ol className="mt-5 grid gap-6 sm:grid-cols-3">
-          {STEPS.map((step, index) => (
-            <li key={step.title}>
-              <p className="text-accent-text text-sm font-semibold">
-                {String(index + 1).padStart(2, '0')}
-              </p>
-              <h3 className="mt-2 text-base font-semibold">{step.title}</h3>
-              <p className="text-foreground-muted mt-1 text-sm">{step.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <div className="container-page py-10 lg:py-14">
+        <section className="mt-10" aria-labelledby="how-it-works">
+          <h2 id="how-it-works" className="text-xl font-semibold">
+            How it works
+          </h2>
+          <ol className="mt-5 grid gap-6 sm:grid-cols-3">
+            {STEPS.map((step, index) => (
+              <li key={step.title}>
+                <p className="text-accent-text text-sm font-semibold">
+                  {String(index + 1).padStart(2, '0')}
+                </p>
+                <h3 className="mt-2 text-base font-semibold">{step.title}</h3>
+                <p className="text-foreground-muted mt-1 text-sm">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-      <section className="mt-12 max-w-3xl" aria-labelledby="start-request">
-        <h2 id="start-request" className="text-xl font-semibold">
-          Start a request
-        </h2>
-        <p className="text-foreground-muted mt-2 text-sm">
-          This is a request, not a sale. Nothing is agreed and no payment is made until you accept a
-          valuation.
-        </p>
-        <div className="mt-6">
-          <SellTradeForm />
-        </div>
-      </section>
+        <section className="mt-12 max-w-3xl" aria-labelledby="start-request">
+          <h2 id="start-request" className="text-xl font-semibold">
+            Start a request
+          </h2>
+          <p className="text-foreground-muted mt-2 text-sm">
+            This is a request, not a sale. Nothing is agreed and no payment is made until you accept
+            a valuation.
+          </p>
+          <div className="mt-6">
+            <SellTradeForm />
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

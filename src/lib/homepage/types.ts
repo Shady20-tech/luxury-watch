@@ -135,8 +135,23 @@ export type HomepageContent = {
   testimonialsSection: CopySection | null;
   testimonials: Testimonial[];
   newsletter: CopySection | null;
+  /**
+   * The social panel heading.
+   *
+   * The panel itself renders only when this row exists *and* the identity has at
+   * least one social link, so it can never show an empty grid. The links come
+   * from `site_settings` rather than from this row, because that is where the
+   * business already records them.
+   */
+  social: CopySection | null;
   finalCta: CopySection | null;
   brands: BrandTile[];
+  /**
+   * Social links from `site_settings`, passed through so the social panel can
+   * render its links without a second query. Empty is the normal state until the
+   * business records any, and the panel renders nothing in that case.
+   */
+  socials: { label: string; href: string }[];
   /**
    * True when the composition came from the database. False means the built-in
    * fallback was used because Supabase is unconfigured or unreachable, which the
@@ -173,8 +188,10 @@ export function emptyHomepage(source: HomepageContent['source']): HomepageConten
     testimonialsSection: null,
     testimonials: [],
     newsletter: null,
+    social: null,
     finalCta: null,
     brands: [],
+    socials: [],
     source,
   };
 }

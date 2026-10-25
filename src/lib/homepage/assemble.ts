@@ -111,6 +111,16 @@ export type AssembleHomepageInput = {
   models: ModelRow[];
   publishedCountByBrand: Record<string, number>;
   testimonials: TestimonialRow[];
+  /**
+   * Social links from `site_settings`.
+   *
+   * Passed in rather than queried here so the homepage does not issue a second
+   * `site_settings` read: the chrome already fetches that row for every request
+   * and the service hands the assembled links over. Defaults to empty, which is
+   * the state before the business records any and which makes the social panel
+   * render nothing.
+   */
+  socials?: { label: string; href: string }[];
   /** ISO timestamp used to decide the "New" badge. Injected for determinism. */
   now: string;
 };
@@ -280,8 +290,16 @@ function toRail(row: HomepageSectionRow, products: ProductRow[], now: string): P
 }
 
 export function assembleHomepage(input: AssembleHomepageInput): HomepageContent {
-  const { sections, productsBySection, brands, models, publishedCountByBrand, testimonials, now } =
-    input;
+  const {
+    sections,
+    productsBySection,
+    brands,
+    models,
+    publishedCountByBrand,
+    testimonials,
+    socials = [],
+    now,
+  } = input;
 
   // Sections arrive already ordered by `sort_order`; sorting again here would
   // hide a repository ordering bug rather than surface it, so the order is
@@ -352,8 +370,10 @@ export function assembleHomepage(input: AssembleHomepageInput): HomepageContent 
       : null,
     testimonials: testimonialModels,
     newsletter: byKey.has('newsletter') ? toCopySection(byKey.get('newsletter')!) : null,
+    social: byKey.has('social') ? toCopySection(byKey.get('social')!) : null,
     finalCta: byKey.has('final_cta') ? toCopySection(byKey.get('final_cta')!) : null,
     brands: brandTiles,
+    socials,
     source: 'database',
   };
 }

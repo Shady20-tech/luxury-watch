@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AnnouncementBar } from '@/components/chrome/announcement-bar';
 import { DesktopNav } from '@/components/chrome/desktop-nav';
 import { HeaderActionsLive } from '@/components/chrome/header-actions-live';
+import { HeaderSearch } from '@/components/chrome/header-search';
 import { MobileNav } from '@/components/chrome/mobile-nav';
 import { Wordmark } from '@/components/chrome/wordmark';
 import type { ChromeData } from '@/lib/navigation/types';
@@ -15,49 +16,79 @@ import type { ChromeData } from '@/lib/navigation/types';
  * rotation) are small Client Components, so the JavaScript shipped for the
  * header is limited to what actually needs it.
  *
- * The header is sticky and frosted. Sticky positioning is used rather than a
- * scroll listener: it is compositor-driven, needs no JavaScript, and cannot
- * jitter. `border-b` gives a hairline instead of a heavy shadow.
+ * -----------------------------------------------------------------------------
+ * THE GLASS
+ * -----------------------------------------------------------------------------
+ *
+ * The reference header is opaque black. This one is dark *frosted glass*: the
+ * same near-black ground, but translucent, so the page reads through it as the
+ * visitor scrolls. That is the one deliberate departure from the reference.
+ *
+ * Glass on a sticky header is the hardest contrast case on the site, because
+ * the backdrop is whatever has been scrolled underneath and is therefore
+ * unknown. A white page behind a translucent dark panel is the worst case for
+ * light text: it lifts the composite towards mid-grey. `--color-glass-night` is
+ * tuned for that case, and `tests/design-tokens.test.ts` composites the real
+ * alpha over a white, a mid-grey and a dark backdrop and asserts the resulting
+ * contrast, rather than trusting the nominal value.
+ *
+ * `backdrop-filter` is not universally supported. The declaration order in the
+ * `glass-panel-night` utility means a browser without it keeps the translucent
+ * background and simply loses the blur — the header still reads correctly, it
+ * is just not frosted. Nothing depends on the blur having applied.
+ *
+ * -----------------------------------------------------------------------------
+ * LAYOUT
+ * -----------------------------------------------------------------------------
+ *
+ * Two rows, matching the reference: a utility row with the wordmark, the search
+ * field and the action icons, then a navigation row beneath it. The reference
+ * also puts the phone number and email in the utility row; that is left to the
+ * drawer here, because at 320px it is the first thing that would force a
+ * horizontal scroll and the audit checks for exactly that.
+ *
+ * The search field is `hidden md:block` — it is a large control and there is no
+ * honest way to fit it beside the wordmark and four action icons on a phone. On
+ * smaller screens the search action still reaches `/search`.
  */
 export function SiteHeader({ data }: { data: ChromeData }) {
   return (
     <header className="sticky top-0 z-40">
       <AnnouncementBar announcements={data.announcements} />
 
-      <div className="glass-panel border-line-200 border-b">
-        <div className="container-page flex h-16 items-center gap-4 lg:h-20">
-          <MobileNav data={data} />
+      <div className="glass-panel-night border-b border-white/10">
+        <div className="container-page">
+          <div className="flex h-16 items-center gap-4 lg:h-20">
+            <MobileNav data={data} />
 
-          <Wordmark identity={data.identity} />
+            <Wordmark identity={data.identity} tone="light" />
 
-          {/* `DesktopNav` renders its own `<nav aria-label="Primary">` through
-              Radix, so this wrapper is a plain div. Nesting a second `<nav>`
-              here would create two navigation landmarks with the same name,
-              which axe flags as a `landmark-unique` violation and which makes
-              the landmark list ambiguous for a screen reader.
+            <HeaderSearch className="mx-auto hidden w-full max-w-md md:block" />
 
-              The wrapper is `hidden lg:block` rather than always present. The
-              nav inside is hidden below `lg`, but `ml-6` and `flex-1` on the
-              wrapper would still occupy 24px of the header at 320px, which is
-              enough to push the action icons past the viewport edge. Hiding the
-              wrapper as well removes the space along with the nav. */}
-          <div className="ml-6 hidden flex-1 lg:block">
-            <DesktopNav items={data.header} />
+            <div className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
+              {/* The appointment CTA is the one commercial action the reference
+                  keeps in the header, so it stays — but only where there is room
+                  for the full label. Below `xl` it moves into the drawer, where
+                  it is still reachable, rather than being squeezed. */}
+              <Link
+                href="/contact"
+                className="mr-1 hidden h-10 items-center rounded-sm border border-white/25 px-4 text-sm font-medium text-on-night transition-colors hover:border-white/60 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 xl:inline-flex"
+              >
+                Book an appointment
+              </Link>
+
+              <HeaderActionsLive />
+            </div>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            {/* Appointment is the one commercial call to action the reference
-                puts in the header, so it is kept — but only where there is room
-                for the full label. Below `xl` it moves into the drawer, where it
-                is still reachable, rather than being squeezed or truncated. */}
-            <Link
-              href="/contact"
-              className="border-line-300 hover:border-ink-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-700 mr-1 hidden h-10 items-center rounded-sm border px-4 text-sm font-medium xl:inline-flex"
-            >
-              Book an appointment
-            </Link>
-
-            <HeaderActionsLive />
+          {/* The navigation row. `DesktopNav` renders its own navigation
+              landmark labelled "Primary", so this wrapper is a plain div:
+              nesting a second nav element here would create two navigation
+              landmarks with the same name, which axe reports as
+              `landmark-unique` and which makes the landmark list ambiguous for
+              a screen reader. */}
+          <div className="hidden border-t border-white/10 lg:block">
+            <DesktopNav items={data.header} />
           </div>
         </div>
       </div>

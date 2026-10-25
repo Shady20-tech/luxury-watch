@@ -47,7 +47,10 @@ export function ProductCard({
   return (
     <article
       className={cn(
-        'group border-line-200 bg-surface-0 hover:border-ink-300 relative flex h-full flex-col rounded-md border transition-[border-color,box-shadow] duration-200 focus-within:border-ink-300 hover:shadow-sm',
+        // The reference cards are borderless with the media doing the work and a
+        // hairline under the text block, so a dense five-across grid reads as a
+        // catalogue rather than a wall of boxes.
+        'group bg-surface-0 relative flex h-full flex-col',
         className,
       )}
     >
@@ -70,9 +73,9 @@ export function ProductCard({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className="border-line-200 flex flex-1 flex-col border-t pt-4">
         {product.brandName ? (
-          <p className="text-ink-500 text-xs font-semibold tracking-[0.14em] uppercase">
+          <p className="text-ink-500 text-[0.6875rem] font-semibold tracking-[0.16em] uppercase">
             {product.brandName}
           </p>
         ) : null}
@@ -122,7 +125,10 @@ export function ProductGrid({
 }) {
   return (
     <ul
-      className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-4', className)}
+      className={cn(
+        'grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
+        className,
+      )}
       // A list of products is a list; the announcement is left to the section.
     >
       {products.map((product, index) => (

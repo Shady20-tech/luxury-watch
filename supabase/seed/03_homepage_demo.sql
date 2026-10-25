@@ -244,6 +244,13 @@ values
    'Occasional email when something worth seeing arrives. No noise, and you can leave at any time.',
    null, null, null, '{}'::jsonb, true, 160),
 
+  -- Social panel. Renders only when the identity also has a social link in
+  -- `site_settings`, so it can never show an empty grid.
+  ('00000000-0000-4000-8000-000000000418', 'social',
+   'Follow the boutique', 'On social',
+   'New arrivals, pieces in the workshop and the occasional photograph from the bench.',
+   null, null, null, '{}'::jsonb, true, 165),
+
   -- Final CTA.
   ('00000000-0000-4000-8000-000000000417', 'final_cta',
    'Have any questions?', 'Get in touch',

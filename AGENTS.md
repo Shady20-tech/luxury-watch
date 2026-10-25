@@ -104,6 +104,26 @@ editor sees their change immediately.
 in `source` (`database` or `fallback`). While Supabase is unconfigured (A1) the
 deployed site uses the fallback fixture; this is recorded as G10, not a bug.
 
+### The dark cap, and why the header is glass
+
+Every page opens on a dark band, the way the reference does. Interior templates
+get it from `src/components/layout/page-hero.tsx` (`PageHero`); the homepage gets
+it from its own black hero. A new page should use `PageHero` rather than writing
+another eyebrow-and-`h1` block, or it will open white and break the rhythm.
+
+The header is the **one deliberate deviation from the reference**, which uses a
+solid bar: ours is `glass-panel-night` — `rgba(8,8,8,0.8)` with
+`backdrop-filter: blur(12px) saturate(1.5)` — so the hero shows through it. That
+makes the header the hardest contrast case on the site, because it sits over the
+black hero at the top of the page and over white body content as you scroll. Its
+contrast is therefore asserted in the browser audit, not inferred from one
+background. If you change the header's translucency, re-run `npm run audit:a11y`
+before believing the result.
+
+`PageHero` must stay the only `h1` on its page. Replacing an existing title
+header with it is correct; adding it above one that already has an `h1` is not,
+and the audit will not catch that.
+
 ## Database
 
 ### A preview needs PostgREST, not just `next start`

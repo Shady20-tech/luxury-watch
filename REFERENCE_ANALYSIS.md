@@ -159,6 +159,14 @@ Standalone items: **Sell / Trade Your Watch**, **Contact Us**, **Schedule an App
 Mega menu is instantiated by a `Megamenu` class bound to the header — i.e. it is an enhanced,
 keyboard-navigable panel, not a bare `<ul>`.
 
+> **Our deviation: the header is glass, not solid.** In the reference the header is an opaque bar
+> on the site ground (sampled `rgb(0,0,0)` directly below the utility bar on every page). We render
+> it as `glass-panel-night` — `rgba(8,8,8,0.8)` with `backdrop-filter: blur(12px) saturate(1.5)` —
+> so the dark hero shows through it. This is a deliberate, requested departure from the reference,
+> and it is the only one. It is also the hardest contrast case on the site: the header sits over
+> both the black hero and white body content as the page scrolls, so its text contrast is asserted
+> in the browser audit rather than assumed from a single static background.
+
 ### 4.4 Search
 Full-screen / overlay search with the placeholder "Search products" and a **Popular Searches** row:
 Rolex, Audemars Piguet, Patek Philippe, Richard Mille. Predictive search enabled.
@@ -214,6 +222,24 @@ Slide-out drawer (`m-cart-drawer`) with `m-cart-drawer__footer` — cart is a dr
 10. **Community / newsletter CTA** — "Carbon Watch Company Club" → Join Now
 11. **Contact CTA** — "Have Any Questions?" → *Get In Touch With Us Today!* → Contact Us
 12. Footer
+
+### 5.1 Ground rhythm — what the dark bands are for
+
+The reference is not "a dark site". It is a light site that **opens dark and closes dark**, and the
+interior templates repeat the opening band. Sampled at 1920px from the album:
+
+| Surface | Ground |
+|---|---|
+| Utility + announcement + header | dark (`rgb(23,32,48)` / black) |
+| Homepage hero | black `rgb(0,0,0)`, ~922px tall |
+| Value props through contact CTA | white / `rgb(245,245,245)` alternating |
+| Footer | dark |
+| Interior pages (cart, wishlist, policy, etc.) | dark **page-title band**, then light body |
+
+So the visual signature is a dark cap on every page. Our build reproduces this with `PageHero` on
+the interior templates and the black hero plus dark closing sections on the homepage. What we do
+**not** copy is the reference's exact utility-bar colour: ours is the `ink` ramp, not `rgb(23,32,48)`,
+because our token set is the palette the rest of the site already uses.
 
 ---
 

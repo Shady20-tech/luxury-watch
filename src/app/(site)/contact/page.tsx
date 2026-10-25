@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { PageHero } from '@/components/layout/page-hero';
 import { ContactForm } from '@/components/service/contact-form';
 import { getChrome } from '@/server/services/chrome-service';
 import { buildMetadata } from '@/lib/seo/metadata';
@@ -43,17 +44,14 @@ export default async function Page() {
     identity.addressLines.length > 0 || identity.contactEmail || identity.contactPhone;
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="max-w-prose">
-        <p className="eyebrow">The Boutique</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">Contact</h1>
-        <p className="text-foreground-muted mt-3 text-base">
-          Ask about a piece, request an appointment or start a service request. Send us a message
-          and a member of the team will reply.
-        </p>
-      </header>
+    <main id="main-content">
+      <PageHero
+        eyebrow="The Boutique"
+        title="Contact"
+        intro="Ask about a piece, request an appointment or start a service request. Send us a message and a member of the team will reply."
+      />
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-16">
+      <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-16 lg:py-14 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-16">
         <section aria-labelledby="contact-form-heading">
           <h2 id="contact-form-heading" className="text-xl font-semibold">
             Send us a message

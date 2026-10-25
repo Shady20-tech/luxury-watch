@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { PageHero } from '@/components/layout/page-hero';
 import { AppointmentForm } from '@/components/service/appointment-form';
 import { ErrorState } from '@/components/ui/states';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -67,17 +68,17 @@ export default async function Page() {
   const availability = await loadSlots();
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="max-w-prose">
-        <p className="eyebrow">The Boutique</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl">Request an appointment</h1>
-        <p className="text-foreground-muted mt-3 text-base">
-          Choose a time that suits you and tell us what you would like to discuss. We will confirm
-          the appointment with you before you travel.
-        </p>
-      </header>
+    <main id="main-content">
+      <PageHero
+        eyebrow="The Boutique"
+        title="Request an appointment"
+        intro="Choose a time that suits you and tell us what you would like to discuss. We will confirm the appointment with you before you travel."
+      />
 
-      <section className="mt-10 max-w-3xl" aria-labelledby="request-heading">
+      <section
+        className="container-page max-w-3xl py-10 lg:py-14"
+        aria-labelledby="request-heading"
+      >
         <h2 id="request-heading" className="text-xl font-semibold">
           Choose a time
         </h2>

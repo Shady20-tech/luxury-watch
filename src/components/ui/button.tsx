@@ -31,6 +31,12 @@ const buttonVariants = cva(
         ghost: 'text-foreground hover:bg-surface-100 active:bg-surface-200',
         link: 'text-accent-text underline-offset-4 hover:underline',
         danger: 'bg-danger-600 text-surface-0 hover:bg-ink-900',
+        // For a CTA on a dark ground. A gold fill would work, but the reference
+        // uses a light outline there and keeps the gold for the section accents;
+        // matching that keeps the dark banners from competing with the buttons
+        // in the light sections above them.
+        onNight:
+          'border border-white/30 text-on-night hover:border-white/70 hover:bg-white/10 active:bg-white/15',
       },
       size: {
         sm: 'h-9 rounded-sm px-3 text-sm',
