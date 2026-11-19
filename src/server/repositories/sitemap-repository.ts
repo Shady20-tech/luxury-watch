@@ -83,3 +83,55 @@ export async function fetchCollectionSitemapRows(): Promise<SitemapRow[]> {
     product_count: countByCollection.get(collection.id) ?? 0,
   }));
 }
+
+export type ModelSitemapRow = {
+  /** The composite `<brand-slug>/<model-slug>` the model route is keyed on. */
+  scopeSlug: string;
+  updated_at: string | null;
+  product_count: number;
+};
+
+/**
+ * Model rows for the sitemap.
+ *
+ * The path is nested under the brand because `models` is unique on
+ * `(brand_id, slug)` and several brands share a model slug. The brand slug
+ * therefore has to travel with the model, which is why this returns a composite
+ * `scopeSlug` rather than a bare `slug`.
+ *
+ * A model whose brand is inactive is unreachable, so it is dropped here as well
+ * as by RLS on the page; a model with no published pieces is left to the
+ * caller's count check, exactly like a brand or a collection.
+ */
+export async function fetchModelSitemapRows(): Promise<ModelSitemapRow[]> {
+  const supabase = createSupabasePublicClient();
+
+  const [modelsResult, countsResult] = await Promise.all([
+    supabase.from('models').select('id, slug, updated_at, brand:brands (slug)').order('slug'),
+    supabase.rpc('published_model_counts'),
+  ]);
+
+  if (modelsResult.error) throw modelsResult.error;
+  if (countsResult.error) throw countsResult.error;
+
+  const countByModel = new Map<string, number>();
+  for (const row of countsResult.data ?? []) {
+    if (row.model_id) countByModel.set(row.model_id, Number(row.product_count));
+  }
+
+  return (modelsResult.data ?? []).flatMap((model) => {
+    // The embedded brand comes back as an object for a to-one relationship. A
+    // model whose brand is inactive is not returned by RLS at all; a model with
+    // no brand cannot be given a URL, so it is skipped rather than guessed at.
+    const brand = model.brand as { slug: string } | null;
+    if (!brand) return [];
+
+    return [
+      {
+        scopeSlug: `${brand.slug}/${model.slug}`,
+        updated_at: model.updated_at,
+        product_count: countByModel.get(model.id) ?? 0,
+      },
+    ];
+  });
+}

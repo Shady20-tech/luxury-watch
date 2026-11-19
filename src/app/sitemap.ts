@@ -6,6 +6,7 @@ import { buildSitemapEntry, type SitemapEntry } from '@/lib/seo/sitemap';
 import {
   fetchBrandSitemapRows,
   fetchCollectionSitemapRows,
+  fetchModelSitemapRows,
 } from '@/server/repositories/sitemap-repository';
 
 /**
@@ -22,21 +23,21 @@ import {
  *
  * A page is listed if and only if it is indexable:
  *
- *   * The shop, each brand page and each collection page — clean, stable URLs
- *     with unique copy — are listed. These are the pages `isIndexableListing`
- *     calls indexable and whose canonical is themselves.
+ *   * The shop, each brand page, each collection page and each model page —
+ *     clean, stable URLs with unique copy — are listed. These are the pages
+ *     `isIndexableListing` calls indexable and whose canonical is themselves.
  *   * Filtered, sorted and searched permutations are **not** listed. They are
  *     `noindex, follow` and canonicalised onto the clean listing, so listing one
  *     would advertise a URL that asks not to be indexed — a sitemap that
  *     contradicts the page it points at.
  *   * `/collections/all` is not listed: it redirects to `/shop`, and a sitemap
  *     should carry the destination, not the redirect.
- *   * A brand or collection with **no published pieces** is not listed. Its page
- *     is real and has an honest empty state, but it is thin content that cannot
- *     rank, and its own metadata marks it `noindex`. Listing it would be the
- *     same contradiction as listing a filtered permutation. Both sides read
- *     `published_product_counts` / `published_collection_counts`, so the page
- *     and the sitemap reach this decision from the same number.
+ *   * A brand, collection or model with **no published pieces** is not listed.
+ *     Its page is real and has an honest empty state, but it is thin content that
+ *     cannot rank, and its own metadata marks it `noindex`. Listing it would be
+ *     the same contradiction as listing a filtered permutation. Both sides read
+ *     the same published-count aggregate, so the page and the sitemap reach this
+ *     decision from the same number.
  *
  * The rows are read without a session, so this stays static and a crawler's
  * repeated fetch does not become a repeated database query.
@@ -66,9 +67,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const [brands, collections] = await Promise.all([
+    const [brands, collections, models] = await Promise.all([
       fetchBrandSitemapRows(),
       fetchCollectionSitemapRows(),
+      fetchModelSitemapRows(),
     ]);
 
     for (const brand of brands) {
@@ -91,6 +93,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           lastModified: collection.updated_at,
           changeFrequency: 'weekly',
           priority: 0.6,
+        }),
+      );
+    }
+
+    for (const model of models) {
+      if (model.product_count <= 0) continue;
+      const [brandSlug, modelSlug] = model.scopeSlug.split('/');
+      entries.push(
+        buildSitemapEntry({
+          path: `/brands/${brandSlug}/models/${modelSlug}`,
+          lastModified: model.updated_at,
+          changeFrequency: 'weekly',
+          priority: 0.5,
         }),
       );
     }

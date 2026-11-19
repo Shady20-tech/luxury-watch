@@ -1056,6 +1056,11 @@ isOneToOne: false
               "brand_id": string,"product_count": number
             }[]
                            },
+"published_model_counts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "model_id": string,"product_count": number
+            }[]
+                           },
 "read_order_request":
 { Args: { "p_access_token": string,"p_reference": string }; Returns: Json
                            },

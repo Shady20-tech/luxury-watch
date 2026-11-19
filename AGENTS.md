@@ -312,6 +312,29 @@ supabase/migrations/*.sql` and edit the **last** one. The payload-contract comme
 in 0012 is still the document of record for the shape, so update it too — but the
 behaviour belongs in 0013.
 
+This bit again in Phase 5. `catalogue_filtered` is created in `0010` and
+**redefined in `0016_catalogue_search_collections.sql`** to add collection-title
+search. A new migration that copied the 0010 body to add a scope silently dropped
+that search from every catalogue query. `19_catalogue_search.sql` caught it — a
+collection title stopped being findable — which is the only reason it was not
+shipped. When you copy a function body to extend it, copy the **last** definition,
+then diff your copy against it: the diff should be exactly the change you meant.
+
+### A model slug is not unique; the URL must carry the brand
+
+`models` is unique on `(brand_id, slug)`, not on `slug` alone. The seed holds 41
+models across 38 distinct slugs — `other` appears four times, once per brand. A
+route keyed on the model slug alone would resolve to four brands' stock and look
+perfectly normal while showing the wrong watches, which is the kind of defect a
+page-level test never sees.
+
+So a model is addressed as `/brands/<brand>/models/<model>`, and the catalogue
+scope slug is the composite `<brand-slug>/<model-slug>`. When you touch anything
+model-related, keep both halves: `catalogueBasePath`, the sitemap row
+(`fetchModelSitemapRows` returns a composite `scopeSlug`), the navigation
+assembler, and `catalogue_suggest`'s href. A bare `/models/<slug>` is always a
+bug, not a shortcut.
+
 ### Email
 
 `src/lib/email/transport.ts` calls Resend over its HTTPS API with `fetch`, not the
@@ -412,6 +435,22 @@ it for no benefit.
 - **The browser audit needs a fresh build and a free port.** Rebuild before
   auditing, and never audit while a second server for this repo is still
   listening; the results are meaningless and inconsistent between runs.
+
+- **A green audit of a `404` proves nothing, so a route is discovered, not
+  hardcoded.** `axe` audits whatever document it is given, and the not-found
+  template is perfectly accessible — a URL that no longer exists scores "ok".
+  `auditPage` therefore records an `http-error` for any non-`2xx` response
+  (except the deliberate `/this-page-does-not-exist`), and the product and model
+  paths are read out of the served HTML at runtime. Hardcoding a seed slug is how
+  an audit silently stops measuring anything while still reporting success.
+
+- **Indexable is not the same as reachable.** A model page was indexable, listed
+  in `sitemap.xml`, and linked from the header's mega-menu — but that menu is a
+  Radix panel that mounts on interaction, so it contributed **no anchors to the
+  served HTML**. The crawlable path was zero. `/search` linked models, but to the
+  `noindex` `?model=` facet. When you add a route, check that something in the
+  served HTML is an ordinary `<a href>` to it; assert the anchor in a test
+  (`tests/search-landing.test.tsx`), because a sitemap entry will not tell you.
 
 ### Authentication and the account area
 

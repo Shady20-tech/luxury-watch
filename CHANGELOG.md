@@ -8,6 +8,99 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 5 gap closed — model pages, the third taxonomy level
+
+**Date:** 2026-11-19
+
+> The phase's hierarchy is brand → collection → model → product, and the model
+> level was the only one without a page. A model was reachable only as
+> `/brands/<brand>?model=<model>`, which is a filtered permutation: `noindex,
+> follow`, canonicalised onto the clean brand listing, and absent from the
+> sitemap. So the name a shopper is most likely to know — "Submariner",
+> "Nautilus", "Milgauss" — had no address a crawler could index. This adds the
+> route and makes every other surface point at it.
+
+#### Added
+
+- **`/brands/[brand]/models/[model]`** (`src/app/(site)/brands/[slug]/models/[model]/page.tsx`)
+  — a model listing with the same grid, facets, sort and pagination as every
+  other catalogue page, because it is the same query layer with a new scope. It
+  carries its own `<h1>`, unique database-aware title and description, a
+  self-canonical, and breadcrumbs up to the brand. An unknown, inactive or
+  unpublished model is a 404 through RLS rather than application code.
+- **Migration `0018_model_scope.sql`** — adds `'model'` to the scope branch of
+  `catalogue_filtered`, so `catalogue_search` and `catalogue_facets` gain the
+  scope by forwarding it. Also adds `published_model_counts()`, the published
+  aggregate the page and the sitemap both read, and repoints `catalogue_suggest`
+  model hits at the model page.
+- **SQL suite `supabase/tests/23_model_scope.sql`** — nine assertions covering
+  the composite key, inactive models, the definer gate, the `anon` grant, the
+  refusal of `catalogue_filtered`, and the suggestion href.
+
+#### Fixed
+
+- **The model scope slug has to be composite, and the route has to say so.**
+  `models` is unique on `(brand_id, slug)`, not on `slug` alone, and the seed
+  holds **41 models across 38 distinct slugs — `other` appears four times**, once
+  per brand. A scope that resolved a model slug on its own would answer with
+  four brands' stock and look entirely normal while doing it. The scope is
+  therefore `<brand-slug>/<model-slug>` and the URL mirrors it, matching the
+  database's own uniqueness. The suite asserts that the same slug under a
+  different brand returns nothing, which is the only shape of test that can see
+  this: a single-model test passes whether or not the key is composite.
+- **The typeahead kept handing out the URL the rest of the phase stopped using.**
+  `catalogue_suggest` built model suggestions as `/brands/<brand>?model=<model>`.
+  A suggestion is the one link a shopper is most likely to follow, and it was
+  pointing at a page deliberately built not to rank. It now links to the model
+  page.
+- **`0018` first copied `catalogue_filtered` from `0010`, which was already
+  superseded.** `0016` redefines the same function to add collection-title
+  search. Copying the older body would have silently dropped that search from
+  every catalogue query — and the database suite would have caught it, because
+  `19_catalogue_search.sql` asserts a collection title is searchable. The body is
+  now generated from the last definition, and the diff against `0016` is exactly
+  the scope comment plus the model branch. This is the trap AGENTS.md records:
+  grep for the last `create or replace function` before editing one.
+
+#### Changed
+
+- **`src/lib/catalogue/params.ts`** — `scope` gains `'model'`;
+  `catalogueBasePath` maps a model scope to the nested route, and falls back to
+  `/brands` for a model scope with no composite slug rather than inventing a URL.
+- **`src/lib/navigation/assemble.ts`** — mega-menu model links point at model
+  pages rather than the `?model=` facet, so an interaction-driven menu no longer
+  hands out a `noindex` URL.
+- **`src/components/catalogue/search-landing.tsx`** and
+  **`src/app/(site)/brands/[slug]/page.tsx`** — the crawlable path to a model
+  page. The mega-menu links models, but it is a Radix panel that mounts on
+  interaction, so it contributes **no anchors to the served HTML** — a model page
+  would have been indexable, in the sitemap, and reachable from nowhere. The
+  search landing and the brand page now render ordinary `<a href>` links to every
+  model that holds published stock. The brand page gained a "Models" list for
+  this reason; the search landing previously pointed its model links at the
+  `?model=` facet and now points them at the page.
+- **`src/app/sitemap.ts`** — lists model pages whose published count is above
+  zero, exactly as it already did for brands and collections, and from the same
+  aggregate the page reads. A model with no published stock is `noindex` and
+  unlisted on both sides.
+- **`scripts/a11y-audit.mjs`** — audits a model page, since it is a listing with
+  an extra breadcrumb row rather than a copy of the brand template.
+
+#### Verified
+
+- `db-verify.sh` passes from a reset database: all migrations, both seed runs,
+  the count assertions and all 15 RLS suites, including the new `23`.
+- Model routes: the three models with stock return 200 with real rows and a
+  self-canonical; an unknown model, an unknown brand and a **mismatched
+  brand/model pair** all 404. `?condition=unworn` returns zero cards and the
+  empty state, matching the database's own count, while `?boxAndPapers=true`
+  returns all four — so the filters narrow rather than merely render.
+- The filtered model URL is `noindex, follow` with a canonical to the clean
+  model page; a model with no published stock is `noindex` and absent from
+  `sitemap.xml`, which lists exactly the four models that hold pieces.
+- `audit:a11y` passes across 32 pages × 4 viewports with the model page
+  included: no critical or serious issues, no horizontal overflow.
+
 ### Phase 5 audit — catalogue acceptance criteria verified, cart merge tests hardened
 
 **Date:** 2026-11-19

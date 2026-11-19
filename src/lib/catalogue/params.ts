@@ -137,7 +137,14 @@ const MAX_QUERY_LENGTH = 120;
  * would let one page serve two different listings under one canonical URL.
  */
 export type CatalogueParams = {
-  scope: 'all' | 'collection' | 'brand';
+  scope: 'all' | 'collection' | 'brand' | 'model';
+  /**
+   * The scope's slug.
+   *
+   * A model scope carries the composite `<brand-slug>/<model-slug>`, because
+   * `models` is unique on `(brand_id, slug)` and several brands legitimately
+   * share a model slug such as `other`. See `modelScopeSlug`.
+   */
   scopeSlug: string | null;
   query: string;
   facets: Record<FacetKey, string[]>;
@@ -368,9 +375,27 @@ export function catalogueBasePath(params: Pick<CatalogueParams, 'scope' | 'scope
       return params.scopeSlug ? `/collections/${params.scopeSlug}` : '/collections';
     case 'brand':
       return params.scopeSlug ? `/brands/${params.scopeSlug}` : '/brands';
+    case 'model': {
+      // The scope slug is the composite `<brand>/<model>`, and the route nests
+      // the model under its brand so the URL mirrors the unique key.
+      const [brand, model] = (params.scopeSlug ?? '').split('/');
+      return brand && model ? `/brands/${brand}/models/${model}` : '/brands';
+    }
     default:
       return '/shop';
   }
+}
+
+/**
+ * The composite scope slug for a model page.
+ *
+ * `models` is unique on `(brand_id, slug)`, not on `slug` alone, and the seed
+ * holds four distinct models whose slug is `other`. Keying the scope on the
+ * model slug alone would resolve them all to one URL, so the scope always
+ * carries the brand with it.
+ */
+export function modelScopeSlug(brandSlug: string, modelSlug: string): string {
+  return `${brandSlug}/${modelSlug}`;
 }
 
 /**

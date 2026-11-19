@@ -197,16 +197,16 @@ export function buildBrandPanels(
     .map((brand) => {
       const brandModels = modelsByBrand.get(brand.id) ?? [];
       const shown = brandModels.slice(0, maxModelsPerBrand);
-      // A model has no page of its own. Pointing at `/collections/<model-slug>`
-      // 404s — a model slug is not a collection slug, and a menu full of 404s is
-      // a broken storefront. The model facet is the real destination: the brand
-      // listing narrowed to that model, which is the same URL shape
-      // `catalogue_suggest` emits and the same `model` parameter the filter
-      // sidebar writes.
+      // A model now has a page of its own: `/brands/<brand>/models/<model>`.
+      // The route is nested because `models` is unique on (brand_id, slug) and
+      // several brands share a model slug, so the URL carries both halves.
+      // Previously this pointed at the model *facet* on the brand listing, which
+      // is a `noindex` filtered URL and gave the level no address a crawler
+      // could index.
       const links: NavLink[] = shown.map((model) => ({
         id: model.id,
         label: model.name,
-        href: `/brands/${brand.slug}?model=${encodeURIComponent(model.slug)}`,
+        href: `/brands/${brand.slug}/models/${encodeURIComponent(model.slug)}`,
         external: false,
       }));
 

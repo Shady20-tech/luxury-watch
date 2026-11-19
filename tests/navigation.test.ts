@@ -126,10 +126,12 @@ describe('buildHeaderNav', () => {
 
     const panel = item.panels.at(0);
     expect(panel?.label).toBe('Rolex');
-    // A model link must point at the brand listing filtered by that model. The
-    // old href was `/collections/<model-slug>`, which 404s: a model slug is not
-    // a collection slug, so every model in the menu was a dead link.
-    expect(panel?.columns.at(0)?.links.at(0)?.href).toBe('/brands/rolex?model=cosmograph-daytona');
+    // A model link points at the model's own page, nested under its brand. The
+    // href was once `/collections/<model-slug>`, which 404s because a model slug
+    // is not a collection slug, and then the brand listing's `?model=` facet,
+    // which is a `noindex` filtered URL with no canonical of its own. The nested
+    // route is the model's real address.
+    expect(panel?.columns.at(0)?.links.at(0)?.href).toBe('/brands/rolex/models/cosmograph-daytona');
   });
 
   it('never points a model link at a collection route', () => {

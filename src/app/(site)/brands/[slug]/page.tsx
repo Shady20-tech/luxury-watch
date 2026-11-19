@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
@@ -92,6 +93,30 @@ export default async function Page({
       />
 
       <div className="container-page py-10 sm:py-14">
+        {/* The families this brand's stock actually belongs to. These are plain
+            anchors in the served HTML — the header's mega-menu links the same
+            models but mounts only on interaction, so without this list a model
+            page would be indexable, in the sitemap, and reachable from nowhere. */}
+        {brand.models.length > 0 ? (
+          <nav aria-label={`${brand.name} models`} className="mb-8">
+            <h2 className="text-ink-500 text-xs font-semibold tracking-[0.14em] uppercase">
+              Models
+            </h2>
+            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+              {brand.models.map((model) => (
+                <li key={model.slug}>
+                  <Link
+                    href={`/brands/${brand.slug}/models/${encodeURIComponent(model.slug)}`}
+                    className="text-foreground-muted hover:text-accent-text focus-visible:outline-gold-700 text-sm underline-offset-4 hover:underline focus-visible:outline-2"
+                  >
+                    {model.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
+
         <CatalogueListingView
           listing={listing}
           signedIn={viewer.signedIn}

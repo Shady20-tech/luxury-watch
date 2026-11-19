@@ -105,8 +105,12 @@ There is **no payment provider in this diagram, by design**.
 | Route | Template | Rendering |
 |---|---|---|
 | `/` | Home | Server Component, ISR |
+| `/shop` | Full catalogue / PLP | Server Component, ISR + `searchParams` facets |
+| `/collections` | Collection index | Server Component, ISR |
 | `/collections/[slug]` | Collection / PLP | Server Component, ISR + `searchParams` facets |
-| `/brands/[slug]` | Brand landing | Server Component, ISR |
+| `/brands` | Brand index | Server Component, ISR |
+| `/brands/[slug]` | Brand landing / PLP | Server Component, ISR + `searchParams` facets |
+| `/brands/[slug]/models/[model]` | Model / PLP (third taxonomy level) | Server Component, ISR + `searchParams` facets |
 | `/products/[slug]` | Product detail | Server Component, ISR + `generateStaticParams` |
 | `/search` | Search results | Server Component, dynamic |
 | `/cart` | Cart page | Client-heavy island, server shell |
@@ -150,7 +154,10 @@ Full DDL lands in Phase 2 as versioned SQL migrations under `supabase/migrations
 
 - `brands` — id, name, slug, description, logo_url, hero_image_url, seo_*, is_active, sort_order
 - `models` — id, brand_id → brands, name, slug, description, is_active, sort_order
-  *(the Brand → Model two-level taxonomy observed in the reference)*
+  *(the Brand → Model two-level taxonomy observed in the reference; unique on
+  `(brand_id, slug)`, **not** on `slug` alone — the seed holds several brands
+  that share a model slug such as `other`, so a model is identified by its brand
+  plus its slug and its public URL is `/brands/<brand>/models/<model>`)*
 - `products` — id, sku, slug, title, brand_id, model_id, reference_number, description, short_description,
   condition (`new`/`pre_owned`/`vintage`), year, case_size_mm, case_material, movement, dial_color,
   bracelet_material, waterproof_m, box_and_papers, **price_cents**, **currency**,
@@ -405,7 +412,7 @@ Implementation notes:
 |---|---|
 | Metadata | `generateMetadata` per route from database SEO fields, with sensible fallbacks |
 | Canonicals | Absolute URLs from `NEXT_PUBLIC_SITE_URL`; filtered/paginated variants self-canonicalise or `noindex` |
-| Faceted navigation | Filter permutations that multiply URLs get `noindex, follow`; only the clean collection URL is canonical |
+| Faceted navigation | Filter permutations that multiply URLs get `noindex, follow`; only the clean listing URL is canonical. The clean listings are `/shop`, `/collections/[slug]`, `/brands/[slug]` and `/brands/[slug]/models/[model]` — the model level is a real page, not a `?model=` facet, so the name a shopper knows is indexable |
 | Sitemap | `/sitemap.xml` index → products, collections, brands, pages, blog; every product entry uses its **real `updated_at`** as `<lastmod>` |
 | Sitemap freshness | Publish / edit / unpublish / archive / delete triggers `revalidateTag('sitemap')` and the relevant product/collection tags |
 | Structured data | `Organization`, `LocalBusiness`, `WebSite` + `SearchAction`, `BreadcrumbList`, `Product` (+ `Offer` **only** when a real price is published), `FAQPage` where Q&A is visible |
