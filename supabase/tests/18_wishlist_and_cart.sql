@@ -50,6 +50,11 @@ values
   ('e0000000-0000-4000-8000-000000000103', 'WC-3', 'wc-por', 'Wc Price On Request',
    'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '8 days',
    null, true, 999999, null, 'USD', null, null),
+  -- Sold out: published and priced, but every unit is reserved. A cart line for
+  -- it must report unavailable and contribute nothing, whatever the request says.
+  ('e0000000-0000-4000-8000-000000000106', 'WC-6', 'wc-sold-out', 'Wc Sold Out',
+   'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '7 days',
+   300000, false, 180000, null, 'USD', 'White', 'Platinum'),
   -- Draft: must never be returned by catalogue_by_ids.
   ('e0000000-0000-4000-8000-000000000104', 'WC-4', 'wc-draft', 'Wc Draft',
    'e0000000-0000-4000-8000-000000000001', 'draft', null, 900000, false, null, null, 'USD', null, null),
@@ -69,7 +74,8 @@ insert into public.inventory (product_id, quantity, reserved_quantity)
 values
   ('e0000000-0000-4000-8000-000000000101', 2, 0),
   ('e0000000-0000-4000-8000-000000000102', 1, 0),
-  ('e0000000-0000-4000-8000-000000000103', 1, 0)
+  ('e0000000-0000-4000-8000-000000000103', 1, 0),
+  ('e0000000-0000-4000-8000-000000000106', 1, 1)
 on conflict (product_id) do update
   set quantity = excluded.quantity,
       reserved_quantity = excluded.reserved_quantity;
@@ -189,6 +195,234 @@ begin
     raise exception 'FAIL: a clamped line contributed %, expected 250000', v ->> 'subtotal_cents';
   end if;
   raise notice 'pass [cart_pricing: a unique piece clamps to one and reports the adjustment]';
+end
+$$;
+
+-- 1b2. A caller-supplied price is ignored.
+--
+--     Every test above calls `cart_pricing` the way the application does, which
+--     means none of them ever *attacks* it: no client price is sent, so "the
+--     server does not trust a browser price" was proven only by the function
+--     happening not to read one. That is the same shape of gap as a uniqueness
+--     claim tested with a single insert — the defect it is meant to catch cannot
+--     appear in the test that asserts it.
+--
+--     So the hostile payload is sent here: a price of one cent, a zero, a
+--     negative, a huge figure, and a `line_total_cents`/`unit_price_cents` that
+--     disagree with the product row. The line must still price from the database.
+do $$
+declare
+  v        jsonb;
+  v_line   jsonb;
+  v_prices bigint[] := array[1, 0, -500000, 999999999];
+  v_price  bigint;
+begin
+  foreach v_price in array v_prices
+  loop
+    v := public.cart_pricing(
+      jsonb_build_array(
+        jsonb_build_object(
+          'product_id',       'e0000000-0000-4000-8000-000000000101',
+          'quantity',         1,
+          -- The hostile fields. `unit_price_cents` is the shape the real
+          -- payload would use if it carried one; the others are the names a
+          -- careless client would guess.
+          'unit_price_cents', v_price,
+          'price_cents',      v_price,
+          'price',            v_price,
+          'line_total_cents', v_price,
+          'subtotal_cents',   v_price
+        )
+      ),
+      null,
+      'USD'
+    );
+    v_line := (v -> 'lines') -> 0;
+
+    -- Assert the line exists *before* comparing any figure. Without this the
+    -- comparisons below would each evaluate to NULL when there is no line, and
+    -- `if NULL then raise` never fires — a test that passes because it checked
+    -- nothing. This was not hypothetical: an injected "trust the submitted
+    -- price" bug made the function return an empty line set, and the first
+    -- version of this block passed anyway.
+    if (v ->> 'line_count')::integer <> 1 then
+      raise exception 'FAIL: the line was dropped, line_count was %', v ->> 'line_count';
+    end if;
+    if v_line ->> 'unit_price_cents' is null then
+      raise exception 'FAIL: the line carried no unit price';
+    end if;
+
+    if (v_line ->> 'unit_price_cents')::bigint <> 100000 then
+      raise exception 'FAIL: a submitted price of % became the unit price %',
+        v_price, v_line ->> 'unit_price_cents';
+    end if;
+    if (v_line ->> 'line_total_cents')::bigint <> 100000 then
+      raise exception 'FAIL: a submitted price of % became the line total %',
+        v_price, v_line ->> 'line_total_cents';
+    end if;
+    if (v ->> 'subtotal_cents')::bigint <> 100000 then
+      raise exception 'FAIL: a submitted price of % became the subtotal %',
+        v_price, v ->> 'subtotal_cents';
+    end if;
+    if (v ->> 'total_cents')::bigint <> 100000 then
+      raise exception 'FAIL: a submitted price of % became the total %',
+        v_price, v ->> 'total_cents';
+    end if;
+  end loop;
+
+  raise notice 'pass [cart_pricing: a caller-supplied price is ignored, whatever it claims]';
+end
+$$;
+
+-- 1b3. A caller-supplied stock figure or availability flag is ignored.
+--
+--     The same argument as 1b2: the cart is where a customer would try to make a
+--     sold-out piece look buyable. The database is the only source of stock, so a
+--     submitted `is_available`, `quantity` beyond the real stock, or a stock count
+--     must not change the outcome.
+do $$
+declare
+  v      jsonb;
+  v_line jsonb;
+begin
+  v := public.cart_pricing(
+    jsonb_build_array(
+      jsonb_build_object(
+        'product_id',   'e0000000-0000-4000-8000-000000000102',
+        'quantity',     50,
+        'is_available', true,
+        'stock',        500,
+        'available',    500
+      )
+    ),
+    null,
+    'USD'
+  );
+  v_line := (v -> 'lines') -> 0;
+
+  if (v ->> 'line_count')::integer <> 1 then
+    raise exception 'FAIL: the line was dropped, line_count was %', v ->> 'line_count';
+  end if;
+
+  -- The piece has one unit, so the model clamps to one whatever was asked.
+  if (v_line ->> 'quantity')::integer <> 1 then
+    raise exception 'FAIL: submitted stock let the quantity reach %', v_line ->> 'quantity';
+  end if;
+  if (v_line ->> 'quantity_locked')::boolean is not true then
+    raise exception 'FAIL: a unique piece was not reported as quantity-locked';
+  end if;
+
+  raise notice 'pass [cart_pricing: a caller-supplied stock figure is ignored]';
+end
+$$;
+
+-- 1b4. A sold-out piece stays sold out however the request describes it.
+--
+--     The fixture's every unit is reserved. An `anon` caller cannot change that
+--     anyway — `inventory` has no policy that lets a customer write it, which is
+--     itself the point — so this asserts the read side: the line is reported
+--     unavailable and contributes nothing, despite a request that insists it is
+--     available.
+do $$
+declare
+  v      jsonb;
+  v_line jsonb;
+begin
+  v := public.cart_pricing(
+    jsonb_build_array(
+      jsonb_build_object(
+        'product_id',   'e0000000-0000-4000-8000-000000000106',
+        'quantity',     1,
+        'is_available', true,
+        'stock',        99
+      )
+    ),
+    null,
+    'USD'
+  );
+  v_line := (v -> 'lines') -> 0;
+
+  if (v ->> 'line_count')::integer <> 1 then
+    raise exception 'FAIL: the sold-out line was dropped, line_count was %', v ->> 'line_count';
+  end if;
+
+  if (v_line ->> 'is_available')::boolean is not false then
+    raise exception 'FAIL: a sold-out piece was reported available because the request said so';
+  end if;
+  if (v ->> 'has_unavailable')::boolean is not true then
+    raise exception 'FAIL: a sold-out line did not set has_unavailable';
+  end if;
+  -- It must also contribute nothing to the subtotal.
+  if (v ->> 'subtotal_cents')::bigint <> 0 then
+    raise exception 'FAIL: a sold-out line contributed % to the subtotal', v ->> 'subtotal_cents';
+  end if;
+
+  raise notice 'pass [cart_pricing: a sold-out piece stays sold out whatever the request claims]';
+end
+$$;
+
+-- 1b4b. A customer cannot write `inventory` at all, so stock cannot be edited
+--      from the browser to make a sold-out piece buyable. This is the boundary
+--      the previous test relies on, asserted rather than assumed: an earlier
+--      version of this suite tried to mark a piece sold out as `anon`, the
+--      update silently affected zero rows, and the test read as a product bug
+--      when the real cause was that the security model was working.
+do $$
+declare
+  v_rows integer;
+begin
+  update public.inventory set quantity = 999, reserved_quantity = 0
+   where product_id = 'e0000000-0000-4000-8000-000000000106';
+  get diagnostics v_rows = row_count;
+
+  if v_rows <> 0 then
+    raise exception 'FAIL: anon updated % inventory rows', v_rows;
+  end if;
+
+  raise notice 'pass [inventory: an anonymous caller cannot change stock]';
+end
+$$;
+
+-- 1b5. A submitted discount amount is ignored; only the code is read.
+--
+--     The browser may send any amount it likes alongside a code. Eligibility and
+--     the figure come from the database, so an inflated amount must not survive
+--     and an unknown code must apply nothing.
+do $$
+declare
+  v jsonb;
+begin
+  -- No such code exists, so nothing applies however large the claimed discount.
+  v := public.cart_pricing(
+    jsonb_build_array(
+      jsonb_build_object('product_id', 'e0000000-0000-4000-8000-000000000101', 'quantity', 1)
+    ),
+    'NO-SUCH-CODE',
+    'USD'
+  );
+
+  if (v ->> 'discount_cents')::bigint <> 0 then
+    raise exception 'FAIL: an unknown code applied %', v ->> 'discount_cents';
+  end if;
+  if (v ->> 'total_cents')::bigint <> 100000 then
+    raise exception 'FAIL: an unknown code changed the total to %', v ->> 'total_cents';
+  end if;
+
+  -- And a code argument that is not a code at all — a huge number, an injection
+  -- attempt — is not an amount either.
+  v := public.cart_pricing(
+    jsonb_build_array(
+      jsonb_build_object('product_id', 'e0000000-0000-4000-8000-000000000101', 'quantity', 1)
+    ),
+    '999999999',
+    'USD'
+  );
+
+  if (v ->> 'discount_cents')::bigint <> 0 then
+    raise exception 'FAIL: a numeric "code" applied a discount of %', v ->> 'discount_cents';
+  end if;
+
+  raise notice 'pass [cart_pricing: a submitted discount amount is ignored, only the code is read]';
 end
 $$;
 
@@ -609,6 +843,37 @@ begin
     when unique_violation then
       raise notice 'pass [wishlist: the unique constraint rejects a duplicate]';
   end;
+end
+$$;
+
+-- 4b2. The same product twice *inside one statement* is one row.
+--
+--     4a and 4b both send two separate inserts, which is not the shape the merge
+--     actually uses: `mergeGuestWishlist` sends the whole id list to supabase-js
+--     as a single `upsert`, which becomes one `insert ... on conflict do
+--     nothing`. A tampered `localStorage` value produces a repeated id in that
+--     one payload, and the schema deliberately does not deduplicate it. So the
+--     case that matters is a repeated row in a single statement, and it was the
+--     one case not covered.
+do $$
+declare
+  v_rows integer;
+begin
+  insert into public.wishlist_items (wishlist_id, product_id) values
+    ('e0000000-0000-4000-8000-000000000301', 'e0000000-0000-4000-8000-000000000102'),
+    ('e0000000-0000-4000-8000-000000000301', 'e0000000-0000-4000-8000-000000000102'),
+    ('e0000000-0000-4000-8000-000000000301', 'e0000000-0000-4000-8000-000000000102')
+  on conflict (wishlist_id, product_id) do nothing;
+
+  select count(*) into v_rows
+    from public.wishlist_items
+   where wishlist_id = 'e0000000-0000-4000-8000-000000000301'
+     and product_id = 'e0000000-0000-4000-8000-000000000102';
+
+  if v_rows <> 1 then
+    raise exception 'FAIL: a repeated id in one upsert produced % rows', v_rows;
+  end if;
+  raise notice 'pass [wishlist: a repeated id in one upsert payload is one row]';
 end
 $$;
 

@@ -346,6 +346,20 @@ it for no benefit.
   the defect above survived to the browser stage while `50_service_flows.sql` was
   green. When you assert that something is unique, produce several of them in the
   smallest interval the system can distinguish, not one.
+- **Assert the statement shape the code actually sends.** Two separate inserts
+  and one insert with a repeated row are different tests. `mergeGuestWishlist`
+  hands the whole id list to supabase-js as a single `upsert`, so a tampered
+  `localStorage` value produces a repeated row _inside one statement_ — the case
+  suite 18 covered last, in block 4b2, long after it covered two separate
+  inserts. Postgres collapses the repeated row under `on conflict do nothing`,
+  so the outcome is correct either way; the test only has value if it reproduces
+  the shape the client can really send.
+- **A test can pass for a reason the code does not implement.** The first
+  `mergeWishlistSchema` test asserted deduplication, which the schema never did
+  — the database unique constraint is what prevents a duplicate row. A test that
+  asserts a guarantee no layer makes is worse than no test: it fails when the
+  code is correct, and if it ever passed it would be passing on some other
+  property. Assert the contract the layer under test actually owns.
 - **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency
   harness insert their own rows. A database that has run `db-verify.sh` shows
   **4126 products and 6 brands**, not the seed's 4110 and 4. This is expected, not

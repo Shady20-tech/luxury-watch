@@ -8,6 +8,63 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 5 audit — catalogue acceptance criteria verified, cart merge tests hardened
+
+**Date:** 2026-11-19
+
+> Phase 5 was already built. This pass audited it against its own acceptance
+> criteria against the real database and a real production build, and closed
+> the gaps the audit found in the surrounding Phase 7 work. No catalogue
+> behaviour changed, because the audit found the catalogue sound.
+
+#### Verified against a real database and build
+
+- All five routes render real published rows: `/shop`, `/collections`,
+  `/collections/[slug]`, `/brands/[slug]` and `/search`. 23 published pieces on
+  a seeded database; draft and archived products 404 and never appear in the
+  grid or the sitemap.
+- Sorting is genuinely ordered — `price_asc` returns 5,000 → 10,000 → 12,500 →
+  20,000 and `price_desc` the reverse. Pagination returns different rows per
+  page, and a page past the end shows a specific message rather than an empty
+  grid or the "Showing 25–23 of 23" arithmetic bug.
+- URL state survives reload and is shareable; the active facet carries
+  `aria-current`, not `aria-pressed`, on what is a link.
+- Canonical and robots agree: a filtered listing is `noindex, follow` with a
+  canonical to the clean listing, a sort-only URL stays indexable because it is
+  the same set, and `/search` is `noindex`. The sitemap lists the same scopes
+  the metadata indexes.
+- The mobile filter drawer fits a 375×800 viewport exactly, has the accessible
+  name "Filter", and closes on Escape.
+- `audit:a11y` passes: 31 pages × 4 viewports, no critical or serious issues and
+  no horizontal overflow, including the product detail template.
+
+#### Fixed
+
+- **`tests/cart-validation.test.ts` asserted a guarantee the schema does not
+  make.** It expected `mergeWishlistSchema` to deduplicate `productIds`. It does
+  not, deliberately: the schema bounds the list and validates each id, and the
+  unique constraint on `(wishlist_id, product_id)` is what makes a duplicate row
+  impossible. The test now asserts the real contract, so it fails if the bound
+  is removed rather than passing for a reason the code does not implement.
+- **The merge path's duplicate case was untested in the shape it actually
+  takes.** Suite 18 covered two *separate* inserts, but `mergeGuestWishlist`
+  sends the whole id list to supabase-js as a single `upsert`, which becomes one
+  `insert ... on conflict do nothing`. A tampered `localStorage` value produces
+  a repeated id inside that one payload. New block 4b2 asserts that three copies
+  of one id in a single statement produce exactly one row.
+
+#### Changed
+
+- `components/wishlist/wishlist-merge.tsx` and `KNOWN_ISSUES.md` G47 said the
+  wishlist merge runs on `/wishlist` because "the sign-in flow does not exist
+  yet". It does exist, and the cart is already merged inside `signInAction`. The
+  real reason the wishlist cannot follow the same route is the asymmetry between
+  the two stores: the cart's identity is an httpOnly cookie the server can read
+  and clear, while the wishlist is in `localStorage`, which only the browser can
+  reach. Both comments now state that reason, and G47's action reflects it —
+  closing it needs a client-side trigger at sign-in, not a move into the server
+  action.
+
 ### Phase 6 completion — buying-assurance panel on the product page
 
 **Date:** 2026-11-19

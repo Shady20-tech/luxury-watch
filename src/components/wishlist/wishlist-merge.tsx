@@ -11,7 +11,7 @@ import { IDLE_MUTATION } from '@/lib/cart/validation';
  * Move a guest wishlist into the account, once.
  *
  * -----------------------------------------------------------------------------
- * WHY THIS RUNS ON THE WISHLIST PAGE
+ * WHY THIS RUNS ON THE WISHLIST PAGE, NOT IN THE SIGN-IN ACTION
  * -----------------------------------------------------------------------------
  *
  * The brief asks for a guest list to be "merged with the account after login"
@@ -19,11 +19,18 @@ import { IDLE_MUTATION } from '@/lib/cart/validation';
  * signed-in visitor opens their wishlist is the first point at which both are
  * true at once: they have an account, and the browser may still hold a list.
  *
- * The sign-in flow itself is a later phase and does not exist yet, so a merge
- * hooked into it would never run. Hooking it to this page instead means the merge
- * happens on the first visit to the wishlist after signing in, which is the
- * earliest it can, and it is idempotent — the browser list is cleared on success,
- * so a second visit does nothing.
+ * The guest *cart* is merged inside `signInAction` (`server/actions/
+ * auth-actions.ts`), because its identity is an httpOnly cookie the server can
+ * read and clear in the same request. The wishlist cannot be: it lives in
+ * `localStorage`, which only the browser can read, so the server action has no
+ * way to see it or to clear it afterwards. That asymmetry — not the absence of a
+ * sign-in flow — is why this merge is a client island rather than a line in the
+ * sign-in action.
+ *
+ * The merge is idempotent: the browser list is cleared on success, so a second
+ * visit does nothing. If a visitor signs in and never visits `/wishlist`, their
+ * saved pieces stay in the browser and are merged the first time they do — they
+ * are not lost, and nothing is shown as saved that is not.
  *
  * -----------------------------------------------------------------------------
  * NOTHING IS LOST ON FAILURE
