@@ -29,7 +29,7 @@ export type SearchLandingBrand = {
   name: string;
   slug: string;
   productCount: number;
-  models: { name: string; slug: string }[];
+  models: { name: string; slug: string; productCount: number }[];
 };
 
 export type SearchLandingCollection = {
@@ -125,7 +125,7 @@ export function SearchLanding({
                     {brand.models.map((model) => (
                       <li key={model.slug}>
                         <Link
-                          href={`/brands/${brand.slug}?model=${encodeURIComponent(model.slug)}`}
+                          href={`/brands/${brand.slug}/models/${encodeURIComponent(model.slug)}`}
                           className="text-foreground-muted hover:text-accent-text focus-visible:outline-gold-700 text-sm underline-offset-4 hover:underline focus-visible:outline-2"
                         >
                           {model.name}

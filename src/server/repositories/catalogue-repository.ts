@@ -130,27 +130,57 @@ export async function fetchSuggestions(query: string, limit = 8): Promise<Sugges
  * still renders, but it marks itself `noindex` and the sitemap omits it. Reading
  * the count from a different query than those two would let the three surfaces
  * disagree about the same brand.
+ *
+ * `models` carries each family with its own published count. The brand page
+ * renders them as ordinary links, which is what makes a model page reachable by
+ * a crawler: the mega-menu that also links them mounts only on interaction, so
+ * it contributes no anchors to the served HTML. A model with no published pieces
+ * is omitted, matching the rule its own page and the sitemap apply.
  */
-export async function fetchActiveBrandSummary(
-  slug: string,
-): Promise<{ id: string; name: string; description: string | null; productCount: number } | null> {
+export async function fetchActiveBrandSummary(slug: string): Promise<{
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  productCount: number;
+  models: { name: string; slug: string; productCount: number }[];
+} | null> {
   const supabase = await createSupabaseServerClient();
 
   // RLS already restricts this to active rows, so an inactive slug returns no
   // row and the caller 404s.
-  const [brandResult, countsResult] = await Promise.all([
-    supabase.from('brands').select('id, name, description').eq('slug', slug).maybeSingle(),
+  const [brandResult, countsResult, modelsResult, modelCountsResult] = await Promise.all([
+    supabase.from('brands').select('id, name, slug, description').eq('slug', slug).maybeSingle(),
     supabase.rpc('published_product_counts'),
+    supabase.from('models').select('id, brand_id, name, slug').order('sort_order').order('name'),
+    supabase.rpc('published_model_counts'),
   ]);
 
   if (brandResult.error) throw brandResult.error;
   if (countsResult.error) throw countsResult.error;
+  if (modelsResult.error) throw modelsResult.error;
+  if (modelCountsResult.error) throw modelCountsResult.error;
 
   const brand = brandResult.data;
   if (!brand) return null;
 
   const row = (countsResult.data ?? []).find((entry) => entry.brand_id === brand.id);
-  return { ...brand, productCount: row ? Number(row.product_count) : 0 };
+
+  const countByModel = new Map<string, number>();
+  for (const entry of modelCountsResult.data ?? []) {
+    countByModel.set(entry.model_id, Number(entry.product_count));
+  }
+
+  const models = (modelsResult.data ?? [])
+    .filter((model) => model.brand_id === brand.id)
+    .map((model) => ({
+      name: model.name,
+      slug: model.slug,
+      productCount: countByModel.get(model.id) ?? 0,
+    }))
+    .filter((model) => model.productCount > 0);
+
+  return { ...brand, productCount: row ? Number(row.product_count) : 0, models };
 }
 
 /** An active collection's identity, or `null` when the slug is not active. */
@@ -175,6 +205,72 @@ export async function fetchActiveCollectionSummary(slug: string): Promise<{
 
   const row = (countsResult.data ?? []).find((entry) => entry.collection_id === collection.id);
   return { ...collection, productCount: row ? Number(row.product_count) : 0 };
+}
+
+/**
+ * An active model's identity within an active brand, or `null`.
+ *
+ * Both halves are required because `models` is unique on `(brand_id, slug)` and
+ * several brands share a model slug. RLS already restricts `models` and `brands`
+ * to active rows, so an inactive pair returns no row and the caller 404s — the
+ * same rule the brand and collection routes apply.
+ *
+ * The published count is the model's own, not the brand's: the page must state
+ * how many pieces it will actually show, and `published_product_counts` is keyed
+ * by brand, so it cannot answer this. `published_model_counts` is the model-keyed
+ * aggregate, and the sitemap reads the same one, so the two cannot disagree.
+ */
+export async function fetchActiveModelSummary(
+  brandSlug: string,
+  modelSlug: string,
+): Promise<{
+  id: string;
+  name: string;
+  description: string | null;
+  brandName: string;
+  brandSlug: string;
+  productCount: number;
+} | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const brandResult = await supabase
+    .from('brands')
+    .select('id, name, slug')
+    .eq('slug', brandSlug)
+    .maybeSingle();
+
+  if (brandResult.error) throw brandResult.error;
+  if (!brandResult.data) return null;
+
+  const brand = brandResult.data;
+
+  const modelResult = await supabase
+    .from('models')
+    .select('id, name, description')
+    .eq('brand_id', brand.id)
+    .eq('slug', modelSlug)
+    .maybeSingle();
+
+  if (modelResult.error) throw modelResult.error;
+
+  const model = modelResult.data;
+  if (!model) return null;
+
+  // The count comes from `published_model_counts`, the same aggregate the
+  // sitemap reads, so the page's "N pieces" and the sitemap's inclusion rule can
+  // never disagree. It is one aggregate call, not a scan of the products table.
+  const countsResult = await supabase.rpc('published_model_counts');
+
+  if (countsResult.error) throw countsResult.error;
+
+  const row = (countsResult.data ?? []).find((entry) => entry.model_id === model.id);
+
+  return {
+    ...model,
+    brandName: brand.name,
+    brandSlug: brand.slug,
+    productCount: row ? Number(row.product_count) : 0,
+  };
 }
 
 /**
@@ -218,34 +314,47 @@ export async function fetchBrandDirectory(): Promise<
     country: string | null;
     foundedYear: number | null;
     productCount: number;
-    models: { name: string; slug: string }[];
+    models: { name: string; slug: string; productCount: number }[];
   }[]
 > {
   const supabase = await createSupabaseServerClient();
 
-  const [brandsResult, modelsResult, countsResult] = await Promise.all([
+  const [brandsResult, modelsResult, countsResult, modelCountsResult] = await Promise.all([
     supabase
       .from('brands')
       .select('id, name, slug, description, country, founded_year')
       .order('sort_order')
       .order('name'),
-    supabase.from('models').select('brand_id, name, slug').order('sort_order').order('name'),
+    supabase.from('models').select('id, brand_id, name, slug').order('sort_order').order('name'),
     supabase.rpc('published_product_counts'),
+    supabase.rpc('published_model_counts'),
   ]);
 
   if (brandsResult.error) throw brandsResult.error;
   if (modelsResult.error) throw modelsResult.error;
   if (countsResult.error) throw countsResult.error;
+  if (modelCountsResult.error) throw modelCountsResult.error;
 
   const countByBrand = new Map<string, number>();
   for (const row of countsResult.data ?? []) {
     if (row.brand_id) countByBrand.set(row.brand_id, Number(row.product_count));
   }
 
-  const modelsByBrand = new Map<string, { name: string; slug: string }[]>();
+  const countByModel = new Map<string, number>();
+  for (const row of modelCountsResult.data ?? []) {
+    countByModel.set(row.model_id, Number(row.product_count));
+  }
+
+  // Only a family with published stock is linked. A model page with nothing to
+  // show is `noindex` and absent from the sitemap, so offering it here would
+  // hand the crawler a page that cannot rank — the same rule the brand page and
+  // the sitemap apply.
+  const modelsByBrand = new Map<string, { name: string; slug: string; productCount: number }[]>();
   for (const row of modelsResult.data ?? []) {
+    const productCount = countByModel.get(row.id) ?? 0;
+    if (productCount === 0) continue;
     const list = modelsByBrand.get(row.brand_id) ?? [];
-    list.push({ name: row.name, slug: row.slug });
+    list.push({ name: row.name, slug: row.slug, productCount });
     modelsByBrand.set(row.brand_id, list);
   }
 

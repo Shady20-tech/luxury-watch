@@ -166,6 +166,13 @@ index.
 `is_active`, `sort_order`. Unique on `(brand_id, slug)`. This is the two-level
 Brand → Model taxonomy the reference site uses.
 
+> The uniqueness is on the **pair**, not the slug, and that is load-bearing
+> publicly: the seed holds 41 models across 38 distinct slugs, with `other`
+> appearing once per brand. A model's public URL therefore carries both halves —
+> `/brands/<brand-slug>/models/<model-slug>` — and the catalogue's `model` scope
+> slug is the composite `<brand-slug>/<model-slug>`. A route keyed on the model
+> slug alone would resolve several brands' stock to one address.
+
 > There is no `categories` table. Phase 0 listed one as "optional cross-cutting
 > grouping"; nothing in the reference navigation or the storefront needs it, and
 > `collections` already covers curated groupings. Adding an unused table would be
@@ -738,6 +745,10 @@ counts are exactly 4110 and 4.
   `(product_id, sort_order)`, for rendering a product page in one pass.
 - `brands_slug_key`, `products_slug_key` — unique, so a slug is a valid lookup key
   and the sitemap cannot emit duplicate URLs.
+- `models_brand_slug_key` — unique on `(brand_id, slug)`. This is what makes the
+  nested model route (`/brands/<brand>/models/<model>`) a single indexed lookup
+  rather than a scan, and it is the constraint that forces the URL to carry the
+  brand: the same model slug may exist under several brands.
 
 **Commerce**
 

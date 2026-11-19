@@ -10,6 +10,7 @@ import {
   countActiveFilterGroups,
   hasActiveFilters,
   isIndexableListing,
+  modelScopeSlug,
   PAGE_SIZES,
   parseCatalogueParams,
 } from '@/lib/catalogue/params';
@@ -123,6 +124,26 @@ describe('catalogueBasePath', () => {
     expect(catalogueBasePath({ scope: 'collection', scopeSlug: 'featured' })).toBe(
       '/collections/featured',
     );
+  });
+
+  it('nests a model under its brand, because the slug alone is not unique', () => {
+    // Four models in the seed share the slug `other`, one per brand, so a bare
+    // `/models/other` would resolve to four different models. The composite
+    // scope slug carries both halves and the URL mirrors it.
+    expect(
+      catalogueBasePath({ scope: 'model', scopeSlug: modelScopeSlug('rolex', 'milgauss') }),
+    ).toBe('/brands/rolex/models/milgauss');
+  });
+
+  it('falls back to the brand index for a model scope with no composite slug', () => {
+    expect(catalogueBasePath({ scope: 'model', scopeSlug: null })).toBe('/brands');
+    expect(catalogueBasePath({ scope: 'model', scopeSlug: 'rolex' })).toBe('/brands');
+  });
+});
+
+describe('modelScopeSlug', () => {
+  it('joins the brand and the model', () => {
+    expect(modelScopeSlug('patek-philippe', 'cubitus')).toBe('patek-philippe/cubitus');
   });
 });
 

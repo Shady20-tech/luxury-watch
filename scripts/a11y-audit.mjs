@@ -121,6 +121,30 @@ async function discoverProductPath() {
   }
 }
 
+/**
+ * A real model page, discovered at runtime.
+ *
+ * The same reasoning as `discoverProductPath`: a hardcoded model slug ties the
+ * audit to one seed, and on any other database the request 404s — axe then
+ * audits the not-found template and reports a clean pass that proves nothing.
+ *
+ * The link is read from the brand page, which carries the mega-menu and the
+ * model rows as crawlable anchors. A model is nested under its brand
+ * (`/brands/<brand>/models/<model>`) because `models` is unique on
+ * `(brand_id, slug)`, so the pattern requires both halves.
+ */
+async function discoverModelPath() {
+  try {
+    const response = await fetch(`${BASE}/brands/rolex`);
+    if (!response.ok) return null;
+    const html = await response.text();
+    const match = html.match(/href="(\/brands\/[a-z0-9-]+\/models\/[a-z0-9-]+)"/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Widths worth checking. 320px is the narrowest phone still in use. */
 const VIEWPORTS = [
   { name: 'mobile-320', width: 320, height: 720 },
@@ -156,7 +180,24 @@ async function auditPage(browser, path, viewport, { ageVerified = true } = {}) {
 
   const problems = [];
   try {
-    await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle', timeout: 30_000 });
+    const response = await page.goto(`${BASE}${path}`, {
+      waitUntil: 'networkidle',
+      timeout: 30_000,
+    });
+
+    // axe audits whatever document it is given, including the not-found
+    // template. A 404 is perfectly accessible, so without this the audit reports
+    // a clean pass for a URL that does not exist — which is exactly how a
+    // hardcoded slug can silently stop measuring anything. Only the unmatched
+    // path is expected to 404.
+    if (path !== '/this-page-does-not-exist' && response && response.status() >= 400) {
+      problems.push({
+        kind: 'http-error',
+        path,
+        viewport: viewport.name,
+        detail: `the page returned ${response.status()}, so this pass measured the error template`,
+      });
+    }
 
     // The gate is rendered by an effect, so it is not present in the initial
     // HTML. Wait for it when it is expected, so the audit sees the real state.
@@ -262,6 +303,14 @@ if (productPath) {
   // and the rest of the list is still meaningful. Saying so is better than
   // silently auditing one page fewer than the summary claims.
   console.log('  no product page in the sitemap; skipping the product detail template');
+}
+
+const modelPath = await discoverModelPath();
+if (modelPath) {
+  PAGES.push(modelPath);
+  console.log(`  discovered model page: ${modelPath}`);
+} else {
+  console.log('  no model page linked from /brands/rolex; skipping the model template');
 }
 
 try {

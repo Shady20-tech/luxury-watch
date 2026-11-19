@@ -28,12 +28,14 @@ import { resetPublicEnvCache } from '@/lib/env';
 
 const fetchBrandSitemapRows = vi.fn();
 const fetchCollectionSitemapRows = vi.fn();
+const fetchModelSitemapRows = vi.fn();
 
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/server/repositories/sitemap-repository', () => ({
   fetchBrandSitemapRows: (...args: unknown[]) => fetchBrandSitemapRows(...args),
   fetchCollectionSitemapRows: (...args: unknown[]) => fetchCollectionSitemapRows(...args),
+  fetchModelSitemapRows: (...args: unknown[]) => fetchModelSitemapRows(...args),
 }));
 
 vi.mock('@/lib/env', async (importOriginal) => {
@@ -48,6 +50,10 @@ beforeEach(() => {
   resetPublicEnvCache();
   fetchBrandSitemapRows.mockReset();
   fetchCollectionSitemapRows.mockReset();
+  // Default to no models so the brand/collection cases below are unaffected by
+  // the model branch added with the model page.
+  fetchModelSitemapRows.mockReset();
+  fetchModelSitemapRows.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -99,6 +105,23 @@ describe('sitemap taxonomy membership', () => {
     for (const url of await urls()) {
       expect(url).not.toMatch(/\?/);
     }
+  });
+
+  it('lists a model under its brand and omits an empty one', async () => {
+    fetchBrandSitemapRows.mockResolvedValue([]);
+    fetchCollectionSitemapRows.mockResolvedValue([]);
+    fetchModelSitemapRows.mockResolvedValue([
+      { scopeSlug: 'rolex/milgauss', updated_at: null, product_count: 4 },
+      { scopeSlug: 'rolex/other', updated_at: null, product_count: 0 },
+    ]);
+
+    const result = await urls();
+    // The URL is nested, because the model slug alone is not unique across
+    // brands — the same rule the route applies.
+    expect(result).toContain('https://example.com/brands/rolex/models/milgauss');
+    expect(result).not.toContain('https://example.com/brands/rolex/models/other');
+    // A bare `/models/...` path must never appear; it would not resolve.
+    expect(result.some((url) => /\/models\//.test(url) && !/\/brands\//.test(url))).toBe(false);
   });
 
   it('keeps the four static listings regardless of the database', async () => {
