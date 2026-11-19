@@ -87,9 +87,15 @@ describe('robots.txt', () => {
     expect(wildcard?.allow).toBe('/');
   });
 
-  it('stops the query-string crawl traps', () => {
+  it('leaves query-string URLs crawlable so their noindex and canonical are read', () => {
+    // A disallowed URL is never fetched, so its `noindex` and its canonical —
+    // the two signals that keep a facet permutation from competing with the
+    // clean listing — are never seen. It also contradicted `?page=2`, which is
+    // deliberately indexable with a self-referential canonical.
     const disallow = disallowFor('*');
-    expect(disallow).toEqual(expect.arrayContaining(['/*?*sort=', '/*?*filter=', '/*?*page=']));
+    for (const pattern of ['/*?*sort=', '/*?*filter=', '/*?*page=', '/*?*']) {
+      expect(disallow, `${pattern} would hide the page's own noindex`).not.toContain(pattern);
+    }
   });
 
   it('repeats the private paths for AdsBot, which ignores the wildcard rule', () => {

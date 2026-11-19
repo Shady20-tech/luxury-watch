@@ -27,6 +27,18 @@ const REASON_MESSAGES: Record<string, string> = {
   unavailable: 'Accounts are temporarily unavailable. Please try again shortly.',
 };
 
+/**
+ * Per-visitor, so never prerendered.
+ *
+ * This page resolves the session through the cookie-aware Supabase client. Under
+ * a production build a route that reads cookies while being classified as static
+ * fails at request time with "Page changed from static to dynamic at runtime"
+ * and returns a 500 — `next dev` does not reproduce it (see AGENTS.md). Declaring
+ * the route dynamic is the documented fix, and it is honest: a sign-in page is
+ * never the same for two visitors.
+ */
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage({
   searchParams,
 }: {

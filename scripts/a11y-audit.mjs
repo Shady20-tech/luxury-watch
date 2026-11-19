@@ -31,6 +31,24 @@ const PAGES = [
   '/collections/all',
   '/brands',
   '/brands/rolex',
+  // The catalogue surfaces. These are the densest pages on the site — a filter
+  // sidebar, a result grid of cards, and pagination — so they are where an
+  // overflow or contrast defect in a card, a facet row or the toolbar would
+  // hide. A filtered permutation is audited as well as the clean listing,
+  // because the "clear all" control and the active-filter chips only exist
+  // there.
+  '/shop',
+  '/shop?condition=unworn&sort=price_asc',
+  '/collections/featured',
+  '/search?q=rolex',
+  // The blank search landing — an index of collections, brands and model
+  // families. It replaced a duplicate of the shop grid, so it is new markup with
+  // its own heading structure and badge contrast.
+  '/search',
+  // A brand that holds nothing. Its page is a different template branch (a
+  // scope-aware empty state rather than a grid), and it is the one page whose
+  // empty state names the brand, so its copy is longer than the generic one.
+  '/brands/richard-mille',
   '/contact',
   '/pages/faq',
   // The rest of the CMS and service surfaces this phase adds. They are

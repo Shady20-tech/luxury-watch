@@ -44,17 +44,26 @@ import { addToWishlist, removeFromWishlist } from '@/server/actions/wishlist-act
  * for why a cached price in browser storage is worse than no price. The visible
  * list is always rendered from the database.
  */
-function SubmitButton({ saved, pending }: { saved: boolean; pending: boolean }) {
+function SubmitButton({
+  saved,
+  pending,
+  compact = false,
+}: {
+  saved: boolean;
+  pending: boolean;
+  compact?: boolean;
+}) {
   return (
     <Button
       type="submit"
       variant="secondary"
       loading={pending}
       aria-pressed={saved}
-      className="justify-start"
+      size={compact ? 'icon-sm' : 'md'}
+      className={compact ? 'shrink-0' : 'justify-start'}
     >
       <Heart aria-hidden="true" className={saved ? 'h-4 w-4 fill-current' : 'h-4 w-4'} />
-      {saved ? 'Saved' : 'Add to wishlist'}
+      <span className={compact ? 'sr-only' : undefined}>{saved ? 'Saved' : 'Add to wishlist'}</span>
     </Button>
   );
 }
@@ -64,16 +73,31 @@ export function WishlistToggle({
   signedIn,
   initiallySaved,
   className,
+  compact = false,
 }: {
   productId: string;
   signedIn: boolean;
   initiallySaved: boolean;
   className?: string;
+  /**
+   * Icon-only presentation for a catalogue card.
+   *
+   * A card is a dense grid of dozens of pieces, so a full-width "Add to
+   * wishlist" button would dominate it. The accessible name is unchanged — the
+   * visible label is hidden with `sr-only`, not removed — so the control still
+   * announces what it does.
+   */
+  compact?: boolean;
 }) {
   return signedIn ? (
-    <SavedToggle productId={productId} initiallySaved={initiallySaved} className={className} />
+    <SavedToggle
+      productId={productId}
+      initiallySaved={initiallySaved}
+      className={className}
+      compact={compact}
+    />
   ) : (
-    <GuestToggle productId={productId} className={className} />
+    <GuestToggle productId={productId} className={className} compact={compact} />
   );
 }
 
@@ -82,10 +106,12 @@ function SavedToggle({
   productId,
   initiallySaved,
   className,
+  compact = false,
 }: {
   productId: string;
   initiallySaved: boolean;
   className?: string;
+  compact?: boolean;
 }) {
   const [saved, setSaved] = useState(initiallySaved);
   const [addState, addAction] = useActionState(addToWishlist, IDLE_MUTATION);
@@ -114,7 +140,7 @@ function SavedToggle({
     <div className={className}>
       <form action={formAction}>
         <input type="hidden" name="productId" value={productId} />
-        <SavedSubmit saved={saved} />
+        <SavedSubmit saved={saved} compact={compact} />
       </form>
       {state.status === 'error' && state.message ? (
         <p role="alert" className="text-danger-600 mt-2 text-xs font-medium">
@@ -125,13 +151,21 @@ function SavedToggle({
   );
 }
 
-function SavedSubmit({ saved }: { saved: boolean }) {
+function SavedSubmit({ saved, compact }: { saved: boolean; compact: boolean }) {
   const { pending } = useFormStatus();
-  return <SubmitButton saved={saved} pending={pending} />;
+  return <SubmitButton saved={saved} pending={pending} compact={compact} />;
 }
 
 /** Guest toggle: the browser list is the source of truth until sign-in. */
-function GuestToggle({ productId, className }: { productId: string; className?: string }) {
+function GuestToggle({
+  productId,
+  className,
+  compact = false,
+}: {
+  productId: string;
+  className?: string;
+  compact?: boolean;
+}) {
   const [saved, setSaved] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -146,7 +180,8 @@ function GuestToggle({ productId, className }: { productId: string; className?: 
         type="button"
         variant="secondary"
         aria-pressed={ready ? saved : undefined}
-        className="justify-start"
+        size={compact ? 'icon-sm' : 'md'}
+        className={compact ? 'shrink-0' : 'justify-start'}
         onClick={() => {
           const current = readGuestWishlist();
           const next = saved
@@ -157,12 +192,15 @@ function GuestToggle({ productId, className }: { productId: string; className?: 
         }}
       >
         <Heart aria-hidden="true" className={saved ? 'h-4 w-4 fill-current' : 'h-4 w-4'} />
-        {saved ? 'Saved' : 'Add to wishlist'}
+        <span className={compact ? 'sr-only' : undefined}>
+          {saved ? 'Saved' : 'Add to wishlist'}
+        </span>
       </Button>
       {/* A guest is told plainly that the list is on this device and will move
           into their account when they sign in, rather than being left to guess
-          whether it is saved to an account they do not have. */}
-      <p className="text-ink-500 mt-2 text-xs">
+          whether it is saved to an account they do not have. On a card the note
+          is redundant with the grid's own explanation, so it is suppressed. */}
+      <p className={compact ? 'sr-only' : 'text-ink-500 mt-2 text-xs'}>
         Saved on this device.{' '}
         <a href="/account" className="text-accent-text underline underline-offset-4">
           Sign in

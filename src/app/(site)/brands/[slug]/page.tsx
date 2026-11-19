@@ -12,6 +12,7 @@ import {
 import { buildMetadata } from '@/lib/seo/metadata';
 import { fetchActiveBrandSummary } from '@/server/repositories/catalogue-repository';
 import { getListing } from '@/server/services/catalogue-service';
+import { getViewerState } from '@/server/services/viewer-service';
 
 /**
  * A brand's listing.
@@ -51,7 +52,14 @@ export async function generateMetadata({
       brand.description ??
       `Watches by ${brand.name}. Browse the pieces we currently hold, and request pricing and availability on any of them.`,
     path: canonicalListingPath(listingParams),
-    robots: { index: isIndexableListing(listingParams), follow: true },
+    // Two conditions, both required. A filtered permutation is a duplicate of
+    // the clean brand page and must not rank; a brand with nothing published is
+    // thin content that says only "we hold none right now". The sitemap applies
+    // the same count rule, so the page and the sitemap cannot disagree.
+    robots: {
+      index: isIndexableListing(listingParams) && brand.productCount > 0,
+      follow: true,
+    },
   });
 }
 
@@ -67,7 +75,10 @@ export default async function Page({
 
   if (!brand) notFound();
 
-  const listing = await getListing(parseCatalogueParams(await searchParams, 'brand', slug));
+  const [listing, viewer] = await Promise.all([
+    getListing(parseCatalogueParams(await searchParams, 'brand', slug)),
+    getViewerState(),
+  ]);
 
   return (
     <>
@@ -81,7 +92,12 @@ export default async function Page({
       />
 
       <div className="container-page py-10 sm:py-14">
-        <CatalogueListingView listing={listing} />
+        <CatalogueListingView
+          listing={listing}
+          signedIn={viewer.signedIn}
+          savedProductIds={viewer.savedProductIds}
+          scopeName={brand.name}
+        />
       </div>
     </>
   );

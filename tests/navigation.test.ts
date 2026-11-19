@@ -126,7 +126,32 @@ describe('buildHeaderNav', () => {
 
     const panel = item.panels.at(0);
     expect(panel?.label).toBe('Rolex');
-    expect(panel?.columns.at(0)?.links.at(0)?.href).toBe('/collections/cosmograph-daytona');
+    // A model link must point at the brand listing filtered by that model. The
+    // old href was `/collections/<model-slug>`, which 404s: a model slug is not
+    // a collection slug, so every model in the menu was a dead link.
+    expect(panel?.columns.at(0)?.links.at(0)?.href).toBe('/brands/rolex?model=cosmograph-daytona');
+  });
+
+  it('never points a model link at a collection route', () => {
+    // The regression guard for the 404 above: no model link may be built from a
+    // collection path, whatever the slug happens to be.
+    const items = buildHeaderNav(
+      [nav({ id: 'b', label: 'Brands', href: '/brands' })],
+      [brand({ id: 'b1', name: 'Rolex', slug: 'rolex' })],
+      [model({ id: 'm1', brand_id: 'b1', name: 'Daytona', slug: 'cosmograph-daytona' })],
+    );
+    const item = items.at(0);
+    if (item?.kind !== 'brands') throw new Error('expected the brands mega menu');
+
+    for (const panel of item.panels) {
+      for (const column of panel.columns) {
+        for (const link of column.links) {
+          expect(link.href, `${link.label} must not be a collection link`).not.toMatch(
+            /^\/collections\//,
+          );
+        }
+      }
+    }
   });
 
   it('drops a row with an unsafe href rather than rendering it', () => {

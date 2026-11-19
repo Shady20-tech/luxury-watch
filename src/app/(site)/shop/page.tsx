@@ -10,6 +10,7 @@ import {
 } from '@/lib/catalogue/params';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { getListing } from '@/server/services/catalogue-service';
+import { getViewerState } from '@/server/services/viewer-service';
 
 /**
  * The shop listing — the canonical "everything" address.
@@ -62,7 +63,9 @@ export async function generateMetadata({
 
 export default async function Page({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = parseCatalogueParams(await searchParams);
-  const listing = await getListing(params);
+  // The listing and the viewer's saved ids are independent reads, so they run
+  // together rather than one after the other.
+  const [listing, viewer] = await Promise.all([getListing(params), getViewerState()]);
 
   return (
     <>
@@ -73,7 +76,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
       />
 
       <div className="container-page py-10 sm:py-14">
-        <CatalogueListingView listing={listing} />
+        <CatalogueListingView
+          listing={listing}
+          signedIn={viewer.signedIn}
+          savedProductIds={viewer.savedProductIds}
+        />
       </div>
     </>
   );

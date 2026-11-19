@@ -43,18 +43,54 @@ export function AddToCartButton({
   productTitle,
   allowQuantity = false,
   className,
+  compact = false,
 }: {
   productId: string;
   productTitle: string;
   /** True only when the product model permits more than one. */
   allowQuantity?: boolean;
   className?: string;
+  /**
+   * A single "Add to cart" control for a catalogue card.
+   *
+   * A card cannot carry the quantity selector or the two explanatory paragraphs
+   * the product page shows: the grid is dense and the copy belongs on the piece's
+   * own page. The control still posts the same form to the same server action,
+   * with the quantity fixed at one, so the behaviour and the validation are
+   * identical — only the presentation is smaller.
+   */
+  compact?: boolean;
 }) {
   const [state, formAction] = useActionState(addToCart, IDLE_MUTATION);
 
   useEffect(() => {
     if (state.status === 'success') announceCountsChanged();
   }, [state.status]);
+
+  if (compact) {
+    return (
+      <div className={className}>
+        <form action={formAction}>
+          <input type="hidden" name="productId" value={productId} />
+          <input type="hidden" name="quantity" value="1" />
+          <CompactAddSubmit />
+        </form>
+        {state.status === 'error' && state.message ? (
+          <p role="alert" className="text-danger-600 mt-2 text-xs font-medium">
+            {state.message}
+          </p>
+        ) : null}
+        {state.status === 'success' ? (
+          <p role="status" className="text-ink-500 mt-2 text-xs">
+            Added.{' '}
+            <Link href="/cart" className="text-accent-text underline underline-offset-4">
+              View cart
+            </Link>
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className={className}>
@@ -118,6 +154,24 @@ function AddSubmit() {
     <Button type="submit" loading={pending}>
       <ShoppingBag aria-hidden="true" className="mr-2 h-4 w-4" />
       {pending ? 'Adding…' : 'Add to cart'}
+    </Button>
+  );
+}
+
+/**
+ * The card's add control.
+ *
+ * Icon plus a visible short label, because "add to cart" is the card's primary
+ * commerce action and an unlabelled bag icon in a grid of forty is a guessing
+ * game. The label is `sr-only`-free here — unlike the wishlist heart, which is a
+ * secondary action and keeps the card tidy as an icon.
+ */
+function CompactAddSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="secondary" size="sm" loading={pending} className="shrink-0">
+      <ShoppingBag aria-hidden="true" className="mr-1.5 h-4 w-4" />
+      {pending ? 'Adding…' : 'Add'}
     </Button>
   );
 }

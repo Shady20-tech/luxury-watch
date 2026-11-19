@@ -60,7 +60,7 @@ const chrome: ChromeData = {
                 {
                   id: 'm1',
                   label: 'Cosmograph Daytona',
-                  href: '/collections/cosmograph-daytona',
+                  href: '/brands/rolex?model=cosmograph-daytona',
                   external: false,
                 },
               ],

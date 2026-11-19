@@ -8,6 +8,108 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 5 completion — search, collections index, taxonomy sitemap
+
+**Date:** 2026-11-19
+
+> Finishes the catalogue and discovery phase. The listing, filters, sorting and
+> pagination were already built; this pass closes the parts the acceptance
+> criteria named but the first pass left open — real search across taxonomy, a
+> `/collections` index, brand and collection entries in the sitemap, and a
+> `noindex` rule for taxonomy pages that hold nothing. No payment path is
+> touched.
+
+#### Added
+
+**Search (`supabase/migrations/0016_catalogue_search_collections.sql`,
+`src/app/(site)/search/page.tsx`, `src/components/catalogue/search-*`)**
+
+- `catalogue_suggest(p_query text, p_limit integer)` — prefix-matched suggestions
+  across published products, active brands, active collections and model
+  families, returning a typed row so the combobox can group them. Published-only
+  and active-only, so a draft or archived slug can never be suggested.
+- `/api/catalogue/suggest` — the combobox's data route. Bounded limit, truncated
+  term, and a `no-store` response; it is a typeahead, not a document.
+- `search-combobox.tsx` — an accessible autocomplete (`role="combobox"`,
+  `aria-expanded`, `aria-activedescendant`, arrow/Enter/Escape handling) that
+  degrades to the plain `GET` search form when JavaScript is off.
+- `search-landing.tsx` — with no term and no filters, `/search` renders an index
+  of collections, brands and their model families with real published counts,
+  instead of the entire catalogue. The old behaviour made `/search` a second
+  `/shop`: identical rows, identical order, different URL.
+
+**`/collections`** (`src/app/(site)/collections/page.tsx`) — a real index of the
+merchandised collections with their published counts. Previously the only way to
+reach a collection page was a homepage rail.
+
+**`published_collection_counts()`**
+(`supabase/migrations/0017_published_collection_counts.sql`) — a
+`security definer` aggregate that re-applies the publication gate and returns one
+row per active collection. Granted to `anon` and `authenticated`. `fetchActiveCollections`
+and the collection summary now read it instead of counting `collection_products`
+client-side, so a collection's advertised count and its rendered listing agree.
+
+**`src/lib/supabase/public.ts`** — a cookie-less client for documents that are the
+same for everyone. `sitemap-repository.ts` uses it so `/sitemap.xml` stays static;
+the cookie-aware client would have made a crawler's repeated fetch a repeated
+database query.
+
+**`supabase/tests/22_published_collection_counts.sql`** — asserts the aggregate
+counts published rows only, omits inactive collections, omits empty ones, and is
+readable as `anon`.
+
+#### Changed
+
+- **The sitemap now lists brands and collections.** Each entry carries the row's
+  real `updated_at` as `<lastmod>`, and a brand or collection with no published
+  pieces is omitted. That is the same rule the page applies to itself, and both
+  sides read the same aggregate, so the two cannot drift (G33 closed).
+- **A brand or collection page with no published pieces is `noindex, follow`.**
+  It is a real page with an honest empty state, but it is thin content and it was
+  previously indexable while the sitemap would have omitted it.
+- **`/search` is `noindex` unconditionally, including the blank landing page.** A
+  search surface is not a destination, and its content is an index of pages that
+  are already in the sitemap.
+- `src/app/robots.ts` carries no query-string rules, because a disallowed URL is
+  never fetched and its `noindex` and canonical are therefore never read. The
+  crawl-trap section of `docs/SEO.md` still described the removed rules and has
+  been rewritten to document the strategy that is actually implemented, URL class
+  by URL class.
+- The account pages declare `force-dynamic` and `getAuthUser()` treats an
+  unconfigured or unreachable auth server as "nobody is signed in" rather than
+  throwing. Both were needed for the production build to render them with A1
+  still open (see AGENTS.md on static-to-dynamic 500s).
+- `supabase/tests/20_published_collection_counts.sql` was renamed to `22_…`: two
+  suites shared the `20_` prefix, and `db-verify.sh` reports by filename, so a
+  failure in either was ambiguous in the log.
+
+#### Verified
+
+- `npm run verify` green: 665 unit tests, format, lint, typecheck, the no-payment
+  guard and a production build.
+- `./scripts/db-reset.sh && ./scripts/db-verify.sh` green from scratch: all 17
+  migrations apply, all 13 RLS/auth suites pass, seeds are idempotent.
+- Against a real PostgREST + database through the real `supabase-js` path:
+  `/sitemap.xml` lists the four static routes, three brands and three
+  collections, and omits `richard-mille` (zero published pieces);
+  `/brands/richard-mille` answers `noindex, follow` while `/brands/rolex` answers
+  `index, follow`; `/shop` 12 of 12, `/shop?page=2` an honest "past the end"
+  state, `/shop?brand=rolex` `noindex, follow` canonicalised onto `/shop`,
+  `/shop?sort=price_asc` indexable with a self-canonical, `/brands/nope` and
+  `/collections/nope` both `404`.
+- `npm run audit:a11y` green across every page × four viewports, now including
+  `/search` and the empty `/brands/richard-mille`, with no critical or serious
+  axe findings and no horizontal overflow.
+
+#### Known limitation
+
+`db-verify.sh` leaves the suites' own published fixtures (`test-brand`,
+`service-brand`) in the database, and they then appear in the catalogue and the
+sitemap. Recorded as G66 with the reason a naive teardown breaks later suites.
+Run `./scripts/db-reset.sh` before generating a preview.
+
+---
+
 ### Storefront visual refresh — dark band rhythm and glass chrome
 
 **Date:** 2026-10-18

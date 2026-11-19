@@ -197,10 +197,16 @@ export function buildBrandPanels(
     .map((brand) => {
       const brandModels = modelsByBrand.get(brand.id) ?? [];
       const shown = brandModels.slice(0, maxModelsPerBrand);
+      // A model has no page of its own. Pointing at `/collections/<model-slug>`
+      // 404s — a model slug is not a collection slug, and a menu full of 404s is
+      // a broken storefront. The model facet is the real destination: the brand
+      // listing narrowed to that model, which is the same URL shape
+      // `catalogue_suggest` emits and the same `model` parameter the filter
+      // sidebar writes.
       const links: NavLink[] = shown.map((model) => ({
         id: model.id,
         label: model.name,
-        href: `/collections/${model.slug}`,
+        href: `/brands/${brand.slug}?model=${encodeURIComponent(model.slug)}`,
         external: false,
       }));
 

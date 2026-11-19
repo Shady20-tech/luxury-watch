@@ -376,6 +376,18 @@ lists the other brands' counts, `/brands/rolex` 4, `/collections/featured` 6,
 `/search?q=rolex` 4, an invented brand slug 404s, and `/collections/all` 308s to
 `/shop`.
 
+**Second pass (2026-11-19) closed the discovery gaps the first pass left open.**
+`/collections` is now a real index rather than a set of pages reachable only from
+a homepage rail; search spans brands, collections and model families through
+`catalogue_suggest` and an accessible combobox; brands and collections are in
+`sitemap.xml` with their real `<lastmod>`, and a scope holding no published
+pieces is omitted there and marked `noindex, follow` on the page, from the same
+aggregate (`published_product_counts` / `published_collection_counts`). The blank
+`/search` is a landing index instead of a second copy of the shop grid. `npm run
+verify` green at 665 tests; `db-verify.sh` green on a reset database (17
+migrations, 13 suites); `npm run audit:a11y` green including `/search` and an
+empty brand page.
+
 Two decisions worth recording, both from repository evidence rather than
 preference:
 

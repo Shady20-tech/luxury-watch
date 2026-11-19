@@ -98,10 +98,15 @@ const chrome: ChromeData = {
                 {
                   id: 'm1',
                   label: 'Cosmograph Daytona',
-                  href: '/collections/cosmograph-daytona',
+                  href: '/brands/rolex?model=cosmograph-daytona',
                   external: false,
                 },
-                { id: 'm2', label: 'Datejust', href: '/collections/datejust', external: false },
+                {
+                  id: 'm2',
+                  label: 'Datejust',
+                  href: '/brands/rolex?model=datejust',
+                  external: false,
+                },
               ],
             },
           ],

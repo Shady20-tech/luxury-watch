@@ -300,9 +300,17 @@ it for no benefit.
   smallest interval the system can distinguish, not one.
 - **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency
   harness insert their own rows. A database that has run `db-verify.sh` shows
-  **4120 products and 5 brands**, not the seed's 4110 and 4. This is expected, not
+  **4126 products and 6 brands**, not the seed's 4110 and 4. This is expected, not
   a seed bug. Counts on a clean database: 4110 products, 4 brands, 41 models,
   8785 specs.
+  **The leftovers are publicly visible.** `10_public_boundary.sql` and
+  `50_service_flows.sql` insert a _published_ product under their own brand
+  (`Test Brand` / `test-brand`, `Service Brand` / `service-brand`) and never
+  remove it, so `/brands`, the brand facet and `/sitemap.xml` all offer them as
+  stock. Run `./scripts/db-reset.sh` before `npm run preview` if the catalogue is
+  going to be looked at or audited. This is G66, and the naive fix — deleting the
+  fixtures at the end of each suite — breaks suites `21` and `40`, which depend on
+  the `bank_transfer` payment method that suite `10` inserts.
 - **`supabase/tests/00_supabase_shim.sql` is a test fixture, not a deployment
   artifact.** It fakes `auth.users`, `auth.uid()` and the API roles so the
   policies can be tested outside Supabase. Never apply it to a real project.
@@ -381,6 +389,45 @@ reach.
 **The logger redacts keys, not values.** A log call that passes an email address as
 a value writes it in clear, whatever the key is named. Pass an event name and
 counts, not identifiers.
+
+## Catalogue and discovery
+
+### One rule decides what may be indexed, and the sitemap applies the same one
+
+`src/lib/catalogue/params.ts` owns the decision: `isIndexableListing()` and
+`canonicalListingPath()`. A clean listing is indexable with a self-canonical; a
+filtered, searched or sorted one is `noindex, follow` and canonicalises onto the
+clean listing. The full table is in `docs/SEO.md`, and
+`tests/catalogue-params.test.ts` pins it.
+
+The scoped half is separate because it needs a database number rather than only
+the query string: a brand or collection page holding **zero published pieces** is
+`noindex, follow` and is omitted from `sitemap.xml`. Both sides read
+`published_product_counts()` / `published_collection_counts()`, so they cannot
+reach different answers. If you add another page type with a countable body, give
+it an aggregate rather than counting rows in the component — a client-side count
+is how the page and the sitemap start disagreeing.
+
+**`robots.txt` deliberately has no query-string rules.** A disallowed URL is never
+fetched, so its `noindex` and canonical are never read — blocking the crawl does
+not suppress the URL, it only stops the page saying where it belongs.
+`tests/robots.test.ts` asserts no query-string pattern comes back.
+
+**The sitemap reads with the cookie-free client** (`lib/supabase/public.ts`), not
+the cookie-aware one. Reading a cookie makes the route dynamic, and a crawler's
+repeated fetch would become a repeated database query. `sitemap-repository.ts`
+exists for this reason; do not "simplify" it into `catalogue-repository.ts`.
+
+### `/search` is a query surface, never a document
+
+`/search` is `noindex` unconditionally — including the blank page. With no term
+and no filters it renders an index of collections, brands and model families with
+real counts (`search-landing.tsx`), not the shop grid. Rendering the grid there
+made `/search` a second `/shop`: identical rows in identical order under a second
+URL. Do not restore that to "fill the page".
+
+Search reuses the listing pipeline — the same RPC, facets and cards. A second
+result pipeline is how search results and the catalogue start looking different.
 
 ## Content and licensing
 

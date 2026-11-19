@@ -25,7 +25,18 @@ export const metadata: Metadata = buildMetadata({
  * so they are told what happened and pointed at the request form instead. The
  * page does not redirect to `/login`, because the useful next step is a new
  * link, not a sign-in.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY `force-dynamic`
+ * -----------------------------------------------------------------------------
+ *
+ * The page resolves the session through the cookie-aware Supabase client. Under a
+ * production build a route that reads cookies while being classified as static
+ * fails at request time with "Page changed from static to dynamic at runtime" and
+ * returns a 500 — `next dev` does not reproduce it (see AGENTS.md).
  */
+export const dynamic = 'force-dynamic';
+
 export default async function ResetPasswordPage() {
   const user = await getAuthUser();
 

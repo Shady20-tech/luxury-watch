@@ -121,38 +121,60 @@ export async function fetchSuggestions(query: string, limit = 8): Promise<Sugges
   return (data ?? []) as unknown as SuggestRow[];
 }
 
-/** An active brand's identity, or `null` when the slug is not active. */
+/**
+ * An active brand's identity, or `null` when the slug is not active.
+ *
+ * `productCount` is the published total, read from the same
+ * `published_product_counts` aggregate the brand index and the sitemap use. The
+ * page needs it because a brand with nothing published is thin content: it
+ * still renders, but it marks itself `noindex` and the sitemap omits it. Reading
+ * the count from a different query than those two would let the three surfaces
+ * disagree about the same brand.
+ */
 export async function fetchActiveBrandSummary(
   slug: string,
-): Promise<{ id: string; name: string; description: string | null } | null> {
+): Promise<{ id: string; name: string; description: string | null; productCount: number } | null> {
   const supabase = await createSupabaseServerClient();
 
   // RLS already restricts this to active rows, so an inactive slug returns no
   // row and the caller 404s.
-  const { data, error } = await supabase
-    .from('brands')
-    .select('id, name, description')
-    .eq('slug', slug)
-    .maybeSingle();
+  const [brandResult, countsResult] = await Promise.all([
+    supabase.from('brands').select('id, name, description').eq('slug', slug).maybeSingle(),
+    supabase.rpc('published_product_counts'),
+  ]);
 
-  if (error) throw error;
-  return data ?? null;
+  if (brandResult.error) throw brandResult.error;
+  if (countsResult.error) throw countsResult.error;
+
+  const brand = brandResult.data;
+  if (!brand) return null;
+
+  const row = (countsResult.data ?? []).find((entry) => entry.brand_id === brand.id);
+  return { ...brand, productCount: row ? Number(row.product_count) : 0 };
 }
 
 /** An active collection's identity, or `null` when the slug is not active. */
-export async function fetchActiveCollectionSummary(
-  slug: string,
-): Promise<{ id: string; title: string; description: string | null } | null> {
+export async function fetchActiveCollectionSummary(slug: string): Promise<{
+  id: string;
+  title: string;
+  description: string | null;
+  productCount: number;
+} | null> {
   const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await supabase
-    .from('collections')
-    .select('id, title, description')
-    .eq('slug', slug)
-    .maybeSingle();
+  const [collectionResult, countsResult] = await Promise.all([
+    supabase.from('collections').select('id, title, description').eq('slug', slug).maybeSingle(),
+    supabase.rpc('published_collection_counts'),
+  ]);
 
-  if (error) throw error;
-  return data ?? null;
+  if (collectionResult.error) throw collectionResult.error;
+  if (countsResult.error) throw countsResult.error;
+
+  const collection = collectionResult.data;
+  if (!collection) return null;
+
+  const row = (countsResult.data ?? []).find((entry) => entry.collection_id === collection.id);
+  return { ...collection, productCount: row ? Number(row.product_count) : 0 };
 }
 
 /**
@@ -173,6 +195,119 @@ export async function fetchActiveBrands(): Promise<
 
   if (error) throw error;
   return data ?? [];
+}
+
+/**
+ * One brand with the model families beneath it, for the brand index.
+ *
+ * A brand tile that lists its families is the brand → model hierarchy the
+ * catalogue actually has; a tile that showed only a name would be a link with no
+ * information. The count of published pieces comes from the same
+ * `published_product_counts` aggregate the homepage uses, so the two surfaces
+ * cannot report different numbers for the same brand.
+ *
+ * Both queries are aggregates over indexed columns, not a read of the
+ * catalogue — see the note on `fetchCataloguePage`.
+ */
+export async function fetchBrandDirectory(): Promise<
+  {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    country: string | null;
+    foundedYear: number | null;
+    productCount: number;
+    models: { name: string; slug: string }[];
+  }[]
+> {
+  const supabase = await createSupabaseServerClient();
+
+  const [brandsResult, modelsResult, countsResult] = await Promise.all([
+    supabase
+      .from('brands')
+      .select('id, name, slug, description, country, founded_year')
+      .order('sort_order')
+      .order('name'),
+    supabase.from('models').select('brand_id, name, slug').order('sort_order').order('name'),
+    supabase.rpc('published_product_counts'),
+  ]);
+
+  if (brandsResult.error) throw brandsResult.error;
+  if (modelsResult.error) throw modelsResult.error;
+  if (countsResult.error) throw countsResult.error;
+
+  const countByBrand = new Map<string, number>();
+  for (const row of countsResult.data ?? []) {
+    if (row.brand_id) countByBrand.set(row.brand_id, Number(row.product_count));
+  }
+
+  const modelsByBrand = new Map<string, { name: string; slug: string }[]>();
+  for (const row of modelsResult.data ?? []) {
+    const list = modelsByBrand.get(row.brand_id) ?? [];
+    list.push({ name: row.name, slug: row.slug });
+    modelsByBrand.set(row.brand_id, list);
+  }
+
+  return (brandsResult.data ?? []).map((brand) => ({
+    id: brand.id,
+    name: brand.name,
+    slug: brand.slug,
+    description: brand.description,
+    country: brand.country,
+    foundedYear: brand.founded_year,
+    productCount: countByBrand.get(brand.id) ?? 0,
+    models: modelsByBrand.get(brand.id) ?? [],
+  }));
+}
+
+/**
+ * Active collections, for the collections index and the search landing panel.
+ *
+ * `productCount` is the number of *published* pieces in the collection, read
+ * from `published_collection_counts` rather than by counting the join table
+ * client-side. Counting the join rows here would mean reading
+ * `collection_products` in full to render a handful of badges, and it would
+ * overstate a collection that holds a draft or archived piece — the same class
+ * of mistake as showing an unpublished product.
+ */
+export async function fetchCollectionDirectory(): Promise<
+  {
+    id: string;
+    title: string;
+    slug: string;
+    description: string | null;
+    kind: string;
+    productCount: number;
+  }[]
+> {
+  const supabase = await createSupabaseServerClient();
+
+  const [collectionsResult, countsResult] = await Promise.all([
+    supabase
+      .from('collections')
+      .select('id, title, slug, description, kind')
+      .order('sort_order')
+      .order('title'),
+    supabase.rpc('published_collection_counts'),
+  ]);
+
+  if (collectionsResult.error) throw collectionsResult.error;
+  if (countsResult.error) throw countsResult.error;
+
+  const countByCollection = new Map<string, number>();
+  for (const row of countsResult.data ?? []) {
+    if (row.collection_id) countByCollection.set(row.collection_id, Number(row.product_count));
+  }
+
+  return (collectionsResult.data ?? []).map((collection) => ({
+    id: collection.id,
+    title: collection.title,
+    slug: collection.slug,
+    description: collection.description,
+    kind: collection.kind,
+    productCount: countByCollection.get(collection.id) ?? 0,
+  }));
 }
 
 /** Active collections, for the collections index. */

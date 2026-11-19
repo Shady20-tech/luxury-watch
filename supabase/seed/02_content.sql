@@ -75,8 +75,12 @@ values
   -- Explore
   ('00000000-0000-4000-8000-000000000201', 'footer', null, 'Shop All',            '/shop',             'Explore',  10, true),
   ('00000000-0000-4000-8000-000000000202', 'footer', null, 'Brands',              '/brands',                      'Explore',  20, true),
-  ('00000000-0000-4000-8000-000000000203', 'footer', null, 'About Us',            '/pages/about',                 'Explore',  30, true),
-  ('00000000-0000-4000-8000-000000000204', 'footer', null, 'FAQ',                 '/pages/faq',                   'Explore',  40, true),
+  -- Collections is the third browse level. It is in the sitemap, so it must also
+  -- be reachable by following a link; a sitemap entry nothing links to is a weak
+  -- signal and leaves a visitor no way to reach the index.
+  ('00000000-0000-4000-8000-000000000205', 'footer', null, 'Collections',         '/collections',                 'Explore',  30, true),
+  ('00000000-0000-4000-8000-000000000203', 'footer', null, 'About Us',            '/pages/about',                 'Explore',  40, true),
+  ('00000000-0000-4000-8000-000000000204', 'footer', null, 'FAQ',                 '/pages/faq',                   'Explore',  50, true),
 
   -- Services
   ('00000000-0000-4000-8000-000000000211', 'footer', null, 'Sell or Trade',       '/services/sell-trade',         'Services', 10, true),

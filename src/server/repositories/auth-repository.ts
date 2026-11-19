@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { isSupabaseConfigured } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import {
   createSupabaseServerClient,
   createSupabaseServerClientWritable,
@@ -72,17 +74,45 @@ export type Address = {
  * trusts the cookie's contents; `getUser()` sends the token to the auth server
  * and has it validated. A forged cookie therefore fails here, which is the
  * property every authorisation check downstream depends on.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY AN UNCONFIGURED OR UNREACHABLE AUTH SERVER IS `null`, NOT A THROW
+ * -----------------------------------------------------------------------------
+ *
+ * `createSupabaseServerClient()` throws when the environment is not configured,
+ * and `getUser()` throws when the auth server cannot be reached. Both used to
+ * escape from here, and every caller of this function is a *render* — `/login`,
+ * `/register`, `/reset-password` and the account guard. A throw during a
+ * prerender fails `next build`; the build then requires a live Supabase project,
+ * which it deliberately does not have (the build runs on Vercel before any
+ * secret need exist, and in CI with placeholder values only).
+ *
+ * "Nobody is signed in" is the correct answer in both cases: an unconfigured
+ * deployment has no sessions, and an outage cannot prove one. It is also the
+ * safe direction — a caller treats `null` as signed-out, so the worst outcome is
+ * asking a signed-in visitor to sign in again. Reporting a user we could not
+ * verify would be the dangerous mistake.
  */
 export async function getAuthUser(): Promise<AuthUser | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
+  if (!isSupabaseConfigured()) return null;
 
-  return {
-    id: data.user.id,
-    email: data.user.email ?? null,
-    emailConfirmed: Boolean(data.user.email_confirmed_at ?? data.user.confirmed_at),
-  };
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+
+    return {
+      id: data.user.id,
+      email: data.user.email ?? null,
+      emailConfirmed: Boolean(data.user.email_confirmed_at ?? data.user.confirmed_at),
+    };
+  } catch (error) {
+    logger.warn('auth.get_user_failed', {
+      // The message only. An auth error can echo a token or an address.
+      message: error instanceof Error ? error.message : 'unknown error',
+    });
+    return null;
+  }
 }
 
 /** Register a new customer. Returns a state rather than throwing. */

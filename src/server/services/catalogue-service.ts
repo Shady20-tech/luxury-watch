@@ -45,10 +45,18 @@ async function loadListing(params: CatalogueParams): Promise<CatalogueListing> {
   }
 
   try {
-    const [{ rows, total }, facets] = await Promise.all([
+    const [{ rows, total: pageTotal }, facets] = await Promise.all([
       fetchCataloguePage(params),
       fetchCatalogueFacets(params),
     ]);
+
+    // The page's own rows carry the total, but only when there are rows: an
+    // out-of-range page returns none, and deriving the total from them made
+    // `?page=2` on a single-page listing report zero matches and claim the
+    // catalogue was empty. The facet payload counts the same filtered set
+    // through the same arguments, so it is the reliable source; the rows are
+    // kept as a fallback for a payload that failed to parse.
+    const total = Math.max(pageTotal, facets.total);
 
     const products = toCatalogueProducts(rows, new Date().toISOString(), resolveImageUrl);
     const pages = pageCount(total, params.pageSize);

@@ -23,8 +23,11 @@ export function ListingToolbar({ listing }: { listing: CatalogueListing }) {
   // reset rather than carried over.
   const hidden = catalogueHiddenInputs(params, ['sort', 'pageSize', 'page']);
 
+  // A page past the end has no first row, so the range is not printable: the
+  // naive arithmetic produced "Showing 25–23 of 23".
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
+  const beyondEnd = total > 0 && first > last;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -33,6 +36,12 @@ export function ListingToolbar({ listing }: { listing: CatalogueListing }) {
           'Availability of the catalogue could not be confirmed.'
         ) : total === 0 ? (
           'No watches match these filters.'
+        ) : beyondEnd ? (
+          <>
+            Page <span className="text-foreground font-medium tabular-nums">{page}</span> is past
+            the end of <span className="text-foreground font-medium tabular-nums">{total}</span>{' '}
+            results.
+          </>
         ) : (
           <>
             Showing <span className="text-foreground font-medium tabular-nums">{first}</span>

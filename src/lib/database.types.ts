@@ -1046,6 +1046,11 @@ isOneToOne: false
               "is_available": boolean,"product_id": string
             }[]
                            },
+"published_collection_counts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "collection_id": string,"product_count": number
+            }[]
+                           },
 "published_product_counts":
 { Args: Record<PropertyKey, never>; Returns: {
               "brand_id": string,"product_count": number

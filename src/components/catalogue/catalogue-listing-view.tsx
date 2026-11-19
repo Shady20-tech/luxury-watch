@@ -1,4 +1,5 @@
 import { PackageOpen, SearchX } from 'lucide-react';
+import Link from 'next/link';
 
 import { CatalogueGrid } from '@/components/catalogue/catalogue-card';
 import { ActiveFilterChips, CatalogueFilters } from '@/components/catalogue/catalogue-filters';
@@ -6,7 +7,7 @@ import { ListingToolbar } from '@/components/catalogue/listing-toolbar';
 import { MobileFilterDrawer } from '@/components/catalogue/mobile-filter-drawer';
 import { Pagination } from '@/components/catalogue/pagination';
 import { EmptyState } from '@/components/ui/states';
-import { countActiveFilterGroups } from '@/lib/catalogue/params';
+import { buildCatalogueHref, countActiveFilterGroups } from '@/lib/catalogue/params';
 import type { CatalogueListing } from '@/lib/catalogue/types';
 
 /**
@@ -32,9 +33,24 @@ export function CatalogueListingView({
   listing,
   /** Rendered above the toolbar, for a scope's own heading. */
   header,
+  /** Whether the visitor is signed in, passed down to each card's save toggle. */
+  signedIn = false,
+  /** The pieces the visitor has already saved. */
+  savedProductIds = [],
+  /**
+   * The brand or collection this listing is scoped to, when it is scoped.
+   *
+   * Used only to name the scope in an empty state. "No watches are listed yet"
+   * on a brand page reads as a broken catalogue; "we hold no Richard Mille
+   * pieces at the moment" is the true statement.
+   */
+  scopeName,
 }: {
   listing: CatalogueListing;
   header?: React.ReactNode;
+  signedIn?: boolean;
+  savedProductIds?: string[];
+  scopeName?: string;
 }) {
   const { params, products, facets, page, pageCount } = listing;
   const activeGroups = countActiveFilterGroups(params);
@@ -66,13 +82,21 @@ export function CatalogueListingView({
 
           {products.length > 0 ? (
             <>
-              <CatalogueGrid products={products} />
+              <CatalogueGrid
+                products={products}
+                signedIn={signedIn}
+                savedProductIds={savedProductIds}
+              />
               <div className="pt-2">
                 <Pagination params={params} page={page} pageCount={pageCount} />
               </div>
             </>
           ) : (
-            <ListingEmptyState listing={listing} activeGroups={activeGroups} />
+            <ListingEmptyState
+              listing={listing}
+              activeGroups={activeGroups}
+              scopeName={scopeName}
+            />
           )}
         </div>
       </div>
@@ -90,11 +114,13 @@ export function CatalogueListingView({
 function ListingEmptyState({
   listing,
   activeGroups,
+  scopeName,
 }: {
   listing: CatalogueListing;
   activeGroups: number;
+  scopeName?: string;
 }) {
-  const { params, source, total } = listing;
+  const { params, source, total, pageCount: pages } = listing;
 
   if (source === 'unavailable') {
     return (
@@ -102,6 +128,42 @@ function ListingEmptyState({
         icon={PackageOpen}
         title="The catalogue is not available right now"
         description="We could not reach the product catalogue. This is a problem at our end, not with your search. Please try again shortly, or contact us and we will help directly."
+      />
+    );
+  }
+
+  // A page number past the end of a non-empty result set. The catalogue has
+  // pieces, the filters match some of them, and the visitor asked for page 9 of
+  // 1. Telling them "no watches are listed yet" is the wrong story and sends
+  // them looking for a bug in the shop.
+  if (total > 0 && params.page > pages) {
+    return (
+      <EmptyState
+        icon={SearchX}
+        title="There is nothing on this page"
+        description={`These results run to ${pages === 1 ? 'a single page' : `${pages} pages`}, and page ${params.page} is past the end. The filters are unchanged — go back to the first page to see the results.`}
+        action={
+          <Link
+            href={buildCatalogueHref(params, { page: 1 })}
+            className="border-line-300 bg-surface-0 hover:border-ink-900 inline-flex h-10 items-center rounded-sm border px-4 text-sm font-medium"
+          >
+            Go to page 1
+          </Link>
+        }
+      />
+    );
+  }
+
+  // A scoped listing with nothing in it is a different statement from an empty
+  // catalogue: the business does carry this brand, it simply holds none of it
+  // today. Naming the scope is the difference between "we have nothing to sell"
+  // and "we have none of these right now".
+  if (total === 0 && activeGroups === 0 && params.query === '' && scopeName) {
+    return (
+      <EmptyState
+        icon={PackageOpen}
+        title={`No ${scopeName} pieces in stock`}
+        description={`We hold no ${scopeName} pieces at the moment. Our stock changes often — contact us and we will let you know when one arrives, or source a specific reference for you.`}
       />
     );
   }

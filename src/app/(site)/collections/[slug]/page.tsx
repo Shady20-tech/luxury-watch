@@ -12,6 +12,7 @@ import {
 import { buildMetadata } from '@/lib/seo/metadata';
 import { fetchActiveCollectionSummary } from '@/server/repositories/catalogue-repository';
 import { getListing } from '@/server/services/catalogue-service';
+import { getViewerState } from '@/server/services/viewer-service';
 
 /**
  * A collection's listing.
@@ -47,7 +48,13 @@ export async function generateMetadata({
       collection.description ??
       `${collection.title} — a curated selection from our catalogue. Request pricing and availability on any piece.`,
     path: canonicalListingPath(listingParams),
-    robots: { index: isIndexableListing(listingParams), follow: true },
+    // A filtered permutation duplicates the clean collection page; an empty
+    // collection is thin content. Both are `noindex`, and the sitemap uses the
+    // same published count to leave the empty ones out.
+    robots: {
+      index: isIndexableListing(listingParams) && collection.productCount > 0,
+      follow: true,
+    },
   });
 }
 
@@ -63,14 +70,22 @@ export default async function Page({
 
   if (!collection) notFound();
 
-  const listing = await getListing(parseCatalogueParams(await searchParams, 'collection', slug));
+  const [listing, viewer] = await Promise.all([
+    getListing(parseCatalogueParams(await searchParams, 'collection', slug)),
+    getViewerState(),
+  ]);
 
   return (
     <>
       <PageHero eyebrow="Collection" title={collection.title} intro={collection.description} />
 
       <div className="container-page py-10 sm:py-14">
-        <CatalogueListingView listing={listing} />
+        <CatalogueListingView
+          listing={listing}
+          signedIn={viewer.signedIn}
+          savedProductIds={viewer.savedProductIds}
+          scopeName={collection.title}
+        />
       </div>
     </>
   );
