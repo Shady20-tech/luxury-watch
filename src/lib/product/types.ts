@@ -89,9 +89,22 @@ export type ProductDetail = {
   collections: { title: string; slug: string }[];
 };
 
+/**
+ * One policy summary shown beside a product.
+ *
+ * `excerpt` is the published page's own summary, never composed here. If the
+ * owner has not written one, the entry still links to the page and carries no
+ * prose — the alternative is a sentence we invented about warranties.
+ */
+export type ProductPolicy = {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+};
+
 /** The three states a product page can be in. */
 export type ProductDetailResult =
-  | { status: 'ok'; product: ProductDetail; related: CatalogueProduct[] }
+  | { status: 'ok'; product: ProductDetail; related: CatalogueProduct[]; policies: ProductPolicy[] }
   /** No such slug, or the slug exists but is not published. Both are a 404. */
   | { status: 'not_found' }
   /**

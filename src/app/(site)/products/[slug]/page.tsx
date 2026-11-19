@@ -8,6 +8,7 @@ import { PriceBlock } from '@/components/product/price-block';
 import { ProductGallery } from '@/components/product/product-gallery';
 import { PurchaseActions } from '@/components/product/purchase-actions';
 import { SpecTable } from '@/components/product/spec-table';
+import { TrustPanel } from '@/components/product/trust-panel';
 import { CatalogueGrid } from '@/components/catalogue/catalogue-card';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ErrorState } from '@/components/ui/states';
@@ -220,7 +221,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     );
   }
 
-  const { product, related } = result;
+  const { product, related, policies } = result;
   const breadcrumbs = productBreadcrumbs(product);
 
   // The purchase controls need three facts that belong to the visitor rather
@@ -326,6 +327,8 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <SpecTable specs={product.specs} className="mt-4" />
         </section>
       </div>
+
+      <TrustPanel policies={policies} className="mt-12" />
 
       <section id="enquire" aria-labelledby="enquire-heading" className="mt-16 scroll-mt-24">
         <SectionHeading

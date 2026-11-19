@@ -8,6 +8,78 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 6 completion — buying-assurance panel on the product page
+
+**Date:** 2026-11-19
+
+> The product detail route, gallery, JSON-LD, metadata and not-found behaviour
+> were already built and are unchanged. This pass closes one requirement the
+> first pass left out: the authenticity, warranty, shipping and returns
+> information the phase asks for, drawn from the site's real policy pages rather
+> than written into a component.
+
+#### Added
+
+**Product page (`src/components/product/trust-panel.tsx`,
+`src/server/repositories/product-repository.ts`,
+`src/lib/product/assemble.ts`)**
+
+- `TrustPanel` — a labelled region above the enquiry form summarising the
+  published policy pages: authenticity (`about`), warranty and returns
+  (`warranty`), shipping (`shipping`) and terms (`terms`). Each entry is the
+  page's own title and excerpt, and links to the full policy. Nothing is
+  composed in the component, so a warranty term cannot be stated that the owner
+  has not written, and editing the policy updates every product page without a
+  deploy.
+- `fetchPolicyPages(slugs)` — reads `pages` through the request-scoped client,
+  so RLS restricts the result to published rows and an unpublished policy is
+  simply absent.
+- `orderProductPolicies(rows)` and `PRODUCT_POLICY_ORDER` — a pure function and
+  a constant, so the reading order is fixed rather than whatever the query
+  returned, and the rule is testable without a database.
+
+**Accessibility audit (`scripts/a11y-audit.mjs`)**
+
+- The audit now covers a **real product page**, discovered at runtime by reading
+  a product link out of `/shop`. It previously audited no product route at all,
+  so the gallery, the specification table and the new panel had never been
+  measured for contrast or overflow at 320px. The slug is discovered rather than
+  hardcoded so a different seed cannot turn the check into a silent 404 of the
+  not-found template.
+
+#### Decisions
+
+- **The wording lives in the CMS, not the component.** A hardcoded "12-month
+  warranty, 14-day returns" would be a contractual claim made by source code
+  that nobody can edit, and it would silently contradict the warranty page the
+  moment the owner changed it. The panel is a summary of the owner's own pages.
+- **An unpublished policy is omitted, not placeholder-filled.** Rendering a card
+  that links to a 404, or inventing the missing term, are both the dishonesty
+  this phase forbids. The gap is recorded as G67 instead.
+- **A policy read failure degrades to no panel.** The read is caught inside the
+  parallel batch, so a fault in `pages` cannot turn a product page into the
+  "catalogue unavailable" state when the product itself loaded fine.
+
+#### Verified
+
+- `npm run verify` passes: payment guard, format, lint, typecheck, 677 tests
+  (41 files) and a production build.
+- Rendered against a real database through `npm run preview` (PostgREST behind
+  the `/rest/v1` proxy): the panel shows the four real policy titles and
+  excerpts, and each links to its `/pages/<slug>` route.
+- Unpublishing all four policies: the product page still returns 200 and the
+  panel disappears, with no broken links and no placeholder text.
+- JSON-LD for a price-on-request piece emits no `offers` node, so the structured
+  data makes no price claim the page does not make.
+- `/products/<unknown>` and `/products/<draft>` both return 404 and are
+  indistinguishable, so the route cannot be used to discover a draft.
+- The audit's new product-page coverage was shown **not to be vacuous**: setting
+  the panel excerpt to a genuinely low-contrast colour fails it at all four
+  viewports (`[serious] color-contrast`), and restoring the token makes it pass
+  again. `ink-400` on white measures 4.54:1 and passes, so the passing run is a
+  real pass, not a blind spot — the 4.17:1 figure in the project's text-colour
+  rule is measured on `surface-100`.
+
 ### Phase 5 completion — search, collections index, taxonomy sitemap
 
 **Date:** 2026-11-19

@@ -91,6 +91,54 @@ disabled controls and the lower contrast is the signal.
 `text-ink-400`, so the class cannot be reintroduced by copy-paste. If that test
 fails, change the class rather than the test.
 
+## Product detail page
+
+`src/app/(site)/products/[slug]/page.tsx` is `force-dynamic` and its
+`generateStaticParams` returns `[]`. Both are load-bearing. The page reads
+through the cookie-aware server client, so Next.js would otherwise classify the
+route as SSG and fail **at request time in a production build** with "Page
+changed from static to dynamic at runtime". `next build` does not fail, and
+`next dev` does not reproduce it. The `●` marker in the build output is not a
+bug here: with no generated params there are no static instances to serve.
+
+Three states, and the distinction between the last two is deliberate:
+
+- found → renders from the database;
+- `not_found` → `notFound()`. Unknown, draft and archived slugs are
+  indistinguishable, so the route cannot be used to probe for drafts;
+- `unavailable` → a **200** with a clear message. A database outage is not a
+  missing watch, and saying it was would invite a crawler to drop a valid URL.
+
+**The buying-assurance panel reads the owner's policy pages, and that is the
+point.** `TrustPanel` renders each entry from its own published `pages` row —
+title and excerpt — and links to the full page. Do not replace it with
+hand-written warranty or returns copy: that would be a contractual claim made by
+source code, and it would contradict the warranty page the first time the owner
+edited it. An unpublished policy is omitted rather than placeholdered (G67).
+The reading order is `PRODUCT_POLICY_ORDER` in `lib/product/assemble.ts`, and a
+policy read failure degrades to no panel instead of losing the product.
+
+`Product` JSON-LD emits `offers` only when a real price exists. A
+price-on-request piece makes no price claim, which is why the visible price and
+the structured data come from the single `priceMinor === null` decision in
+`toProductDetail`.
+
+### The audit now covers a product page, and it is discovered, not hardcoded
+
+`scripts/a11y-audit.mjs` reads a product link out of `/shop` at runtime. A
+hardcoded slug would 404 against any other seed and the audit would then pass
+while measuring the not-found template — the vacuous-pass failure this file
+keeps warning about. The sitemap is not used as the source yet because it does
+not list products (G34, Phase 12).
+
+Prove the coverage is real before trusting it. Setting the panel's excerpt to a
+genuinely low-contrast colour fails the audit at all four viewports; that
+experiment was run, so the pass is known not to be vacuous. Note that
+`ink-400` on **white** measures 4.54:1 and passes, while the 4.17:1 figure in
+the text-colour rule above is on `surface-100` — so a passing audit with
+`text-ink-400` somewhere is not automatically a false negative. The design-token
+test still forbids it as a text token; keep it that way.
+
 ## The chrome and its cache
 
 `src/app/(site)/layout.tsx` sets `revalidate = 300`. Public pages are prerendered

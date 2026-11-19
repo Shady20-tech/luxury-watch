@@ -93,6 +93,34 @@ const PAGES = [
   '/this-page-does-not-exist',
 ];
 
+/**
+ * A real product page, discovered at runtime.
+ *
+ * A product slug is long and derived from the row, so hardcoding one would tie
+ * this script to a particular seed and silently 404 on any other database — the
+ * audit would then pass while measuring the not-found template.
+ *
+ * The link is taken from `/shop`, which is the crawlable entry point that exists
+ * today. The sitemap would be the more natural source, but it does not list
+ * product URLs yet: that is G34, deferred to Phase 12. Reading `/shop` keeps the
+ * audit honest in the meantime and will still work once the sitemap catches up.
+ *
+ * This page matters more than most on the list: the detail template carries the
+ * gallery, the specification table and the buying-assurance panel, and it is the
+ * densest single-column layout on the site at 320px. It was unaudited until now.
+ */
+async function discoverProductPath() {
+  try {
+    const response = await fetch(`${BASE}/shop`);
+    if (!response.ok) return null;
+    const html = await response.text();
+    const match = html.match(/href="(\/products\/[a-z0-9-]+)"/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Widths worth checking. 320px is the narrowest phone still in use. */
 const VIEWPORTS = [
   { name: 'mobile-320', width: 320, height: 720 },
@@ -222,6 +250,19 @@ async function auditPage(browser, path, viewport, { ageVerified = true } = {}) {
 const executablePath = process.env.CHROMIUM_PATH || undefined;
 const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const allProblems = [];
+
+// Resolve the runtime-discovered routes before the pass, so the count in the
+// summary reflects what was actually audited.
+const productPath = await discoverProductPath();
+if (productPath) {
+  PAGES.push(productPath);
+  console.log(`  discovered product page: ${productPath}`);
+} else {
+  // Not fatal: a database-less configuration has no published product to audit,
+  // and the rest of the list is still meaningful. Saying so is better than
+  // silently auditing one page fewer than the summary claims.
+  console.log('  no product page in the sitemap; skipping the product detail template');
+}
 
 try {
   for (const viewport of VIEWPORTS) {

@@ -7,9 +7,14 @@ import { logger } from '@/lib/logger';
 import { resolveImageUrl } from '@/lib/media';
 import { toCatalogueProducts } from '@/lib/catalogue/assemble';
 import type { CatalogueProduct } from '@/lib/catalogue/types';
-import { toProductDetail } from '@/lib/product/assemble';
+import {
+  orderProductPolicies,
+  PRODUCT_POLICY_ORDER,
+  toProductDetail,
+} from '@/lib/product/assemble';
 import type { ProductDetailResult } from '@/lib/product/types';
 import {
+  fetchPolicyPages,
   fetchProductAvailability,
   fetchProductCollections,
   fetchProductImages,
@@ -51,12 +56,15 @@ async function loadProduct(slug: string): Promise<ProductDetailResult> {
       return { status: 'not_found' };
     }
 
-    const [images, specs, collections, available, relatedRows] = await Promise.all([
+    const [images, specs, collections, available, relatedRows, policyRows] = await Promise.all([
       fetchProductImages(row.id),
       fetchProductSpecs(row.id),
       fetchProductCollections(row.id),
       fetchProductAvailability(row.id),
       fetchSimilarProducts(row.id, RELATED_LIMIT),
+      // A policy read failure must not lose the product, so it degrades to "no
+      // policies shown" rather than joining the outer catch.
+      fetchPolicyPages(PRODUCT_POLICY_ORDER).catch(() => []),
     ]);
 
     const product = toProductDetail({
@@ -74,7 +82,7 @@ async function loadProduct(slug: string): Promise<ProductDetailResult> {
       resolveImageUrl,
     );
 
-    return { status: 'ok', product, related };
+    return { status: 'ok', product, related, policies: orderProductPolicies(policyRows) };
   } catch (error) {
     logger.warn('product.load_failed', {
       // The message only. A Supabase error can carry the query and row data.

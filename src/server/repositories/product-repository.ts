@@ -172,6 +172,34 @@ export async function fetchProductAvailability(productId: string): Promise<boole
 }
 
 /**
+ * The published policy pages a product page summarises.
+ *
+ * Reads `pages`, which RLS already restricts to `published` rows, so an
+ * unpublished policy simply is not returned and the product page omits that
+ * card. The slugs are passed in rather than hardcoded here so the caller's
+ * reading order stays the single source of which policies are shown.
+ *
+ * Only `slug`, `title` and `excerpt` are selected. The product page links to the
+ * full policy rather than reproducing it: one copy of a warranty's wording, on
+ * the page the owner edits, is the only way the two cannot disagree.
+ */
+export async function fetchPolicyPages(
+  slugs: readonly string[],
+): Promise<{ slug: string; title: string; excerpt: string | null }[]> {
+  if (slugs.length === 0) return [];
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('pages')
+    .select('slug, title, excerpt')
+    .in('slug', slugs as string[]);
+
+  if (error) throw error;
+  return (data ?? []) as { slug: string; title: string; excerpt: string | null }[];
+}
+
+/**
  * Related published products for a product, ranked by the database.
  *
  * The rows are shaped exactly like `catalogue_search` rows — `catalogue_similar`

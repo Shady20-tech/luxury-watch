@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  orderProductPolicies,
+  PRODUCT_POLICY_ORDER,
   productBreadcrumbs,
   toProductDetail,
   type AssembleProductInput,
@@ -285,5 +287,56 @@ describe('text fields', () => {
     });
 
     expect(product.collections).toEqual([{ title: 'Real', slug: 'real' }]);
+  });
+});
+
+/**
+ * Policy summaries.
+ *
+ * The phase requires authenticity, warranty, shipping and returns information
+ * and forbids invented promises, so the rules that matter are: the reading order
+ * is fixed, the wording is the owner's, and a policy that is not published is
+ * absent rather than fabricated.
+ */
+describe('policy summaries', () => {
+  it('orders the policies in the fixed reading order, whatever the query returned', () => {
+    const policies = orderProductPolicies([
+      { slug: 'terms', title: 'Terms of Use', excerpt: 'Terms.' },
+      { slug: 'about', title: 'About Us', excerpt: 'Who we are.' },
+      { slug: 'shipping', title: 'Shipping', excerpt: 'How we deliver.' },
+      { slug: 'warranty', title: 'Returns & Warranty', excerpt: 'What we cover.' },
+    ]);
+
+    expect(policies.map((policy) => policy.slug)).toEqual([...PRODUCT_POLICY_ORDER]);
+  });
+
+  it('omits a policy the owner has not published rather than inventing one', () => {
+    const policies = orderProductPolicies([{ slug: 'shipping', title: 'Shipping', excerpt: null }]);
+
+    expect(policies).toHaveLength(1);
+    expect(policies[0]?.slug).toBe('shipping');
+  });
+
+  it('drops a slug that is not one of the product-page policies', () => {
+    const policies = orderProductPolicies([
+      { slug: 'privacy', title: 'Privacy Policy', excerpt: 'Data.' },
+      { slug: 'about', title: 'About Us', excerpt: null },
+    ]);
+
+    expect(policies.map((policy) => policy.slug)).toEqual(['about']);
+  });
+
+  it('uses the page title as the label, so renaming it in the admin renames it here', () => {
+    const policies = orderProductPolicies([
+      { slug: 'warranty', title: 'Our Guarantee', excerpt: null },
+    ]);
+
+    expect(policies[0]?.title).toBe('Our Guarantee');
+  });
+
+  it('treats a blank excerpt as absent, so no empty paragraph is rendered', () => {
+    const policies = orderProductPolicies([{ slug: 'terms', title: 'Terms', excerpt: '   ' }]);
+
+    expect(policies[0]?.excerpt).toBeNull();
   });
 });

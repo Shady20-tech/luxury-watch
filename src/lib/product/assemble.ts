@@ -26,7 +26,7 @@
 
 import { formatPrice } from '@/lib/homepage/assemble';
 import { CONDITION_LABELS, type ConditionValue } from '@/lib/catalogue/params';
-import type { ProductDetail, ProductImage, SpecRow } from './types';
+import type { ProductDetail, ProductImage, ProductPolicy, SpecRow } from './types';
 
 /**
  * A `products` row as the detail page reads it.
@@ -302,6 +302,55 @@ export function toProductDetail(input: AssembleProductInput): ProductDetail {
     updatedAt: row.updated_at,
     collections: input.collections.filter((collection) => Boolean(collection.slug)),
   };
+}
+
+/**
+ * The policy summaries a product page shows, in a fixed reading order.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THE ORDER IS A CONSTANT AND NOT THE DATABASE'S
+ * -----------------------------------------------------------------------------
+ *
+ * The four policies answer the questions a buyer asks in a stable sequence —
+ * is it genuine, what if it breaks, how does it arrive, what if I change my
+ * mind — and that sequence should not shuffle because a page row was edited.
+ * So the order lives here, and the query supplies whatever exists.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY A MISSING POLICY IS OMITTED RATHER THAN PLACEHOLDERED
+ * -----------------------------------------------------------------------------
+ *
+ * Each entry is a published `pages` row. An unpublished or absent one means the
+ * owner has not written that policy yet, and rendering a card that links to a
+ * 404 — or worse, inventing a warranty period — would be the exact dishonesty
+ * this phase forbids. Omitting it says only that we do not document it here.
+ */
+export const PRODUCT_POLICY_ORDER = ['about', 'warranty', 'shipping', 'terms'] as const;
+
+/**
+ * Arrange policy rows into the fixed reading order, dropping anything unknown.
+ *
+ * The labels come from the page titles, so renaming a policy in the admin
+ * renames it on every product page without a deploy. `excerpt` is passed through
+ * untouched: an empty one becomes `null` so the component can omit the sentence
+ * rather than render an empty paragraph.
+ */
+export function orderProductPolicies(
+  rows: { slug: string; title: string; excerpt: string | null }[],
+): ProductPolicy[] {
+  const bySlug = new Map(rows.map((row) => [row.slug, row]));
+
+  return PRODUCT_POLICY_ORDER.flatMap((slug) => {
+    const row = bySlug.get(slug);
+    if (!row) return [];
+    return [
+      {
+        slug: row.slug,
+        title: row.title,
+        excerpt: row.excerpt?.trim() || null,
+      },
+    ];
+  });
 }
 
 /**
