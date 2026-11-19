@@ -313,6 +313,88 @@ if (modelPath) {
   console.log('  no model page linked from /brands/rolex; skipping the model template');
 }
 
+/**
+ * Account routes that must be unreachable without a session.
+ *
+ * These cannot go in `PAGES`. The account layout redirects a signed-out visitor
+ * to `/login`, and axe audits whatever document it is handed — so adding them to
+ * the page list would quietly audit the sign-in page four more times and report
+ * a clean pass for routes it never rendered. That is the same failure the
+ * `response.status() >= 400` check above guards against, one step subtler.
+ *
+ * They are checked here instead: each must land on `/login` with a `next`
+ * parameter naming the route that was asked for. That proves the guard runs for
+ * every route beneath the layout, including ones added later, which is the whole
+ * reason the guard lives in the layout.
+ *
+ * The routes are listed rather than discovered because a new account page is
+ * exactly what this check exists to catch — a discovered list would grow to
+ * include it and prove nothing about whether anyone remembered to guard it.
+ */
+const GUARDED_PATHS = [
+  '/account',
+  '/account/orders',
+  '/account/wishlist',
+  '/account/profile',
+  '/account/addresses',
+  '/account/security',
+  '/account/settings',
+  '/account/messages',
+  '/account/sell-trade',
+  '/account/sourcing',
+  '/account/repairs',
+  '/account/appointments',
+];
+
+/**
+ * Assert that every account route redirects a signed-out visitor to sign in.
+ *
+ * Uses the redirect *chain* rather than the response status: the layout's
+ * `redirect()` produces a 307 to `/login?next=…`, and following it is what
+ * proves the destination. A route that rendered its own content for a signed-out
+ * visitor would end on its own URL and fail here.
+ */
+async function auditGuards(browser) {
+  const problems = [];
+  const context = await browser.newContext({ viewport: VIEWPORTS[0] });
+  const page = await context.newPage();
+
+  try {
+    for (const path of GUARDED_PATHS) {
+      await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle', timeout: 30_000 });
+      const landed = new URL(page.url());
+      const next = landed.searchParams.get('next');
+
+      if (landed.pathname !== '/login') {
+        problems.push({
+          kind: 'guard',
+          path,
+          detail: `expected a redirect to /login, landed on ${landed.pathname}`,
+        });
+        continue;
+      }
+
+      // The destination must survive, or a customer who follows a link to their
+      // orders is dropped on the overview instead. The layout only trusts a path
+      // under `/account`, so this also catches a header that failed to arrive.
+      if (path !== '/account' && next !== path) {
+        problems.push({
+          kind: 'guard',
+          path,
+          detail: `redirected to /login but lost the destination (next=${next ?? 'null'})`,
+        });
+        continue;
+      }
+
+      console.log(`  [ok  ] guard      ${path}`);
+    }
+  } finally {
+    await context.close();
+  }
+
+  return problems;
+}
+
 try {
   for (const viewport of VIEWPORTS) {
     for (const path of PAGES) {
@@ -322,6 +404,8 @@ try {
       allProblems.push(...problems);
     }
   }
+
+  allProblems.push(...(await auditGuards(browser)));
 
   // The age gate is a modal, so it hides the page behind it and cannot be
   // audited in the pass above. It gets its own pass, with the stored answer
@@ -353,6 +437,10 @@ for (const problem of allProblems) {
     );
     for (const node of problem.nodes) console.error(`      ${node}`);
   } else if (problem.kind === 'missing-gate') {
+    console.error(`  ${problem.viewport} ${problem.path}: ${problem.detail}`);
+  } else if (problem.kind === 'guard') {
+    console.error(`  guard ${problem.path}: ${problem.detail}`);
+  } else if (problem.kind === 'http-error') {
     console.error(`  ${problem.viewport} ${problem.path}: ${problem.detail}`);
   } else {
     console.error(

@@ -228,6 +228,132 @@ export type AccountCounts = {
 };
 
 /**
+ * A message thread the customer can see.
+ *
+ * This is built from `inquiries` + `inquiry_replies`, **not** from the
+ * `messages` table. `messages` is internal staff messaging — its own comment in
+ * 0005 reads "Never readable by a customer" — so a customer-facing inbox must
+ * never be pointed at it. `inquiry_replies.is_internal` is the column that
+ * separates an answer the customer was sent from a note the team wrote about
+ * them, and it is filtered here as well as by RLS.
+ */
+export type AccountThreadReply = {
+  id: string;
+  body: string;
+  fromStaff: boolean;
+  createdAt: string;
+};
+
+export type AccountThread = {
+  id: string;
+  reference: string | null;
+  type: string;
+  status: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  replies: AccountThreadReply[];
+};
+
+/**
+ * The customer's own enquiry threads, newest first.
+ *
+ * Two queries rather than a join: `inquiries` is the thread list, and the
+ * replies are fetched for exactly those ids. A nested select would work, but the
+ * `is_internal` filter has to be applied to the nested collection, and stating
+ * it as a separate query makes the filter something a reader can see rather than
+ * something to trust.
+ *
+ * `is_internal` is filtered in the query *and* by policy
+ * (`inquiry_replies_select_own`). If this filter were ever dropped, the policy
+ * still withholds the note.
+ */
+export async function fetchAccountThreads(userId: string): Promise<AccountThread[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: inquiries, error } = await supabase
+    .from('inquiries')
+    .select('id, type, status, message, reference, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  const rows = inquiries ?? [];
+  if (rows.length === 0) return [];
+
+  const { data: replies, error: repliesError } = await supabase
+    .from('inquiry_replies')
+    .select('id, inquiry_id, author_id, body, is_internal, created_at')
+    .in(
+      'inquiry_id',
+      rows.map((row) => row.id),
+    )
+    .eq('is_internal', false)
+    .order('created_at');
+
+  if (repliesError) throw repliesError;
+
+  const repliesByInquiry = new Map<string, AccountThreadReply[]>();
+  for (const reply of replies ?? []) {
+    const list = repliesByInquiry.get(reply.inquiry_id) ?? [];
+    list.push({
+      id: reply.id,
+      body: reply.body,
+      // A reply the customer wrote is theirs; anything else on their thread came
+      // from the team. `author_id` can be null once an author is deleted, and a
+      // deleted author is treated as staff because the alternative is labelling
+      // an unidentifiable message as the customer's own words.
+      fromStaff: reply.author_id !== userId,
+      createdAt: reply.created_at,
+    });
+    repliesByInquiry.set(reply.inquiry_id, list);
+  }
+
+  return rows.map((row) => ({
+    id: row.id,
+    reference: row.reference,
+    type: row.type,
+    status: row.status,
+    subject: threadSubject(row.type),
+    message: row.message,
+    createdAt: row.created_at,
+    replies: repliesByInquiry.get(row.id) ?? [],
+  }));
+}
+
+/** A human label for an inquiry type, used as a thread heading. */
+function threadSubject(type: string): string {
+  switch (type) {
+    case 'sell_trade':
+      return 'Sell or trade enquiry';
+    case 'sourcing':
+      return 'Sourcing request';
+    case 'repair':
+      return 'Repair enquiry';
+    case 'product_question':
+      return 'Product question';
+    default:
+      return 'General enquiry';
+  }
+}
+
+/** How many threads the customer has, for the overview tile. */
+export async function fetchThreadCount(userId: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+
+  const { count, error } = await supabase
+    .from('inquiries')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  // A failed count is reported as zero rather than breaking the overview, the
+  // same rule `fetchAccountCounts` applies.
+  if (error) return 0;
+  return count ?? 0;
+}
+
+/**
  * The counts shown on the account overview.
  *
  * `head: true` asks Postgres for the count without the rows, so a customer with

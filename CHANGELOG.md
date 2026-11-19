@@ -8,6 +8,71 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 9 completed — the account portal's request, message and settings pages
+
+**Date:** 2026-11-19
+
+> Phase 9 shipped authentication and the read-only half of the account area:
+> overview, orders, profile, addresses, security. The service flows from Phase
+> 11 — sell/trade, sourcing, repairs, appointments — were submitted and then
+> invisible: a customer who sent a watch for repair had no page that told them
+> where it was. The overview also claimed, unconditionally, that the customer's
+> email was confirmed, which was false for anyone who had just registered. This
+> closes both, and makes the guard on the account area something the browser
+> audit checks rather than something the code is trusted to do.
+
+#### Added
+
+- **Four service-request pages** — `/account/sell-trade`, `/account/sourcing`,
+  `/account/repairs`, `/account/appointments`. Each filters
+  `fetchAccountServiceRequests` to its own kind and renders through the shared
+  `ServiceRequestList`, so a layout fix lands once rather than four times.
+- **`/account/messages`** — the customer's own enquiry threads, read from
+  `inquiries` and `inquiry_replies`. Not from `public.messages`: that table is
+  internal staff messaging, and `10_public_boundary.sql` asserts a customer
+  reads none of it.
+- **`/account/settings`** — states the real `emailConfirmed` value and offers a
+  resend-confirmation form when it is false.
+- **`src/lib/services/presentation.ts`** — one mapping from each workflow state
+  to a label and a tone. The three status enums share a vocabulary of intent, and
+  an unrecognised state degrades to neutral rather than throwing.
+- **SQL suite `24_account_portal_reads.sql`** — 21 assertions proving
+  cross-customer isolation for a signed-in caller on all six tables the pages
+  read, that an internal note is withheld even on the customer's own thread, and
+  that `staff_note` and `assigned_to` stay denied on the customer's own
+  appointment. Suites 20 and 50 proved the anonymous and workflow cases; nothing
+  proved the one these pages depend on.
+- **`tests/account-portal.test.tsx`** — 11 tests over the real components: every
+  nav destination is linked, `aria-current` marks exactly the current page, the
+  status badge carries a text label rather than colour alone, and an unknown
+  workflow state does not break the page.
+
+#### Fixed
+
+- **The account overview claimed the email was confirmed whether or not it was.**
+  It now reads `getAuthUser().emailConfirmed`, which is derived from
+  `email_confirmed_at ?? confirmed_at`. A customer who had not clicked the link
+  was told they had.
+- **The account nav had a one-link "Messages" group.** Messages are the
+  conversations about the requests above them, so they belong in that group.
+- **`scripts/a11y-audit.mjs` crashed instead of reporting an HTTP error.** The
+  `http-error` problem kind fell through to the horizontal-overflow branch, which
+  reads `problem.worst.selector` — a field only an overflow problem has. A 404
+  during an audit now reports the page and the status.
+
+#### Changed
+
+- **The browser audit now checks the account guard.** A `GUARDED_PATHS` pass
+  requests every `/account/*` route and asserts it lands on `/login` with a
+  `next` naming the route. These routes cannot go in the page list: the audit
+  would follow the redirect and report a clean pass for the sign-in page. The
+  check is proven non-vacuous — pointing it at `/shop` fails with "expected a
+  redirect to /login, landed on /shop".
+- **`G65` closed.** `./scripts/db-reset.sh && ./scripts/db-verify.sh` now passes
+  against Postgres 17, including migration `0014` and the column-grant suites
+  that had only ever been read. `G58` is narrowed: the guard is audited, the
+  page content still is not.
+
 ### Phase 5 gap closed — model pages, the third taxonomy level
 
 **Date:** 2026-11-19

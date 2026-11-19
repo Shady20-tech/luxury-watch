@@ -1,14 +1,24 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Package, ShieldCheck } from 'lucide-react';
+import { Package, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/states';
 import { formatMoney } from '@/lib/orders/checkout-options';
 import { orderStatusLabel, orderStatusTone } from '@/lib/orders/presentation';
+import {
+  SERVICE_KIND_COPY,
+  serviceStatusLabel,
+  serviceStatusTone,
+} from '@/lib/services/presentation';
 import { buildMetadata } from '@/lib/seo/metadata';
-import { fetchAccountCounts, fetchAccountOrders } from '@/server/repositories/account-repository';
+import {
+  fetchAccountCounts,
+  fetchAccountOrders,
+  fetchThreadCount,
+} from '@/server/repositories/account-repository';
+import { fetchAccountServiceRequests } from '@/server/repositories/service-repository';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
 
 export const metadata: Metadata = buildMetadata({
@@ -31,10 +41,19 @@ export default async function AccountOverviewPage() {
   const access = await getAccountAccess();
   if (!access) redirect(loginPathFor('/account'));
 
-  const [counts, orders] = await Promise.all([
+  const [counts, orders, threadCount, serviceRequests] = await Promise.all([
     fetchAccountCounts(access.user.id),
     fetchAccountOrders(access.user.id),
+    fetchThreadCount(access.user.id),
+    fetchAccountServiceRequests(access.user.id),
   ]);
+
+  // Only the flows the customer has actually used are summarised. Listing four
+  // zeroes would be a dashboard of nothing, and the pages behind them carry
+  // their own honest empty states.
+  const openRequests = serviceRequests.filter(
+    (request) => !['completed', 'declined', 'cancelled', 'closed'].includes(request.status),
+  );
 
   const recent = orders.slice(0, 3);
 
@@ -105,7 +124,61 @@ export default async function AccountOverviewPage() {
           <SummaryTile label="Saved pieces" value={counts.wishlist} href="/account/wishlist" />
           <SummaryTile label="Order requests" value={counts.orders} href="/account/orders" />
           <SummaryTile label="Saved addresses" value={counts.addresses} href="/account/addresses" />
+          <SummaryTile label="Messages" value={threadCount} href="/account/messages" />
         </dl>
+      </section>
+
+      <section aria-labelledby="services-heading">
+        <h2 id="services-heading" className="text-xl">
+          Service requests
+        </h2>
+
+        {openRequests.length === 0 ? (
+          <p className="text-foreground-muted mt-4 max-w-prose text-sm">
+            Nothing in progress. You can ask us to{' '}
+            <Link
+              href="/services/sell-trade"
+              className="text-accent-text underline-offset-4 hover:underline"
+            >
+              buy a piece
+            </Link>
+            ,{' '}
+            <Link
+              href="/services/sourcing"
+              className="text-accent-text underline-offset-4 hover:underline"
+            >
+              source one
+            </Link>{' '}
+            or{' '}
+            <Link
+              href="/services/repair-restoration"
+              className="text-accent-text underline-offset-4 hover:underline"
+            >
+              service one
+            </Link>{' '}
+            at any time.
+          </p>
+        ) : (
+          <ul className="border-line-300 divide-line-200 mt-5 divide-y rounded-sm border">
+            {openRequests.slice(0, 3).map((request) => (
+              <li
+                key={request.id}
+                className="flex flex-wrap items-center justify-between gap-3 p-4"
+              >
+                <div className="min-w-0">
+                  <p className="text-foreground font-medium break-words">{request.title}</p>
+                  <p className="text-foreground-muted mt-1 text-sm">
+                    {serviceKindLabel(request.kind)}
+                    {request.reference ? ` · ${request.reference}` : null}
+                  </p>
+                </div>
+                <Badge variant={badgeVariant(serviceStatusTone(request.status))}>
+                  {serviceStatusLabel(request.status)}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section aria-labelledby="security-heading">
@@ -113,16 +186,26 @@ export default async function AccountOverviewPage() {
           Account security
         </h2>
         <div className="border-line-300 mt-5 flex items-start gap-3 rounded-sm border p-5">
-          <ShieldCheck aria-hidden="true" className="text-success-600 mt-0.5 h-5 w-5 shrink-0" />
+          {access.user.emailConfirmed ? (
+            <ShieldCheck aria-hidden="true" className="text-success-600 mt-0.5 h-5 w-5 shrink-0" />
+          ) : (
+            <ShieldAlert aria-hidden="true" className="text-gold-700 mt-0.5 h-5 w-5 shrink-0" />
+          )}
           <div className="text-sm">
-            <p className="font-medium">Your email address is confirmed</p>
+            <p className="font-medium">
+              {access.user.emailConfirmed
+                ? 'Your email address is confirmed'
+                : 'Your email address is not confirmed'}
+            </p>
             <p className="text-foreground-muted mt-1">
-              Manage your password and review your details in{' '}
+              {access.user.emailConfirmed
+                ? 'Manage your password and review your details in '
+                : 'Confirm it to make full use of your account. Resend the link in '}
               <Link
-                href="/account/security"
+                href="/account/settings"
                 className="text-accent-text underline-offset-4 hover:underline"
               >
-                Security
+                Settings
               </Link>
               .
             </p>
@@ -155,6 +238,10 @@ function SummaryTile({ label, value, href }: { label: string; value: number; hre
       <dd className="mt-2 text-2xl font-semibold">{value}</dd>
     </div>
   );
+}
+
+function serviceKindLabel(kind: keyof typeof SERVICE_KIND_COPY): string {
+  return SERVICE_KIND_COPY[kind].title;
 }
 
 function badgeVariant(tone: 'neutral' | 'positive' | 'negative' | 'pending') {

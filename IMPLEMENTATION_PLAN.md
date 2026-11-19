@@ -1,6 +1,6 @@
 # Implementation Plan — Luxury Watch E-commerce Platform
 
-Last updated: 2026-10-18 (end of Phase 9; authentication and the customer account area)
+Last updated: 2026-11-19 (Phase 9 completed — service requests, messages and settings)
 Reference: https://carbonwatchcompany.com/ · Deployment: Vercel · Data: Supabase · Email: Resend
 Payments: **manual/offline selection only — no gateway, no online processing**
 
@@ -652,21 +652,76 @@ the real production output — not `next dev`, which does not reproduce the cook
 - **No `/admin` route exists yet**, so the "a `customer` cannot reach any `/admin` route" criterion
   cannot be met until Phase 10. The role helpers and `authorization-service.ts` it will use are in
   place and fail closed.
-- **`scripts/db-verify.sh` was not run for this phase.** It needs a Postgres 17
-  instance, and the environment this phase was built in has neither a local server
-  nor a Docker daemon the build user can reach, so migration `0014` and the three
-  amended SQL suites (`10_public_boundary`, `40_order_and_inventory`,
-  `41_order_request_guest_access`) and the new `21_customer_column_privacy` are
-  **unexecuted**. They were reviewed against the code instead: every column the
-  repositories select on a restricted table is in that table's grant list, no
-  repository uses `select('*')` on one, the guest item read goes through the
-  `SECURITY DEFINER` RPC rather than the table, and `assert_denied` is defined
-  before its first use. That is a reading, not a proof, and it is the first phase
-  in this project where the database suites have not been run. Run
-  `./scripts/db-reset.sh && ./scripts/db-verify.sh` before trusting `0014`.
-- **Account pages are not covered by the browser audit.** They redirect for a signed-out visitor, so
-  auditing them needs a seeded session; their chrome is audited through the public pages, but their
-  own content is not.
+
+---
+
+### Phase 9 continued — service requests, messages and settings
+
+The read-only account area above left the four service flows from Phase 11 with no page a customer
+could see. A sell/trade offer, a sourcing search, a repair and an appointment were submitted, stored
+and worked on by staff, and the customer had no way to check any of them. This adds the pages and
+proves the isolation they rely on.
+
+**What was built**
+
+- **Four request pages** — `/account/sell-trade`, `/account/sourcing`, `/account/repairs`,
+  `/account/appointments`. Each calls `fetchAccountServiceRequests(userId)`, which queries the four
+  tables in parallel under the request-scoped anon client and filters on the session's user id, then
+  keeps only its own kind. The rendering is shared through `ServiceRequestList`, so the badge, the
+  empty state and the date formatting exist once.
+- **`/account/messages`** — the customer's own threads from `inquiries` and `inquiry_replies`. The
+  repository filters `is_internal` out and never touches `public.messages`, which is staff-to-staff
+  messaging. `10_public_boundary.sql` already asserted a customer reads none of it; the new suite
+  asserts it again for a *signed-in* caller, which is the case the page could actually get wrong.
+- **`/account/settings`** — the real confirmation state plus a resend form. This is the page that
+  exposed the overview's hardcoded "email confirmed" claim.
+- **`src/lib/services/presentation.ts`** — `serviceStatusLabel` and `serviceStatusTone`. The three
+  workflow enums (`sell_trade_status`, `sourcing_status`, `repair_status`) share a vocabulary of
+  intent — submitted, being worked, waiting on the customer, finished, stopped — and mapping each
+  state onto that keeps the four pages consistent. An unknown state reads as neutral, so a state
+  added to an enum later shows its raw name instead of breaking a page.
+
+**Verification**
+
+**Status: implemented and verified against a real Postgres 17 and a real production build.**
+
+- **`./scripts/db-reset.sh && ./scripts/db-verify.sh` passes**, all eighteen migrations and every SQL
+  suite. This closes `G65`: migration `0014` and the column-grant suites had only ever been read,
+  never executed, because the earlier environment had neither a local server nor Docker. The reading
+  had found no mismatch and the execution confirmed it — but the point of `G65` was that a reading
+  could not, and only running it settles the question.
+- **The new suite `24_account_portal_reads.sql` makes 21 assertions**, all passing. It signs in as
+  two different customers and proves each sees only their own rows on all six tables the pages read;
+  that a customer cannot see the internal note on *their own* thread; that `staff_note` and
+  `assigned_to` are refused with `42501` even on their own appointment; and that the status timeline
+  withholds rows where `is_customer_visible` is false. `is_staff()` was confirmed false for the test
+  customer, so the internal-note assertions are not passing vacuously.
+- **`npm run verify` is green at 731 tests.** `npm run build` emits all six new routes as `ƒ
+  (Dynamic)` — correct, because the account layout reads cookies; an `●` here would be the Phase 6
+  static-to-dynamic 500.
+- **`npm run audit:a11y` passes against the preview** — 32 pages × 4 viewports, no critical or serious
+  axe violations and no horizontal overflow, plus the new guard pass. The guard pass is proven
+  non-vacuous by pointing it at `/shop`, which fails as it should.
+
+**Defects found and fixed**
+
+- **The overview claimed the email was confirmed unconditionally.** `getAuthUser()` already computed
+  `emailConfirmed` correctly; the page ignored it and rendered a fixed string. A customer who had not
+  clicked the confirmation link was told they had.
+- **The audit script crashed on an HTTP error instead of reporting it.** `http-error` problems fell
+  through to the overflow branch and dereferenced `problem.worst`, which only an overflow problem
+  carries. A 404 now reports the page and the status.
+- **The first version of the isolation suite asserted the wrong protection.** It expected `messages`
+  to be refused with a permission error; the table-level grant exists and the staff-only *policy*
+  filters it to zero rows. The data is equally safe either way, but a test that asserts the wrong
+  mechanism fails for the wrong reason and would pass if the mechanism changed. It now asserts zero
+  rows, which is how the table is actually protected.
+
+**What remains open**
+
+- **`G58` is narrowed, not closed.** The guard on every account route is now audited; the *content*
+  of the account pages still is not, because the audit has no session. A contrast or overflow defect
+  inside a request list would not be caught until the audit can sign in.
 
 ---
 

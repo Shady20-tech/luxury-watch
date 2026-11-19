@@ -491,6 +491,24 @@ reach.
 a value writes it in clear, whatever the key is named. Pass an event name and
 counts, not identifiers.
 
+**`public.messages` is staff-to-staff, and a customer is filtered to zero rows, not
+refused.** The policy is `messages_staff_only`, written as `is_staff() and (...)`,
+so a customer's query succeeds and returns nothing rather than raising `42501` —
+the table-level grant exists because the shim mirrors Supabase's default
+privileges. Both outcomes keep the data safe, but a test that asserts the wrong
+one fails for the wrong reason and would keep passing if the mechanism changed.
+Assert zero rows. The customer-facing conversation is `inquiries` +
+`inquiry_replies`, where `is_internal` rows are withheld even on a thread the
+customer owns.
+
+**A guard in a layout is proven by the redirect, not by the page list.** The
+`/account` guard lives in the layout, so it runs for every route beneath it. The
+browser audit must not put those routes in `PAGES`: it would follow the redirect to
+`/login` and report a clean pass for the sign-in page — the same trap as auditing a
+404 template. `scripts/a11y-audit.mjs` has a separate `GUARDED_PATHS` pass that
+asserts each route lands on `/login` with a `next` naming it. If you add an account
+page, add it there, and confirm the pass still fails when pointed at a public path.
+
 ## Catalogue and discovery
 
 ### One rule decides what may be indexed, and the sitemap applies the same one
