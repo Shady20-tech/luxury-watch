@@ -23,12 +23,29 @@ vi.mock('server-only', () => ({}));
 const env = {
   resendApiKey: undefined as string | undefined,
   resendFromEmail: undefined as string | undefined,
+  resendFromName: undefined as string | undefined,
+  resendReplyToEmail: undefined as string | undefined,
   resendAdminEmail: undefined as string | undefined,
 };
 
 vi.mock('@/lib/env.server', () => ({
   getServerEnv: () => env,
   isEmailConfigured: () => Boolean(env.resendApiKey && env.resendFromEmail),
+}));
+
+/**
+ * The identity module is substituted here because it reads a table. What this
+ * file is about is the *payload* the transport sends, so the identity is a fixed
+ * input. The precedence it represents is tested in `email-identity.test.ts`.
+ */
+const identity = {
+  fromAddress: 'store@example.com' as string | null,
+  fromName: null as string | null,
+  replyTo: null as string | null,
+};
+
+vi.mock('@/lib/email/identity', () => ({
+  resolveMailIdentity: async () => identity,
 }));
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -45,6 +62,11 @@ describe('sendEmail', () => {
   beforeEach(() => {
     env.resendApiKey = undefined;
     env.resendFromEmail = undefined;
+    env.resendFromName = undefined;
+    env.resendReplyToEmail = undefined;
+    identity.fromAddress = 'store@example.com';
+    identity.fromName = null;
+    identity.replyTo = null;
     vi.clearAllMocks();
   });
 
@@ -131,6 +153,95 @@ describe('sendEmail', () => {
     const result = await sendEmail(MESSAGE);
 
     expect(result).toMatchObject({ status: 'failed', reason: 'socket hang up' });
+  });
+
+  it('sends the bare address when no display name is configured', async () => {
+    env.resendApiKey = 'test-key';
+    env.resendFromEmail = 'store@example.com';
+
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { sendEmail } = await import('@/lib/email/transport');
+    await sendEmail(MESSAGE);
+
+    expect(JSON.parse(fetchSpy.mock.calls[0]![1].body).from).toBe('store@example.com');
+  });
+
+  it('puts the display name beside the address, quoted', async () => {
+    env.resendApiKey = 'test-key';
+    env.resendFromEmail = 'store@example.com';
+    identity.fromName = 'Maison Horlogère';
+
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { sendEmail } = await import('@/lib/email/transport');
+    await sendEmail(MESSAGE);
+
+    expect(JSON.parse(fetchSpy.mock.calls[0]![1].body).from).toBe(
+      '"Maison Horlogère" <store@example.com>',
+    );
+  });
+
+  it('cannot be made to add a second recipient through the display name', async () => {
+    env.resendApiKey = 'test-key';
+    env.resendFromEmail = 'store@example.com';
+    // A value an administrator could type. A comma or an angle bracket left
+    // unescaped would let it be read as a second address.
+    identity.fromName = 'Store, evil@example.com <x>';
+
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { sendEmail } = await import('@/lib/email/transport');
+    await sendEmail(MESSAGE);
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    expect(body.from).toBe('"Store, evil@example.com <x>" <store@example.com>');
+    expect(body.to).toEqual(['customer@example.com']);
+  });
+
+  it('sends reply_to when one is resolved', async () => {
+    env.resendApiKey = 'test-key';
+    env.resendFromEmail = 'store@example.com';
+    identity.replyTo = 'hello@example.com';
+
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { sendEmail } = await import('@/lib/email/transport');
+    await sendEmail(MESSAGE);
+
+    expect(JSON.parse(fetchSpy.mock.calls[0]![1].body).reply_to).toBe('hello@example.com');
+  });
+
+  it('lets a message override the configured reply-to', async () => {
+    env.resendApiKey = 'test-key';
+    env.resendFromEmail = 'store@example.com';
+    identity.replyTo = 'hello@example.com';
+
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { sendEmail } = await import('@/lib/email/transport');
+    await sendEmail({ ...MESSAGE, replyTo: 'order-desk@example.com' });
+
+    expect(JSON.parse(fetchSpy.mock.calls[0]![1].body).reply_to).toBe('order-desk@example.com');
+  });
+
+  it('omits reply_to entirely when none is configured', async () => {
+    env.resendApiKey = 'test-key';
+    env.resendFromEmail = 'store@example.com';
+
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'm' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { sendEmail } = await import('@/lib/email/transport');
+    await sendEmail(MESSAGE);
+
+    // Absent, not null: an explicit null is a header Resend may reject.
+    expect('reply_to' in JSON.parse(fetchSpy.mock.calls[0]![1].body)).toBe(false);
   });
 
   it('does not log the message body, which can carry a customer address', async () => {

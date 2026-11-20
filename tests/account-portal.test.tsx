@@ -57,6 +57,7 @@ describe('AccountNav', () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         '/account',
+        '/account/notifications',
         '/account/orders',
         '/account/wishlist',
         '/account/sell-trade',
@@ -70,6 +71,39 @@ describe('AccountNav', () => {
         '/account/settings',
       ]),
     );
+  });
+
+  it('shows no unread badge when there is nothing unread', () => {
+    renderNavAt('/account');
+
+    const nav = screen.getByRole('navigation', { name: 'Account' });
+    expect(within(nav).queryByText(/unread/i)).toBeNull();
+  });
+
+  it('announces the unread count as text, keeping the visible name intact', () => {
+    currentPathname = '/account';
+    render(<AccountNav unreadNotifications={3} />);
+
+    const nav = screen.getByRole('navigation', { name: 'Account' });
+    const link = within(nav).getByRole('link', { name: /notifications/i });
+
+    // WCAG 2.5.3: the accessible name must contain the visible text. The count
+    // is added as `sr-only` text inside the link rather than as an `aria-label`,
+    // which would have replaced "Notifications" entirely.
+    expect(link.textContent).toContain('Notifications');
+    expect(link.textContent).toContain('3 unread');
+    expect(link.getAttribute('aria-label')).toBeNull();
+  });
+
+  it('caps a large count so the badge cannot grow unbounded', () => {
+    currentPathname = '/account';
+    render(<AccountNav unreadNotifications={1234} />);
+
+    const nav = screen.getByRole('navigation', { name: 'Account' });
+    // The visible figure is capped; the announced one is the real number, so a
+    // screen-reader user is not told "99" when there are more.
+    expect(within(nav).getByText('99+')).toBeDefined();
+    expect(within(nav).getByText(/1234 unread/)).toBeDefined();
   });
 
   it('groups the destinations under headings', () => {

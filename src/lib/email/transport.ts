@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getServerEnv, isEmailConfigured } from '@/lib/env.server';
 import { logger } from '@/lib/logger';
+import { resolveMailIdentity, type MailIdentity } from '@/lib/email/identity';
 import type { EmailMessage } from '@/lib/email/message';
 
 /**
@@ -51,6 +52,41 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 /** A hard timeout, so a hung provider cannot hold a request open. */
 const TIMEOUT_MS = 10_000;
 
+/**
+ * `Name <address>`, when a display name is configured.
+ *
+ * Resend accepts both `store@example.com` and `Luxury Watch <store@example.com>`.
+ * The name is quoted so a comma or angle bracket in it cannot be read as a second
+ * recipient — that would be a header-injection shape, and it costs one line to
+ * remove the possibility.
+ */
+function displayFrom(name: string | null | undefined, address: string): string {
+  if (!name) return address;
+  return `"${name.replace(/["\\\r\n]/g, '')}" <${address}>`;
+}
+
+/**
+ * Resolve the sending identity, falling back to the environment if the settings
+ * read fails for any reason.
+ *
+ * The identity is presentation: a database problem must cost a custom display
+ * name, never the message. `resolveMailIdentity` already swallows its own errors;
+ * this is the belt to that braces, because a message that is not sent because a
+ * cosmetic lookup threw would be the worst of both outcomes.
+ */
+async function mailIdentity(): Promise<MailIdentity> {
+  try {
+    return await resolveMailIdentity();
+  } catch {
+    const env = getServerEnv();
+    return {
+      fromAddress: env.resendFromEmail ?? null,
+      fromName: env.resendFromName ?? null,
+      replyTo: env.resendReplyToEmail ?? null,
+    };
+  }
+}
+
 export async function sendEmail(message: EmailMessage): Promise<SendResult> {
   if (!isEmailConfigured()) {
     // Logged with the recipient and subject so an operator running without a key
@@ -65,13 +101,18 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult> {
   }
 
   const env = getServerEnv();
-  const from = env.resendFromEmail;
+  const identity = await mailIdentity();
 
-  if (!from) {
+  if (!identity.fromAddress) {
     // Unreachable while `isEmailConfigured` requires both, but narrowing here
     // keeps the type honest without a non-null assertion.
     return { status: 'skipped', reason: 'not-configured' };
   }
+
+  // A reply must reach a mailbox a person reads. The message may name its own
+  // destination (a customer replying to a store message goes to the store), and
+  // failing that the configured reply-to, and failing that there is none.
+  const replyTo = message.replyTo ?? identity.replyTo ?? null;
 
   try {
     const response = await fetch(RESEND_ENDPOINT, {
@@ -81,8 +122,9 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from,
+        from: displayFrom(identity.fromName, identity.fromAddress),
         to: [message.to],
+        ...(replyTo ? { reply_to: replyTo } : {}),
         subject: message.subject,
         text: message.text,
         html: message.html,

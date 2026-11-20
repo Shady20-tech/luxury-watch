@@ -1,5 +1,6 @@
 import { formatMoney } from '@/lib/orders/checkout-options';
 import { escapeHtml, summariseItems, type EmailMessage } from '@/lib/email/message';
+import { wrapEmailHtml } from '@/lib/email/layout';
 
 /**
  * The order-request emails.
@@ -199,19 +200,23 @@ export function orderRequestReceivedEmail(data: OrderEmailData): EmailMessage {
     '— The store',
   ].join('\n');
 
-  const html = [
-    `<p>Hello ${escapeHtml(data.customerName)},</p>`,
-    '<p>Thank you for your order request. It has been received and a member of the team will review it and contact you.</p>',
-    `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
-    `<ul>${itemsHtml(data)}</ul>`,
-    `<table>${totalsHtml(data)}</table>`,
-    `<p>${fulfilmentHtml(data)}</p>`,
-    data.orderUrl
-      ? `<p><a href="${escapeHtml(data.orderUrl)}">Read your request at any time</a></p>`
-      : '',
-    `<p>${escapeHtml(NOT_PAID)}</p>`,
-    '<p>Quote your reference if you contact us about this request.</p>',
-  ].join('\n');
+  const html = wrapEmailHtml({
+    title: subject,
+    preview: `We received your order request ${data.reference} and will review it shortly.`,
+    body: [
+      `<p>Hello ${escapeHtml(data.customerName)},</p>`,
+      '<p>Thank you for your order request. It has been received and a member of the team will review it and contact you.</p>',
+      `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
+      `<ul>${itemsHtml(data)}</ul>`,
+      `<table>${totalsHtml(data)}</table>`,
+      `<p>${fulfilmentHtml(data)}</p>`,
+      data.orderUrl
+        ? `<p><a href="${escapeHtml(data.orderUrl)}">Read your request at any time</a></p>`
+        : '',
+      `<p>${escapeHtml(NOT_PAID)}</p>`,
+      '<p>Quote your reference if you contact us about this request.</p>',
+    ].join('\n'),
+  });
 
   return { to: data.customerEmail, subject, text, html };
 }
@@ -219,9 +224,10 @@ export function orderRequestReceivedEmail(data: OrderEmailData): EmailMessage {
 /**
  * The business's notification.
  *
- * `replyTo` is not set by this template — the transport sends from the
- * configured address. The customer's address is stated in the body so an
- * administrator can reply to the right person from their own client.
+ * `replyTo` is the customer's own address: this message is about one customer,
+ * so a reply belongs with them, not in the store's own inbox. The address is
+ * also stated in the body, because a reply-to header is easy to lose when a
+ * message is forwarded.
  */
 export function newOrderRequestEmail(data: OrderEmailData, adminEmail: string): EmailMessage {
   const subject = `New order request ${data.reference} — ${summariseItems(data.items)}`;
@@ -265,18 +271,23 @@ export function newOrderRequestEmail(data: OrderEmailData, adminEmail: string): 
     ? `<p><strong>Customer note:</strong><br>${escapeHtml(data.customerNote)}</p>`
     : '';
 
-  const html = [
-    '<p>A new order request needs review.</p>',
-    `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
-    `<p><strong>Customer:</strong> ${escapeHtml(data.customerName)}<br>${escapeHtml(data.customerEmail)}${data.customerPhone ? `<br>${escapeHtml(data.customerPhone)}` : ''}</p>`,
-    `<ul>${itemsHtml(data)}</ul>`,
-    `<table>${totalsHtml(data)}</table>`,
-    `<p>${fulfilmentHtml(data)}</p>`,
-    `<p><strong>Intended settlement:</strong> ${escapeHtml(data.paymentMethodLabel ?? data.paymentMethodCode ?? 'not specified')}</p>`,
-    noteHtml,
-    `<p>${escapeHtml(NOT_PAID)}</p>`,
-    '<p>Confirm availability and arrange settlement outside the website.</p>',
-  ].join('\n');
+  const html = wrapEmailHtml({
+    title: subject,
+    preview: `New order request ${data.reference} from ${data.customerName}.`,
+    body: [
+      '<p>A new order request needs review.</p>',
+      `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
+      `<p><strong>Customer:</strong> ${escapeHtml(data.customerName)}<br>${escapeHtml(data.customerEmail)}${data.customerPhone ? `<br>${escapeHtml(data.customerPhone)}` : ''}</p>`,
+      `<ul>${itemsHtml(data)}</ul>`,
+      `<table>${totalsHtml(data)}</table>`,
+      `<p>${fulfilmentHtml(data)}</p>`,
+      `<p><strong>Intended settlement:</strong> ${escapeHtml(data.paymentMethodLabel ?? data.paymentMethodCode ?? 'not specified')}</p>`,
+      noteHtml,
+      `<p>${escapeHtml(NOT_PAID)}</p>`,
+      '<p>Confirm availability and arrange settlement outside the website.</p>',
+    ].join('\n'),
+  });
 
-  return { to: adminEmail, subject, text, html };
+  // A reply to this message belongs with the customer it is about.
+  return { to: adminEmail, subject, text, html, replyTo: data.customerEmail };
 }

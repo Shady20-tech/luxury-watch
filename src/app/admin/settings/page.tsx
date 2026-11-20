@@ -82,6 +82,12 @@ const SECTIONS: Section[] = [
     permission: 'settings.write',
   },
   {
+    href: '/admin/settings/email',
+    title: 'Email',
+    detail: 'The display name and reply-to address on messages customers receive.',
+    permission: 'settings.write',
+  },
+  {
     href: '/admin/settings/site',
     title: 'Site settings',
     detail: 'Business name, contact details, social links and the age gate.',

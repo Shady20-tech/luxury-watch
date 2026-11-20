@@ -60,6 +60,11 @@ const ALLOWED_FILES = new Set([
   // are the patterns it scans the rendered messages for; finding one would fail
   // the test, so their presence here rules them out rather than adding them.
   'tests/service-email.test.ts',
+  // The same assertion for the order lifecycle emails, which are the only
+  // templates allowed to acknowledge an offline settlement. The card terms are
+  // the patterns it scans every rendered state for; a match fails the test, so
+  // listing them here rules them out rather than adding them.
+  'tests/email-lifecycle.test.ts',
   'IMPLEMENTATION_PLAN.md',
   'ARCHITECTURE.md',
   'CHANGELOG.md',

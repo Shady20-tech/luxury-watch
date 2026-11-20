@@ -1,4 +1,5 @@
 import { escapeHtml, type EmailMessage } from '@/lib/email/message';
+import { wrapEmailHtml } from '@/lib/email/layout';
 
 /**
  * The service-flow emails.
@@ -112,19 +113,23 @@ export function serviceRequestReceivedEmail(data: ServiceEmailData): EmailMessag
     .filter((line) => line !== '')
     .join('\n');
 
-  const html = [
-    `<p>Hello ${escapeHtml(data.customerName)},</p>`,
-    `<p>Thank you — your ${escapeHtml(data.label)} has been received and a member of the team will review it.</p>`,
-    `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
-    '<p>What you told us:</p>',
-    `<ul>${detailsHtml(data)}</ul>`,
-    data.message ? `<p><strong>Your message:</strong><br>${escapeHtml(data.message)}</p>` : '',
-    '<p>A member of the team will review your request and reply to the email address you provided. If we need more information, we will ask before taking it further.</p>',
-    `<p>${escapeHtml(NOT_AN_AGREEMENT)}</p>`,
-    '<p>Quote your reference if you contact us about this request.</p>',
-  ]
-    .filter((part) => part !== '')
-    .join('\n');
+  const html = wrapEmailHtml({
+    title: subject,
+    preview: `We received your ${data.label}, reference ${data.reference}.`,
+    body: [
+      `<p>Hello ${escapeHtml(data.customerName)},</p>`,
+      `<p>Thank you — your ${escapeHtml(data.label)} has been received and a member of the team will review it.</p>`,
+      `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
+      '<p>What you told us:</p>',
+      `<ul>${detailsHtml(data)}</ul>`,
+      data.message ? `<p><strong>Your message:</strong><br>${escapeHtml(data.message)}</p>` : '',
+      '<p>A member of the team will review your request and reply to the email address you provided. If we need more information, we will ask before taking it further.</p>',
+      `<p>${escapeHtml(NOT_AN_AGREEMENT)}</p>`,
+      '<p>Quote your reference if you contact us about this request.</p>',
+    ]
+      .filter((part) => part !== '')
+      .join('\n'),
+  });
 
   return { to: data.customerEmail, subject, text, html };
 }
@@ -167,19 +172,25 @@ export function newServiceRequestEmail(data: ServiceEmailData, adminEmail: strin
     .filter((line) => line !== '')
     .join('\n');
 
-  const html = [
-    `<p>A new ${escapeHtml(data.label)} needs review.</p>`,
-    `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
-    `<p><strong>Customer:</strong><br>${escapeHtml(data.customerName)}<br>${escapeHtml(data.customerEmail)}${
-      data.customerPhone ? `<br>${escapeHtml(data.customerPhone)}` : ''
-    }</p>`,
-    `<ul>${detailsHtml(data)}</ul>`,
-    data.message ? `<p><strong>Customer message:</strong><br>${escapeHtml(data.message)}</p>` : '',
-    '<p>Review the request and reply to the customer.</p>',
-    `<p>${escapeHtml(NOT_AN_AGREEMENT)}</p>`,
-  ]
-    .filter((part) => part !== '')
-    .join('\n');
+  const html = wrapEmailHtml({
+    title: subject,
+    preview: `New ${data.label} ${data.reference} from ${data.customerName}.`,
+    body: [
+      `<p>A new ${escapeHtml(data.label)} needs review.</p>`,
+      `<p><strong>Reference:</strong> ${escapeHtml(data.reference)}</p>`,
+      `<p><strong>Customer:</strong><br>${escapeHtml(data.customerName)}<br>${escapeHtml(data.customerEmail)}${
+        data.customerPhone ? `<br>${escapeHtml(data.customerPhone)}` : ''
+      }</p>`,
+      `<ul>${detailsHtml(data)}</ul>`,
+      data.message
+        ? `<p><strong>Customer message:</strong><br>${escapeHtml(data.message)}</p>`
+        : '',
+      '<p>Review the request and reply to the customer.</p>',
+      `<p>${escapeHtml(NOT_AN_AGREEMENT)}</p>`,
+    ]
+      .filter((part) => part !== '')
+      .join('\n'),
+  });
 
   return { to: adminEmail, subject, text, html };
 }

@@ -415,14 +415,14 @@ isOneToOne: false
                   ]
                 },"notifications": {
                   Row: {
-                    "body": string | null,"created_at": string,"id": string,"is_read": boolean,"kind": Database["public"]['Enums']["notification_kind"],"link_url": string | null,"read_at": string | null,"title": string,"user_id": string
+                    "body": string | null,"created_at": string,"dedupe_key": string | null,"id": string,"is_read": boolean,"kind": Database["public"]['Enums']["notification_kind"],"link_url": string | null,"read_at": string | null,"title": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "body"?: string | null,"created_at"?: string,"id"?: string,"is_read"?: boolean,"kind": Database["public"]['Enums']["notification_kind"],"link_url"?: string | null,"read_at"?: string | null,"title": string,"user_id": string
+                    "body"?: string | null,"created_at"?: string,"dedupe_key"?: string | null,"id"?: string,"is_read"?: boolean,"kind": Database["public"]['Enums']["notification_kind"],"link_url"?: string | null,"read_at"?: string | null,"title": string,"user_id": string
                   }
                   Update: {
-                    "body"?: string | null,"created_at"?: string,"id"?: string,"is_read"?: boolean,"kind"?: Database["public"]['Enums']["notification_kind"],"link_url"?: string | null,"read_at"?: string | null,"title"?: string,"user_id"?: string
+                    "body"?: string | null,"created_at"?: string,"dedupe_key"?: string | null,"id"?: string,"is_read"?: boolean,"kind"?: Database["public"]['Enums']["notification_kind"],"link_url"?: string | null,"read_at"?: string | null,"title"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -735,6 +735,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"email_settings": {
+                  Row: {
+                    "from_name": string | null,"id": boolean,"reply_to": string | null,"updated_at": string,"updated_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "from_name"?: string | null,"id"?: boolean,"reply_to"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "from_name"?: string | null,"id"?: boolean,"reply_to"?: string | null,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+
+                  ]
                 },"site_settings": {
                   Row: {
                     "address_city": string | null,"address_country": string | null,"address_line1": string | null,"address_line2": string | null,"address_postal_code": string | null,"address_region": string | null,"age_gate_enabled": boolean,"age_gate_minimum_age": number,"business_name": string,"contact_email": string | null,"contact_phone": string | null,"default_currency": string,"id": boolean,"logo_url": string | null,"order_confirmation_note": string | null,"social_facebook": string | null,"social_instagram": string | null,"social_x": string | null,"social_youtube": string | null,"tagline": string | null,"updated_at": string,"whatsapp_url": string | null
@@ -998,6 +1012,12 @@ isOneToOne: false
                            },
 "admin_write_audit_log":
 { Args: { "p_action": string,"p_changes"?: Json,"p_entity_id": string,"p_entity_type": string }; Returns: string
+                           },
+"mark_notifications_read":
+{ Args: { "p_ids"?: (string)[] }; Returns: number
+                           },
+"notify_user":
+{ Args: { "p_body"?: string,"p_dedupe_key"?: string,"p_kind": Database["public"]['Enums']["notification_kind"],"p_link_url"?: string,"p_title": string,"p_user_id": string }; Returns: string
                            },
 "cart_pricing":
 { Args: { "p_currency"?: string,"p_discount_code"?: string,"p_items"?: Json }; Returns: Json

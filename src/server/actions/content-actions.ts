@@ -11,6 +11,7 @@ import {
   navigationItemFormSchema,
   pageFormSchema,
   parseOptionalDate,
+  emailSettingsFormSchema,
   paymentMethodFormSchema,
   siteSettingsFormSchema,
   testimonialFormSchema,
@@ -66,17 +67,31 @@ function databaseMessage(error: { code?: string; message: string }, fallback: st
   return fallback;
 }
 
+/**
+ * Write an audit row for a content change.
+ *
+ * `entityId` is a `uuid` in `admin_audit_logs`, and a singleton settings row has
+ * no uuid to name. Passing the string `'singleton'` used to be attempted, and it
+ * failed at the RPC with `invalid input syntax for type uuid` — the error was
+ * logged as `admin.audit_write_failed` and the save reported success, so every
+ * settings change went unrecorded. `null` is the honest value: the constraint on
+ * `admin_audit_logs` pairs a null `entity_id` with the `entity_type`, which still
+ * names what changed, and the actor and action are recorded.
+ */
 async function writeAudit(
   action: string,
   entityType: string,
-  entityId: string,
+  entityId: string | null,
   changes?: Record<string, unknown>,
 ): Promise<void> {
   const supabase = await createSupabaseServerClientWritable();
   const { error } = await supabase.rpc('admin_write_audit_log', {
     p_action: action,
     p_entity_type: entityType,
-    p_entity_id: entityId,
+    // The generated types declare `p_entity_id` as a non-null string because it
+    // is a `uuid` parameter, but a `uuid` argument is nullable at runtime and the
+    // table's own constraint allows a null id alongside a non-null entity type.
+    p_entity_id: entityId as string,
     p_changes: (changes ?? null) as never,
   });
   if (error) {
@@ -715,11 +730,70 @@ export async function saveSiteSettingsAction(
 
   // `site_settings` is a singleton keyed by a boolean `id`, so there is no row id
   // to name in the audit. The constant is the entity's identity for the trail.
-  await writeAudit('site_settings.updated', 'site_settings', 'singleton', {
+  await writeAudit('site_settings.updated', 'site_settings', null, {
     businessName: values.businessName,
   });
   revalidateContent('/admin/settings');
   return { status: 'success', message: 'Settings saved.' };
+}
+
+/**
+ * Save the administrator-editable mail identity.
+ *
+ * `settings.write`, the same permission the other settings editors require, and
+ * the same permission the `email_settings` policies demand — so a caller who
+ * reaches this action without it is refused here and again by the database.
+ *
+ * No sender address is accepted. It is an environment variable tied to a domain
+ * verified with Resend, and accepting one here would let an administrator send
+ * mail from a domain the store does not own.
+ */
+export async function saveEmailSettingsAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  try {
+    await requirePermission('settings.write');
+  } catch (error) {
+    if (error instanceof AdminPermissionError) return refusal();
+    throw error;
+  }
+
+  const parsed = emailSettingsFormSchema.safeParse(formValues(formData));
+  if (!parsed.success) {
+    return {
+      status: 'error',
+      message: 'Check the highlighted fields.',
+      fieldErrors: adminFieldErrors(parsed.error.issues),
+    };
+  }
+
+  const values = parsed.data;
+  const supabase = await createSupabaseServerClientWritable();
+
+  const { data, error } = await supabase
+    .from('email_settings')
+    .update({
+      from_name: values.fromName ?? null,
+      reply_to: values.replyTo ?? null,
+    })
+    .eq('id', true)
+    .select('id')
+    .maybeSingle();
+
+  if (error || !data) {
+    logger.error('admin.email_settings_save_failed', {
+      message: error?.message ?? 'no row returned',
+    });
+    return { status: 'error', message: 'The email settings could not be saved.' };
+  }
+
+  await writeAudit('email_settings.updated', 'email_settings', null, {
+    fromName: values.fromName ?? null,
+    hasReplyTo: Boolean(values.replyTo),
+  });
+  revalidateContent('/admin/settings');
+  return { status: 'success', message: 'Email settings saved.' };
 }
 
 export async function savePaymentMethodAction(

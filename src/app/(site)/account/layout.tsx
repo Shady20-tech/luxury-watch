@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { AccountNav } from '@/components/account/account-nav';
 import { UserAvatar } from '@/components/account/user-avatar';
 import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
+import { countUnreadNotifications } from '@/server/services/notification-service';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
 
 /**
@@ -70,7 +71,14 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     redirect(loginPathFor(returnTo));
   }
 
-  const avatarUrl = await fetchAvatarUrl(access.user.id);
+  // The badge on the Notifications link. A count, never the notifications
+  // themselves: the layout wraps every account page and must not become a second
+  // place that reads a customer's inbox. It runs in parallel with the avatar
+  // lookup so the shell waits for one round trip, not two.
+  const [avatarUrl, unreadNotifications] = await Promise.all([
+    fetchAvatarUrl(access.user.id),
+    countUnreadNotifications(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
@@ -88,7 +96,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[220px_1fr] lg:gap-12">
-        <AccountNav />
+        <AccountNav unreadNotifications={unreadNotifications} />
 
         {/* `min-w-0` lets the content column shrink below its content width, so a
             long order reference or a wide table cannot force the page to scroll

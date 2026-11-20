@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Bell,
   CalendarClock,
   Heart,
   LayoutDashboard,
@@ -51,6 +52,7 @@ const GROUPS: { label: string; links: NavLink[] }[] = [
     label: 'Shopping',
     links: [
       { href: '/account', label: 'Overview', Icon: LayoutDashboard, exact: true },
+      { href: '/account/notifications', label: 'Notifications', Icon: Bell },
       { href: '/account/orders', label: 'Orders', Icon: Package },
       { href: '/account/wishlist', label: 'Saved pieces', Icon: Heart },
     ],
@@ -83,7 +85,7 @@ type NavLink = {
   exact?: boolean;
 };
 
-export function AccountNav() {
+export function AccountNav({ unreadNotifications = 0 }: { unreadNotifications?: number }) {
   const pathname = usePathname();
 
   return (
@@ -111,6 +113,22 @@ export function AccountNav() {
                   >
                     <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
                     {label}
+                    {href === '/account/notifications' && unreadNotifications > 0 ? (
+                      <>
+                        {/* The count is announced as text rather than added to an
+                            `aria-label`: an `aria-label` replaces the visible name,
+                            and the link's visible text would then be missing from
+                            the accessible name — a WCAG 2.5.3 failure the browser
+                            audit catches and jsdom does not. */}
+                        <span className="sr-only">, {unreadNotifications} unread</span>
+                        <span
+                          aria-hidden="true"
+                          className="bg-gold-700 text-ink-900 ml-auto rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums"
+                        >
+                          {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                        </span>
+                      </>
+                    ) : null}
                   </Link>
                 </li>
               );

@@ -284,8 +284,8 @@ each time — read back what the consumer will read, not what the producer was h
 |---|---|---|
 | critical | 7 | 1 |
 | high | 26 | 13 |
-| medium | 41 | 18 |
-| low | 52 | 14 |
+| medium | 42 | 18 |
+| low | 56 | 15 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
@@ -293,10 +293,10 @@ items are excluded, which is why the open column is smaller than the count.
 Counts are generated from the tables above rather than maintained by hand. The previous
 table had drifted from its own rows by nine items, which is the usual fate of a
 hand-maintained total; recount with `grep` before trusting it. Recounted again when
-G78 was added: 126 issue rows across sections A–H (the eight F rows are open
+G78 was added: 131 issue rows across sections A–H and P (the eight F rows are open
 questions, not issues, and are excluded), and the totals above are that count. The
 tally must read the whole file, not just the part above this heading — section N, the
-admin section, and O both sit after it, which is how the earlier figure came up short.
+admin section, O and P all sit after it, which is how the earlier figure came up short.
 That admin section is also headed `## H`, duplicating the letter used at the top of the
 file; it is left as it is because renumbering it would invalidate every `H<n>` reference
 in the changelog, but a reader counting by heading will miscount until it is fixed.
@@ -445,3 +445,15 @@ the bucket and pins its `allowed_mime_types` to the same list the table's own ch
 enforces, so the two cannot drift apart. When a table references an object store, the bucket belongs
 in the migration and in the schema document beside the table — not in a dashboard someone has to
 remember to visit.
+
+---
+
+## P. Notifications and mail identity items (raised in Phase 13)
+
+| ID | Item | Severity | Status | Next action |
+|---|---|---|---|---|
+| P1 | **The audit write is best-effort, so a failure is silent by design.** `writeAudit` logs `admin.audit_write_failed` and the action reports success. That is deliberate — a content edit must not fail because the audit insert did — but it is how the `'singleton'`-cast bug survived: the record was never written and nothing surfaced it. | medium | accepted | A durable outbox or a non-null constraint that forces the insert would make the failure visible. Neither is worth it until an audit trail becomes a compliance requirement. Until then the SQL suite asserts the *shape* the action produces is accepted, which is the part a unit test cannot see. |
+| P2 | **Only order status changes produce a notification today.** `notify_user` and `createNotification` are general, but the only caller is `announceTransition`. Enquiries, appointments and service flows record rows and send email without an in-app counterpart. | low | open | Add a `createNotification` call beside each `sendEmail` in the service-flow actions, keyed on the flow's own reference so a retry deduplicates. |
+| P3 | **A notification is not deleted when its subject is.** `link_url` points at `/account/orders/<id>`; if that order were ever removed the link would 404 rather than the notification disappearing. Orders are not deletable, so this is theoretical today. | low | accepted | Would need `on delete cascade` from each linked entity, which the schema cannot express because `link_url` is a string. Keep the 404 honest if it ever happens. |
+| P4 | **The unread badge counts on every account page render.** `countUnreadNotifications` is a `head` count on an indexed column, so it is cheap, but it is one more query in the account layout's critical path and it is not cached. | low | accepted | The layout is `force-dynamic` and per-customer, so caching it would need a cache key per user for a badge that is wrong for up to the TTL. A cheap count is the better trade. |
+| P5 | **`resolveMailIdentity` memoises for 60 seconds, per process.** An administrator who saves a change may wait up to a minute before the next message uses it, and in a multi-instance deployment each instance has its own cache. | low | accepted | Documented in `identity.ts`. The alternative is a read per message, which doubles the queries on a two-message submission for a value that changes a few times a year. |

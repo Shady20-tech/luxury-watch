@@ -355,6 +355,67 @@ browser payload. The guest's access token goes in the customer's message and no
 other — it is a capability, and copying it into the admin mailbox widens who holds
 it for no benefit.
 
+**The mail identity has two sources and they are not interchangeable.**
+`src/lib/email/identity.ts` resolves the `from` header. The sending _address_ is
+`RESEND_FROM_EMAIL` and nothing else: it has to match a domain verified with
+Resend, which a database value cannot do, and an editable `from` is a phishing
+primitive — whoever could write it could send mail as the store from a domain it
+does not own. What an administrator edits at `/admin/settings/email` is
+presentation only: the display name beside the address and the reply-to. Those
+live in `email_settings`, a table with RLS enabled and no public grant.
+
+The display name is interpolated into a header, so it is quoted and stripped of
+quotes, backslashes and newlines by `displayFrom`. Do not pass an unquoted name
+through: a comma or an angle bracket left raw reads as a second address.
+
+### A table with policies is not a table with row security
+
+`email_settings` was created in Phase 13 with an `is_admin()` read policy and no
+`alter table ... enable row level security`. The policy existed, applied to
+nothing, and the `SELECT` grant was the whole access model — a signed-in customer
+could read the store's mail settings. Review did not catch it because the policy
+text is correct; it is the _absence_ of an enable statement that is wrong.
+
+`supabase/tests/64_notifications_and_email.sql` caught it by asserting the
+customer sees zero rows and finding one. Every new table needs both halves, and a
+suite that asserts a count against a real row is what proves the second half is
+there. A table that refuses everything also passes a "customer cannot read it"
+test, so assert that a _staff_ read returns the row as well.
+
+### `notify_user` takes the recipient, so its grant is the security model
+
+`notifications` has no insert policy and cannot have one — there is no
+request-shaped proof of "this person is entitled to be told this". The only
+writer is `notify_user`, `SECURITY DEFINER`, granted to `service_role` alone. If
+that grant is ever widened to `authenticated`, any customer can post a
+notification to any other customer with the store's name on it. The grant is
+asserted in `64_notifications_and_email.sql`, not assumed.
+
+`link_url` becomes an `href` in the customer's inbox, so the function refuses
+anything that is not site-relative or `https`. Keep it that way: a stored
+`javascript:` there is stored XSS on the customer's own account page.
+
+Dedupe is on `(user_id, dedupe_key)` under a partial unique index, and the key
+names the _event_ (`order:<uuid>:<status>`), not the moment. A repeated dispatch
+returns `null` rather than raising, because a retry is the normal case the key
+exists for. **Test it with two calls, not one** — a single call in a single
+request is unique by construction and can never see a collision.
+
+### An audit write is best-effort, which is how a broken one stayed invisible
+
+`writeAudit` logs `admin.audit_write_failed` and the action reports success. That
+is deliberate — a content edit must not fail because the audit insert did — but
+it means an audit write that fails _every time_ looks exactly like one that works.
+`writeAudit` passed the literal `'singleton'` as `p_entity_id` while the column is
+a `uuid`, so every settings save went unrecorded for several phases and nothing
+surfaced it.
+
+Pass `null` for a singleton and let `entity_type` name what changed. The
+regression is locked down in `64_notifications_and_email.sql` by asserting the
+record is written and findable by `entity_type`. When a best-effort write has a
+shape that can be wrong, assert the shape against the real database — a unit test
+with a mocked RPC cannot see a cast failure.
+
 ### Storage policies assume a signed-in uploader; the forms do not
 
 The two photo buckets are private and their insert policies are `to authenticated`

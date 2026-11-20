@@ -48,6 +48,8 @@ done
 | `0021_inventory_write_lockdown.sql`          | Revokes `INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`; the balance is derived from its ledger                                                                                                                          |
 | `0022_cms_media_library.sql`                 | The public `media` storage bucket and its policy, `media_category` and `watch_image_category`, `media.title`, `media.checksum_sha256`, `media.last_referenced_at`, `product_images.category`, and the system-page deletion guard               |
 | `0023_profile_avatars.sql`                   | The public `avatars` storage bucket (2 MiB, JPEG/PNG/WebP/AVIF) and its four owner-scoped policies, keyed on `storage.foldername(name)[1] = auth.uid()`. No new column: `profiles.avatar_url` has existed since 0002 and is granted since 0014 |
+| `0024_notifications.sql`                     | `notifications.dedupe_key` and its partial unique index, `notify_user` (SECURITY DEFINER, service role only), `mark_notifications_read`, and a column-scoped `update` grant so a customer can change `is_read`/`read_at` and nothing else      |
+| `0025_email_identity.sql`                    | `email_settings` — a singleton table for the mail display name and reply-to, with RLS enabled and administrator-only read/write. The sending address stays an environment variable                                                             |
 
 ### 1.2 Verify locally
 
@@ -363,6 +365,46 @@ into a separate `extensions` schema, not `public`.
 
 **`admin_audit_logs`** is append-only: there is a `SELECT` policy and no `INSERT`,
 `UPDATE` or `DELETE` policy for any API role. Only the service role can write it.
+
+`entity_id` is a `uuid`, so a singleton settings row has no id to name. Pass
+`null` and let `entity_type` carry the identity — `'singleton'` is not a uuid and
+fails the cast inside the RPC, which is how every settings save went unrecorded
+until `0025`.
+
+**`email_settings`** — `id` (boolean primary key, always `true`), `from_name`,
+`reply_to`, `updated_at`, `updated_by`. One row, enforced by
+`check (id)`. RLS is enabled and there is no public grant: `is_admin()` may read,
+`has_permission('settings.write')` may write.
+
+The sending address is deliberately **not** here. It must match a domain verified
+with Resend, which a form value cannot do, and an editable `from` is a phishing
+primitive — whoever could write it could send mail as the store from a domain it
+does not own. What is editable is presentation: the display name beside the
+address, and where a reply should go. Precedence, highest first:
+
+| Value        | Source                                                                  |
+| ------------ | ----------------------------------------------------------------------- |
+| from address | `RESEND_FROM_EMAIL` only                                                |
+| display name | `email_settings.from_name`, then `RESEND_FROM_NAME`                     |
+| reply-to     | `email_settings.reply_to`, then `RESEND_REPLY_TO_EMAIL`, then no header |
+| admin inbox  | `RESEND_ADMIN_EMAIL` only — a compromised session must not redirect it  |
+
+A database outage costs the custom display name, never the message: the identity
+resolver falls back to the environment and is memoised for 60 seconds so one
+order's two messages cost one read.
+
+**`notifications`** — `id`, `user_id`, `kind` (`notification_kind`), `title`,
+`body`, `link_url`, `is_read`, `read_at`, `dedupe_key`, `created_at`. There is no
+insert policy, so a customer cannot write one to themselves or anyone else. The
+only writer is `notify_user`, which is `SECURITY DEFINER` and granted to
+`service_role` alone; it rejects any `link_url` that is not site-relative or
+`https`, because that value becomes an `href` in the customer's inbox.
+
+`dedupe_key` names the _event_ (`order:<uuid>:<status>`), not the moment, under a
+partial unique index on `(user_id, dedupe_key) where dedupe_key is not null`. A
+repeated dispatch of the same transition returns `null` and inserts nothing, so a
+retry cannot leave the customer with two unread badges for one event. A null key
+is allowed to repeat, which is why the index is partial rather than plain.
 
 ---
 

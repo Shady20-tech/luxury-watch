@@ -2,11 +2,13 @@
 
 import type {
   AdminDeliveryOption,
+  AdminEmailSettings,
   AdminPaymentMethod,
   AdminSiteSettings,
 } from '@/server/repositories/admin-content-repository';
 import {
   saveDeliveryOptionAction,
+  saveEmailSettingsAction,
   savePaymentMethodAction,
   saveSiteSettingsAction,
 } from '@/server/actions/content-actions';
@@ -158,6 +160,57 @@ export function DeliveryOptionEditor({ options }: { options: AdminDeliveryOption
         </section>
       ))}
     </div>
+  );
+}
+
+/**
+ * The mail identity an administrator may edit.
+ *
+ * The sending address is shown as a fact and cannot be edited here: it must
+ * match a domain verified with Resend, and an editable `from` is a phishing
+ * primitive. What is editable changes the presentation of a message — the name
+ * beside the address, and where a reply goes — which is content, not a
+ * credential.
+ */
+export function EmailSettingsEditor({
+  settings,
+  fromAddress,
+}: {
+  settings: AdminEmailSettings;
+  fromAddress: string | null;
+}) {
+  return (
+    <AdminForm action={saveEmailSettingsAction} submitLabel="Save email settings">
+      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+        <legend className="px-2 text-sm font-semibold">Sending identity</legend>
+
+        <p className="text-ink-500 text-sm">
+          Messages are sent from{' '}
+          <span className="text-ink-900 font-mono text-xs">
+            {fromAddress ?? 'an address that is not configured'}
+          </span>
+          . That address is set in the deployment environment because it must match a domain
+          verified with Resend; it is not editable here.
+        </p>
+
+        <TextField
+          name="fromName"
+          label="Display name"
+          hint="Shown beside the address in the recipient's inbox. Leave blank to use the deployment default."
+          maxLength={120}
+          defaultValue={settings.fromName}
+        />
+
+        <TextField
+          name="replyTo"
+          label="Reply-to address"
+          type="email"
+          hint="Where a customer's reply should go. Leave blank to use the deployment default."
+          maxLength={254}
+          defaultValue={settings.replyTo}
+        />
+      </fieldset>
+    </AdminForm>
   );
 }
 

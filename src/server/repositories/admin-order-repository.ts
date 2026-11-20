@@ -150,6 +150,8 @@ export type AdminOrderEvent = {
 
 export type AdminOrderDetail = {
   id: string;
+  /** The customer's auth user id, or null for a guest request. */
+  userId: string | null;
   reference: string;
   status: AdminOrderStatus;
   customerName: string;
@@ -213,6 +215,7 @@ export async function getOrder(id: string): Promise<AdminOrderDetail | null> {
 
   return {
     id: data.id,
+    userId: data.user_id,
     reference: data.reference,
     status: data.status as AdminOrderStatus,
     customerName: data.customer_name,

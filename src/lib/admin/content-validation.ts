@@ -388,6 +388,42 @@ export const siteSettingsFormSchema = z.object({
 
 export type SiteSettingsFormValues = z.infer<typeof siteSettingsFormSchema>;
 
+const optionalEmail = (label: string) =>
+  z
+    .union([z.string(), z.undefined(), z.null()])
+    .transform((value, ctx) => {
+      if (typeof value !== 'string') return undefined;
+      const trimmed = value.trim();
+      if (trimmed === '') return undefined;
+      if (trimmed.length > 254) {
+        ctx.addIssue({ code: 'custom', message: `${label} is too long` });
+        return z.NEVER;
+      }
+      // Deliberately loose: a strict RFC 5322 parser rejects addresses that work.
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        ctx.addIssue({ code: 'custom', message: 'Enter a valid email address' });
+        return z.NEVER;
+      }
+      return trimmed;
+    })
+    .optional();
+
+/**
+ * The administrator-editable mail identity.
+ *
+ * No `from` address: that is an environment variable tied to a domain verified
+ * with Resend. Accepting one here would let an administrator send mail from a
+ * domain the store does not own, which is a phishing primitive rather than a
+ * setting. `fromName` is only ever a display name beside the real address, and
+ * `replyTo` only redirects replies to a mailbox.
+ */
+export const emailSettingsFormSchema = z.object({
+  fromName: optionalText(120, 'Display name'),
+  replyTo: optionalEmail('Reply-to address'),
+});
+
+export type EmailSettingsFormValues = z.infer<typeof emailSettingsFormSchema>;
+
 export const paymentMethodFormSchema = z.object({
   id: z.string().uuid(),
   label: z.string().trim().min(1, 'A label is required').max(120, 'That label is too long'),

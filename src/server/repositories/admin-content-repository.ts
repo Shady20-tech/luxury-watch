@@ -320,6 +320,38 @@ export async function fetchAdminSiteSettings(): Promise<AdminSiteSettings | null
   };
 }
 
+export type AdminEmailSettings = {
+  fromName: string | null;
+  replyTo: string | null;
+};
+
+/**
+ * The administrator-editable half of the mail identity.
+ *
+ * Read with the session client: `email_settings` has an admin-only read policy
+ * and no public grant, so a non-admin caller gets an empty result rather than a
+ * row. The sending address itself is deliberately absent — it is an environment
+ * variable tied to a domain verified with Resend, and an editable `from` address
+ * would be a phishing surface.
+ */
+export async function fetchAdminEmailSettings(): Promise<AdminEmailSettings> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('email_settings')
+    .select('from_name, reply_to')
+    .maybeSingle();
+
+  if (error) {
+    logFailure('admin.email_settings_load_failed', error);
+    return { fromName: null, replyTo: null };
+  }
+
+  return {
+    fromName: data?.from_name ?? null,
+    replyTo: data?.reply_to ?? null,
+  };
+}
+
 export type AdminPaymentMethod = {
   id: string;
   code: string;

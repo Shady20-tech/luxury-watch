@@ -15,6 +15,8 @@ export const SERVER_ENV_KEYS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'RESEND_API_KEY',
   'RESEND_FROM_EMAIL',
+  'RESEND_FROM_NAME',
+  'RESEND_REPLY_TO_EMAIL',
   'RESEND_ADMIN_EMAIL',
   'REVALIDATION_SECRET',
   'SUPABASE_DB_URL',
@@ -29,6 +31,8 @@ export type ServerEnv = {
   supabaseServiceRoleKey: string | undefined;
   resendApiKey: string | undefined;
   resendFromEmail: string | undefined;
+  resendFromName: string | undefined;
+  resendReplyToEmail: string | undefined;
   resendAdminEmail: string | undefined;
   revalidationSecret: string | undefined;
   rateLimitDriver: 'postgres' | 'redis';
@@ -53,6 +57,8 @@ export function getServerEnv(): ServerEnv {
     supabaseServiceRoleKey: raw('SUPABASE_SERVICE_ROLE_KEY'),
     resendApiKey: raw('RESEND_API_KEY'),
     resendFromEmail: raw('RESEND_FROM_EMAIL'),
+    resendFromName: raw('RESEND_FROM_NAME'),
+    resendReplyToEmail: raw('RESEND_REPLY_TO_EMAIL'),
     resendAdminEmail: raw('RESEND_ADMIN_EMAIL'),
     revalidationSecret: raw('REVALIDATION_SECRET'),
     rateLimitDriver: driver === 'redis' ? 'redis' : 'postgres',
@@ -108,6 +114,8 @@ export function getServerEnvReport() {
       supabaseServiceRoleKey: Boolean(env.supabaseServiceRoleKey),
       resendApiKey: Boolean(env.resendApiKey),
       resendFromEmail: Boolean(env.resendFromEmail),
+      resendFromName: Boolean(env.resendFromName),
+      resendReplyToEmail: Boolean(env.resendReplyToEmail),
       resendAdminEmail: Boolean(env.resendAdminEmail),
       revalidationSecret: Boolean(env.revalidationSecret),
     },

@@ -11,7 +11,10 @@ import {
   type AdminFormState,
 } from '@/lib/admin/validation';
 import { createSupabaseServerClientWritable } from '@/lib/supabase/server';
+import type { LifecycleStatus } from '@/lib/email/lifecycle';
+import { getOrder } from '@/server/repositories/admin-order-repository';
 import { AdminPermissionError, requirePermission } from '@/server/services/admin-authorization';
+import { notifyOrderStatusChanged } from '@/server/services/order-lifecycle-notification-service';
 
 /**
  * Administrative server actions.
@@ -458,5 +461,56 @@ export async function transitionOrderAction(
 
   revalidatePath('/admin/orders');
   revalidatePath(`/admin/orders/${parsed.data.orderId}`);
+
+  // Announced after the commit, and never able to undo it. The order is already
+  // in its new state and the stock ledger has moved, so a mail or notification
+  // failure must not surface as an error here: an administrator who saw one
+  // would retry the transition, and the retry would be refused as a no-op.
+  await announceTransition(parsed.data.orderId, parsed.data.toStatus, parsed.data.note ?? null);
+
   return { status: 'success', message: 'Order updated.' };
+}
+
+/**
+ * Read the committed order back and announce the change.
+ *
+ * Read back rather than taken from the form: the figures and the piece named in
+ * the message must be the ones the database recorded, not the ones the browser
+ * sent. Failures are swallowed here — the transition has already happened.
+ */
+async function announceTransition(
+  orderId: string,
+  toStatus: LifecycleStatus,
+  note: string | null,
+): Promise<void> {
+  try {
+    const order = await getOrder(orderId);
+    if (!order) return;
+
+    const [first] = order.items;
+    const itemSummary = !first
+      ? 'your order'
+      : order.items.length === 1
+        ? first.productTitle
+        : `${first.productTitle} and ${order.items.length - 1} more`;
+
+    await notifyOrderStatusChanged({
+      userId: order.userId,
+      reference: order.reference,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      status: toStatus,
+      itemSummary,
+      totalCents: order.totalCents,
+      currency: order.currency,
+      note,
+      orderId: order.id,
+    });
+  } catch (error) {
+    logger.warn('admin.order_announce_failed', {
+      orderId,
+      status: toStatus,
+      message: error instanceof Error ? error.message : 'unknown error',
+    });
+  }
 }

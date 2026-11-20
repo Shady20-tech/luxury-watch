@@ -41,6 +41,80 @@ that code never ran.
 
 Recorded as G78 in `KNOWN_ISSUES.md`.
 
+### Notifications that are actually written, and a mail identity an administrator can edit
+
+**Date:** 2026-11-19
+
+`notifications` has existed since 0005 with a read policy and nothing that could
+write a row, and `email_settings` did not exist at all: the mail display name and
+reply-to were environment variables only. This phase adds both write paths, the
+admin editor, and the tests that were missing for either.
+
+#### Added
+
+- **`notify_user`** (`0024_notifications.sql`) — the only writer of a
+  notification. `SECURITY DEFINER`, granted to `service_role` alone, so a
+  customer cannot post one to themselves or to anybody else. It rejects a
+  `link_url` that is not site-relative or `https`, because that value becomes an
+  `href` in the customer's own inbox and a stored `javascript:` there is stored
+  XSS reachable by anyone who can influence it upstream.
+- **`notifications.dedupe_key`** and a partial unique index on
+  `(user_id, dedupe_key)`. The key names the event, not the moment, so a retried
+  dispatch returns `null` rather than giving the customer two unread badges for
+  one order transition.
+- **`mark_notifications_read`** and a column-scoped `update` grant, so a customer
+  can change `is_read` and `read_at` and nothing else. RLS restricts rows, not
+  columns — a policy alone would have let them rewrite a title.
+- **`/account/notifications`** and an unread badge on the account nav. The count
+  is announced as `sr-only` text inside the link rather than through an
+  `aria-label`, which would have replaced the visible name and failed WCAG 2.5.3.
+- **`email_settings`** (`0025_email_identity.sql`) — a singleton table for the
+  display name and reply-to, with RLS enabled and administrator-only access.
+  Editable at `/admin/settings/email`, gated on `settings.write`.
+- **`RESEND_FROM_NAME`** and **`RESEND_REPLY_TO_EMAIL`** as deployment defaults,
+  overridden by the administrator's saved values.
+- **`replyTo`** on `EmailMessage`, sent as `reply_to`. The administrator's
+  new-order notification now replies to the customer it is about, and a
+  customer's message falls back to the configured reply-to.
+
+#### Fixed — every settings save went unrecorded
+
+`writeAudit` passed the literal `'singleton'` as `p_entity_id`, and
+`admin_audit_logs.entity_id` is a `uuid`. The RPC raised
+`invalid input syntax for type uuid`, the error was logged as
+`admin.audit_write_failed`, and the action still returned success — so site
+settings, and now email settings, changed with no audit row at all. The failure
+was invisible from the application because the audit write is best-effort by
+design. It now passes `null`, which the table's own constraint permits alongside
+a non-null `entity_type`, and `64_notifications_and_email.sql` asserts the record
+is written and findable.
+
+#### Fixed — `email_settings` had policies that were never consulted
+
+The first version of `0025` created `email_settings` with an `is_admin()` read
+policy and never enabled row level security on it. The policies existed and
+applied to nothing; the `SELECT` grant was the whole access model, and a signed-in
+customer could read the store's mail identity. The new SQL suite caught it because
+it asserted the customer sees zero rows and they saw one. `alter table ... enable
+row level security` is now in the migration, with a comment saying why, because
+this is the failure mode of a table whose policies look correct in review.
+
+#### Tests
+
+- `supabase/tests/64_notifications_and_email.sql` — 25 assertions across the
+  write path's grants, dedupe under a repeated call (not one call, which can never
+  collide), link validation, per-customer read scoping, the column-scoped update,
+  and the audit record.
+- `tests/notifications.test.ts` — 14 cases: the service calls `notify_user` with
+  the right arguments, a dedupe is not an error, and **nothing throws** when the
+  write or the send fails, because every call runs after a committed transition.
+- `tests/email-lifecycle.test.ts` — 16 cases for the templates `lifecycle.ts`
+  claimed were enforced and which no test file existed to enforce.
+- `tests/email-transport.test.ts` grew to 11, covering the `from` header's display
+  name, its quoting against header injection, and `reply_to` precedence.
+- `tests/account-portal.test.tsx` asserts the badge's accessible name keeps the
+  visible link text.
+
 ### Profile photographs, and the storage policies nothing was testing
 
 **Date:** 2026-11-20

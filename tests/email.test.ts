@@ -189,6 +189,14 @@ describe('newOrderRequestEmail', () => {
     expect(ADMIN.to).toBe('admin@example.com');
   });
 
+  it('sets a reply-to on the customer, so a reply reaches the right person', () => {
+    expect(ADMIN.replyTo).toBe('customer@example.com');
+  });
+
+  it('does not set a reply-to on the customer copy, which would reply to itself', () => {
+    expect(CUSTOMER.replyTo).toBeUndefined();
+  });
+
   it('carries everything needed to act without opening the database', () => {
     expect(ADMIN.text).toContain('A Customer');
     expect(ADMIN.text).toContain('customer@example.com');
