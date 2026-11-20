@@ -124,6 +124,31 @@ Both sides read the same aggregate (`published_product_counts()` /
 from one number and cannot drift. That is the point of the aggregate existing as
 a function rather than as a client-side count.
 
+### Thin taxonomy copy, which the count rule cannot see
+
+The count rule above asks "does this page have anything to show?". It cannot ask
+"does this page have anything to say?". Those are different failures and the
+second is easier to miss, because a page with 12 pieces in its grid looks
+substantial.
+
+`/brands/[slug]` renders `brands.description` in the hero and in
+`<meta name="description">`. Every seeded brand once carried the same
+`'Reference brand seeded for development.'`, so four indexable, self-canonical
+pages shared one sentence that described nothing — while each passed the
+published-count test and appeared in the sitemap. Recorded as G78.
+
+The fallback in `page.tsx` is a generated sentence naming the brand, and it only
+runs when `description` is null. A populated-but-placeholder column defeats it,
+which is the general shape of this defect: placeholder data is more dangerous
+than missing data, because missing data falls through to code that was written to
+handle it.
+
+`tests/seed-copy.test.ts` guards the seed: no placeholder phrasing, no two brands
+alike, and each description long enough to add something a template could not
+say. It does not check production content, because the seed is what a fresh
+environment loads and there is no admin surface for brand copy yet. When one is
+added, extend the same assertions to what the editor saves.
+
 ### Duplicate addresses
 
 - `/collections/all` permanently redirects (308) to `/shop`. Only the destination

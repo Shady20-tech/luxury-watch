@@ -26,7 +26,13 @@
 
 import { formatPrice } from '@/lib/homepage/assemble';
 import { CONDITION_LABELS, type ConditionValue } from '@/lib/catalogue/params';
-import type { ProductDetail, ProductImage, ProductPolicy, SpecRow } from './types';
+import type {
+  ProductDetail,
+  ProductImage,
+  ProductPolicy,
+  SpecRow,
+  WatchImageCategory,
+} from './types';
 
 /**
  * A `products` row as the detail page reads it.
@@ -72,6 +78,7 @@ export type ProductRow = {
 /** A `product_images` row, ordered by the caller. */
 export type ProductImageRow = {
   id: string;
+  category: WatchImageCategory;
   storage_path: string | null;
   external_url: string | null;
   alt_text: string;
@@ -235,6 +242,7 @@ function buildImages(
     })
     .map((image) => ({
       id: image.id,
+      category: image.category ?? 'gallery',
       url: resolveImage(image.storage_path, image.external_url),
       alt: image.alt_text?.trim() || row.title,
       width: toNumber(image.width),

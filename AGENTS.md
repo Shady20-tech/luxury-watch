@@ -355,6 +355,67 @@ browser payload. The guest's access token goes in the customer's message and no
 other — it is a capability, and copying it into the admin mailbox widens who holds
 it for no benefit.
 
+**The mail identity has two sources and they are not interchangeable.**
+`src/lib/email/identity.ts` resolves the `from` header. The sending _address_ is
+`RESEND_FROM_EMAIL` and nothing else: it has to match a domain verified with
+Resend, which a database value cannot do, and an editable `from` is a phishing
+primitive — whoever could write it could send mail as the store from a domain it
+does not own. What an administrator edits at `/admin/settings/email` is
+presentation only: the display name beside the address and the reply-to. Those
+live in `email_settings`, a table with RLS enabled and no public grant.
+
+The display name is interpolated into a header, so it is quoted and stripped of
+quotes, backslashes and newlines by `displayFrom`. Do not pass an unquoted name
+through: a comma or an angle bracket left raw reads as a second address.
+
+### A table with policies is not a table with row security
+
+`email_settings` was created in Phase 13 with an `is_admin()` read policy and no
+`alter table ... enable row level security`. The policy existed, applied to
+nothing, and the `SELECT` grant was the whole access model — a signed-in customer
+could read the store's mail settings. Review did not catch it because the policy
+text is correct; it is the _absence_ of an enable statement that is wrong.
+
+`supabase/tests/64_notifications_and_email.sql` caught it by asserting the
+customer sees zero rows and finding one. Every new table needs both halves, and a
+suite that asserts a count against a real row is what proves the second half is
+there. A table that refuses everything also passes a "customer cannot read it"
+test, so assert that a _staff_ read returns the row as well.
+
+### `notify_user` takes the recipient, so its grant is the security model
+
+`notifications` has no insert policy and cannot have one — there is no
+request-shaped proof of "this person is entitled to be told this". The only
+writer is `notify_user`, `SECURITY DEFINER`, granted to `service_role` alone. If
+that grant is ever widened to `authenticated`, any customer can post a
+notification to any other customer with the store's name on it. The grant is
+asserted in `64_notifications_and_email.sql`, not assumed.
+
+`link_url` becomes an `href` in the customer's inbox, so the function refuses
+anything that is not site-relative or `https`. Keep it that way: a stored
+`javascript:` there is stored XSS on the customer's own account page.
+
+Dedupe is on `(user_id, dedupe_key)` under a partial unique index, and the key
+names the _event_ (`order:<uuid>:<status>`), not the moment. A repeated dispatch
+returns `null` rather than raising, because a retry is the normal case the key
+exists for. **Test it with two calls, not one** — a single call in a single
+request is unique by construction and can never see a collision.
+
+### An audit write is best-effort, which is how a broken one stayed invisible
+
+`writeAudit` logs `admin.audit_write_failed` and the action reports success. That
+is deliberate — a content edit must not fail because the audit insert did — but
+it means an audit write that fails _every time_ looks exactly like one that works.
+`writeAudit` passed the literal `'singleton'` as `p_entity_id` while the column is
+a `uuid`, so every settings save went unrecorded for several phases and nothing
+surfaced it.
+
+Pass `null` for a singleton and let `entity_type` name what changed. The
+regression is locked down in `64_notifications_and_email.sql` by asserting the
+record is written and findable by `entity_type`. When a best-effort write has a
+shape that can be wrong, assert the shape against the real database — a unit test
+with a mocked RPC cannot see a cast failure.
+
 ### Storage policies assume a signed-in uploader; the forms do not
 
 The two photo buckets are private and their insert policies are `to authenticated`
@@ -370,6 +431,93 @@ server-issued token the way the guest cart already does. Do not wire an upload
 control until that is settled and the path can be exercised against real Storage
 (G77) — an upload form that has never stored a byte is exactly the green-test
 pattern this project keeps paying for.
+
+### The admin application
+
+`src/app/admin/` is a separate application inside the same Next.js project. It has its own
+layout, its own guard and its own navigation, and none of it is reachable without a staff role.
+
+**Every write goes through the session client, never the service-role client.**
+`src/server/actions/admin-actions.ts` uses `createSupabaseServerClientWritable` throughout. This
+is not a style preference. The service-role client carries no user, so `auth.uid()` is null, so
+`admin_write_audit_log` refuses with "must be attributable to a signed-in user" — every action
+would fail in the browser. It is also the wrong security posture: the service-role client
+authenticates the _call_ but not the _caller_, and bypasses the policies that scope what a staff
+member may write. The service-role client is used in the admin **only** for reads that need
+`cost_cents`, which is deliberately outside the staff-readable column grant. The failure mode is
+worth remembering because it is silent in testing: the database suites call the functions
+directly as a simulated user and stay green while the client the app uses cannot authenticate.
+
+**The RPCs are a second gate, not a bypass.** `0020_admin_operations.sql` defines
+`admin_adjust_stock`, `admin_set_product_status`, `admin_transition_order` and
+`admin_write_audit_log`. Each is `SECURITY DEFINER`, derives the actor from `auth.uid()` and
+re-checks the permission internally. The action checks permission too; that redundancy is
+deliberate, because the action's check can be bypassed by posting to it directly and the
+function's check cannot.
+
+**A form field the browser does not submit is _absent_, not empty.** `Object.fromEntries(formData)`
+omits an unchecked checkbox entirely and omits any input left blank. A Zod field for such an input
+must be `.optional()` (or preprocessed to `undefined`); `z.string()` and `z.coerce.boolean()` both
+reject `undefined` and will fail the save on a field the administrator never touched. This is why
+`tests/admin-validation.test.ts` parses the _minimal_ payload a browser produces rather than a
+tidy object assembled by hand. Every optional field in `src/lib/admin/validation.ts` is built on
+the `optionalInt`/`checkbox` helpers for this reason.
+
+**`inventory` is read-only to `anon` and `authenticated`.** `0021_inventory_write_lockdown.sql`
+revoked `INSERT/UPDATE/DELETE`; the balance is derived from `inventory_transactions` by a trigger
+and every legitimate writer is `SECURITY DEFINER`. Do not re-grant write to make something work:
+write a ledger row instead. `61_admin_write_paths.sql` fails if the grant is reopened.
+
+**Permissions are strings in `user_roles`, checked through functions.** The keys are
+`catalog.read/write`, `inventory.read/write`, `orders.read/write/settle`, `inquiries.read/write`,
+`content.read/write`, `customers.read`, `audit.read`. A role resolves them through
+`current_admin_permissions()`; `SUPER_ADMIN` holds `'*'` and the resolver expands it. A typo in a
+key fails closed — the page or action simply refuses — so a "permission denied" that should not
+be is almost always a misspelled key, not a policy problem.
+
+### The CMS, the media library and the bucket that was missing
+
+`/admin/settings` edits the copy the storefront renders: homepage sections, pages, FAQs,
+testimonials, navigation, announcements, payment methods, delivery options and the business's own
+details. Every save is a server action in `src/server/actions/content-actions.ts` that calls
+`requirePermission('content.write')`, writes through the session client, writes an audit row, and
+then calls `revalidateContent()`.
+
+**A content save must revalidate the root layout, not the page it edited.** The chrome is
+prerendered with `revalidate = 300` (`src/app/(site)/layout.tsx`). Editing a navigation label and
+revalidating only `/admin/settings/navigation` leaves the public header showing the old label for
+up to five minutes, which reads as a failed save. `revalidateContent()` calls
+`revalidatePath('/', 'layout')` for exactly this reason; do not replace it with a narrower path.
+
+**`site_settings` is a singleton keyed by a boolean `id`.** There is one row and its primary key is
+`id = true`. So `writeAudit(..., 'site_settings', 'site_settings', ...)` passes a constant as the
+record id — there is no `data.id` to pass. An action that assumes an integer id writes `undefined`
+and the audit row fails.
+
+**`media` is a table beside a storage bucket, and the bucket is part of the schema.** `media` has
+existed since Phase 2, but the public `media` bucket was not created until
+`0022_cms_media_library.sql`, so every upload failed at the storage step with a message that reads
+like an authorisation error while the table looked perfectly correct. A schema document lists
+tables, not buckets, so this gap survived every review. When you add a table that stores objects,
+create the bucket in the same migration, pin its `allowed_mime_types` to the table's own check
+constraint, and document it beside the table.
+
+**Deleting an asset is guarded by a reference scan, not a foreign key.** `src/lib/admin/media-references.ts`
+matches the asset's URL against `product_images`, `products`, pages, homepage sections and
+`site_settings.logo_url` before allowing the delete, and the refusal names where it is used. It is
+a scan: a URL stored in a column nobody listed would not be seen. It is a better guard than
+nothing and a worse guard than a real foreign key (H8).
+
+**Uploads go through a route handler, not a server action.** `src/app/api/admin/media/upload/route.ts`
+is the only place a `File` is read; it checks the declared type, the file's magic bytes and the
+size, refuses SVG, computes a SHA-256 checksum and writes with the admin client. The checksum is
+what lets the library recognise the same image uploaded twice.
+
+**Two content editors are honest about what they cannot do.** The page editor takes JSON and
+validates it against the renderer's own parser, so an unknown block is rejected rather than saved
+and silently dropped. The homepage editor warns when a section key is not one the renderer knows,
+because such a section would render nothing. Do not "fix" either by accepting anything: a saved
+block that does not appear is worse than a refusal that explains itself.
 
 ### Things that will bite you
 
@@ -423,6 +571,17 @@ pattern this project keeps paying for.
   the defect above survived to the browser stage while `50_service_flows.sql` was
   green. When you assert that something is unique, produce several of them in the
   smallest interval the system can distinguish, not one.
+- **A migration that skips its own body is a migration nothing tests.** `0015`,
+  `0022` and `0023` all guard their bucket and storage-policy blocks on
+  `information_schema.schemata` containing `storage`, so the migrations still
+  apply to a plain Postgres. The verification database has no `storage` schema,
+  so on it those blocks create nothing — and the policies they define were
+  executed by no test at all, while reading correctly. This is the same shape of
+  gap as the column-grant leak: the SQL is right and nothing proves it.
+  `supabase/tests/63_profile_avatars.sql` closes it for `0023` by building the two
+  `storage` tables and `storage.foldername` the policies need, re-applying the
+  policy SQL, and asserting behaviour with real JWTs. Any new bucket needs the
+  same suite; a policy asserted nowhere is a policy you are trusting.
 - **Assert the statement shape the code actually sends.** Two separate inserts
   and one insert with a repeated row are different tests. `mergeGuestWishlist`
   hands the whole id list to supabase-js as a single `upsert`, so a tampered
@@ -469,6 +628,18 @@ pattern this project keeps paying for.
   display data. Do not add a price parameter to it, and do not compute a subtotal,
   a discount or a total in TypeScript — `src/lib/cart/pricing.ts` maps the payload
   and does no arithmetic, deliberately.
+- **Catalogue query parameters are camelCase, and a snake_case spelling is
+  silently ignored.** `priceMode`, `boxAndPapers`, `yearMin`, `caseMax`,
+  `pageSize` are the real names; `?price_mode=priced` is not read at all, so the
+  listing stays clean, stays indexable, and looks like a broken filter or a
+  robots bug when it is neither. This cost a false alarm in the Phase 5
+  re-audit. When testing a filter through the URL, take the parameter name from
+  `buildCatalogueHref` in `src/lib/catalogue/params.ts`, not from the SQL
+  argument name — the RPC uses `p_price_mode` and neither of the other two
+  spellings works. `priceMin`/`priceMax` are the same trap in a different
+  dimension: the URL carries **major units** and `parseCatalogueParams` converts
+  them with `toMinorUnits` to the **cents** the RPC expects. A URL value and a
+  database value are not the same number, so do not compare them directly.
 - **`aria-pressed` is not allowed on a link.** It failed the browser audit on the
   catalogue filter rows (`aria-allowed-attr`), which are `<a>` elements that
   navigate. Use `aria-current` for "the current item in a set of links", and
@@ -591,6 +762,14 @@ the cookie-aware one. Reading a cookie makes the route dynamic, and a crawler's
 repeated fetch would become a repeated database query. `sitemap-repository.ts`
 exists for this reason; do not "simplify" it into `catalogue-repository.ts`.
 
+**Product entries are paged, and membership is RLS's decision.** `products` is
+read 1000 rows at a time because PostgREST caps a single response — a one-shot
+query would silently truncate the catalogue at the cap and the sitemap would look
+complete while missing most of it. The query applies no status filter of its own:
+the public-read policy already restricts it to published rows, so adding a second
+filter here would be a second rule that can disagree with the page. If a product
+entry goes missing, check the policy before adding a `where` clause.
+
 ### `/search` is a query surface, never a document
 
 `/search` is `noindex` unconditionally — including the blank page. With no term
@@ -608,6 +787,31 @@ The seed carries factual attributes only — brand, reference number, case size,
 movement, dial, and so on. It deliberately excludes the reference site's
 photography, marketing prose and prices, and claims no authorised-dealer status.
 Do not add those back from the reference site; it is not our content.
+
+**Seed copy that reaches a page is page content, not filler.** `brands.description`
+is printed in the hero and in `<meta name="description">` of `/brands/[slug]`,
+which is indexable and self-canonical, so a placeholder there is a thin-content
+defect on a ranking page — not a harmless stub. All four brands once carried the
+same `'Reference brand seeded for development.'`, and each page passed the
+published-count check and appeared in the sitemap because a count asks "is there
+anything to show?", never "is there anything to say?" (G78).
+
+The trap is that placeholder data is _worse_ than missing data: `page.tsx` falls
+back to a generated sentence naming the brand, but only when `description` is
+null, so a populated placeholder defeats code written to handle the gap.
+`tests/seed-copy.test.ts` guards the seed — no placeholder phrasing, no two brands
+alike, each description long enough to add something a template could not say.
+
+Two mechanics to remember when changing seeded copy:
+
+- **The `on conflict` clause must name the column you changed.** The brand seed
+  updated only `name`, `is_active` and `sort_order`, so re-running it against an
+  existing database left the old description in place. Editing the `insert` alone
+  fixes a fresh database and nothing else.
+- **Edit the seed with a byte-level tool, not a text round-trip.** `01_catalogue.sql`
+  contains stray CR characters in a handful of spec strings; a naive read/write in
+  Python strips them and turns a four-line change into an unrelated multi-line
+  diff. Use `git diff` on the seed and expect only your own lines.
 
 ## Payments
 

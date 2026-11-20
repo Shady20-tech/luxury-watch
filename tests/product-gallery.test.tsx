@@ -27,7 +27,14 @@ import type { ProductImage } from '@/lib/product/types';
 afterEach(cleanup);
 
 function image(id: string, alt: string): ProductImage {
-  return { id, url: `https://example.test/${id}.jpg`, alt, width: 800, height: 1000 };
+  return {
+    id,
+    category: 'gallery',
+    url: `https://example.test/${id}.jpg`,
+    alt,
+    width: 800,
+    height: 1000,
+  };
 }
 
 const images = [image('a', 'Front'), image('b', 'Caseback'), image('c', 'Clasp')];
@@ -101,6 +108,25 @@ describe('ProductGallery keyboard operation', () => {
       'Show image 1 of 3',
       'Show image 2 of 3',
       'Show image 3 of 3',
+    ]);
+  });
+
+  it('names a tagged view instead of only its position', () => {
+    render(
+      <ProductGallery
+        images={[
+          image('a', 'Front'),
+          { ...image('b', 'Back'), category: 'caseback' },
+          { ...image('c', 'Box'), category: 'box_and_papers' },
+        ]}
+        title="Test Watch"
+      />,
+    );
+
+    expect(thumbnails().map((tab) => tab.getAttribute('aria-label'))).toEqual([
+      'Show image 1 of 3',
+      'Show the caseback (2 of 3)',
+      'Show the box and papers (3 of 3)',
     ]);
   });
 

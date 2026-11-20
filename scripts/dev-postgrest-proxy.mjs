@@ -15,12 +15,20 @@
  * talks to a real PostgREST through the real `supabase-js` code path with real
  * RLS applied.
  *
+ * Kong routes more than `/rest/v1` from one project URL. `/auth/v1` goes to
+ * GoTrue on the same host, and `supabase-js` builds both from a single
+ * `NEXT_PUBLIC_SUPABASE_URL`. So this proxy forwards `/auth/v1` to a separate
+ * target as well, stripping the prefix exactly as Kong does. Without that, the
+ * app could reach PostgREST but never sign in, because every auth request would
+ * 404 on a path the proxy did not recognise.
+ *
  * It is a development and verification tool only. It is never used in a
  * deployment: Vercel talks to the Supabase project URL directly.
  *
  * Usage
  * -----
- *   node scripts/dev-postgrest-proxy.mjs [--port 3002] [--target http://127.0.0.1:3001]
+ *   node scripts/dev-postgrest-proxy.mjs [--port 3002] [--target http://127.0.0.1:3001] \
+ *     [--auth-target http://127.0.0.1:3003]
  *
  * Then set NEXT_PUBLIC_SUPABASE_URL to the proxy (e.g. http://127.0.0.1:3002)
  * and NEXT_PUBLIC_SUPABASE_ANON_KEY to the anon JWT the PostgREST instance
@@ -36,20 +44,11 @@ function readArg(name, fallback) {
 
 const PORT = Number(readArg('port', '3002'));
 const TARGET = new URL(readArg('target', 'http://127.0.0.1:3001'));
+const AUTH_TARGET = new URL(readArg('auth-target', 'http://127.0.0.1:3003'));
 const PREFIX = '/rest/v1';
+const AUTH_PREFIX = '/auth/v1';
 
-const server = http.createServer((req, res) => {
-  const incoming = new URL(req.url, `http://localhost:${PORT}`);
-
-  if (!incoming.pathname.startsWith(PREFIX)) {
-    res.writeHead(404, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ message: `Only ${PREFIX}/* is proxied` }));
-    return;
-  }
-
-  const upstreamPath = incoming.pathname.slice(PREFIX.length) || '/';
-  const upstream = new URL(upstreamPath + incoming.search, TARGET);
-
+function forward(req, res, upstream) {
   const proxied = http.request(
     {
       protocol: upstream.protocol,
@@ -71,8 +70,32 @@ const server = http.createServer((req, res) => {
   });
 
   req.pipe(proxied);
+}
+
+const server = http.createServer((req, res) => {
+  const incoming = new URL(req.url, `http://localhost:${PORT}`);
+
+  // `/auth/v1` -> the auth server. Kong does the same, so the app needs no
+  // knowledge that these are two processes locally.
+  if (incoming.pathname === AUTH_PREFIX || incoming.pathname.startsWith(`${AUTH_PREFIX}/`)) {
+    const rest = incoming.pathname.slice(AUTH_PREFIX.length) || '/';
+    forward(req, res, new URL(`${AUTH_PREFIX}${rest}${incoming.search}`, AUTH_TARGET));
+    return;
+  }
+
+  if (!incoming.pathname.startsWith(PREFIX)) {
+    res.writeHead(404, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ message: `Only ${PREFIX}/* and ${AUTH_PREFIX}/* are proxied` }));
+    return;
+  }
+
+  const upstreamPath = incoming.pathname.slice(PREFIX.length) || '/';
+  forward(req, res, new URL(upstreamPath + incoming.search, TARGET));
 });
 
 server.listen(PORT, () => {
-  console.log(`PostgREST proxy on http://127.0.0.1:${PORT}${PREFIX} -> ${TARGET.origin}/`);
+  console.log(
+    `Proxy on http://127.0.0.1:${PORT} — ${PREFIX}/* -> ${TARGET.origin}/, ` +
+      `${AUTH_PREFIX}/* -> ${AUTH_TARGET.origin}${AUTH_PREFIX}/`,
+  );
 });

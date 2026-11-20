@@ -39,6 +39,14 @@ export type EmailMessage = {
   /** Complete on its own. Never "see the HTML version". */
   text: string;
   html: string;
+  /**
+   * Where a reply should go, when it is not the sending address.
+   *
+   * A message sent from a no-reply storefront address but about a specific
+   * person should set this to the address that person's reply belongs at. The
+   * transport falls back to the configured reply-to, then to the from address.
+   */
+  replyTo?: string;
 };
 
 /**

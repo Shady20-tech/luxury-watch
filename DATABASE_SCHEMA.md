@@ -26,20 +26,30 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-| File                                         | Contents                                                                                                                                                                                                                                      |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0001_extensions_enums_helpers.sql`          | `pgcrypto`, `citext`, 13 enum types, `set_updated_at()`, `normalize_slug()`, order-reference sequence and generator                                                                                                                           |
-| `0002_accounts_profiles_roles.sql`           | `profiles`, `user_roles`, `addresses`, new-user trigger                                                                                                                                                                                       |
-| `0003_catalogue.sql`                         | `brands`, `models`, `products`, `product_images`, `product_specs`, `collections`, `collection_products`, `inventory`, `inventory_transactions`                                                                                                |
-| `0004_commerce.sql`                          | `payment_methods`, `delivery_options`, `carts`, `cart_items`, `order_requests`, `order_request_items`, `order_request_events`, `inventory_reservations`                                                                                       |
-| `0005_service_requests.sql`                  | `inquiries` and every service flow, `appointments`, `contact_submissions`, `product_questions`, `messages`, `notifications`                                                                                                                   |
-| `0006_content_and_config.sql`                | `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`, `homepage_sections`, `media`, `site_settings`, `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters`                                                      |
-| `0007_rls_policies.sql`                      | Role helpers, the permission map, RLS enabled on all 47 tables, 96 policies                                                                                                                                                                   |
-| `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger                                                                                                                              |
-| `0012_wishlist_and_cart.sql`                 | `discount_kind`, `discount_codes`, `carts.discount_code`, `cart_pricing`, `catalogue_by_ids`, the wishlist tables and the cart quantity/uniqueness constraints                                                                                |
-| `0013_order_request_submission.sql`          | `order_requests` guest token, idempotency, terms, discount and pickup columns; `evaluate_discount_code`, `redeem_discount_code`, `release_discount_code`, `enforce_rate_limit`, the redefined `submit_order_request` and `read_order_request` |
-| `0014_account_portal.sql`                    | Column-level `select` grants for the account area, so a self-editable profile row exposes no internal column                                                                                                                                  |
-| `0015_service_workflows.sql`                 | `service_status_events`, `product_offers`, `appointment_availability`, per-flow `workflow_status`, `service_reference_seq`, `generate_service_reference`, `service_form_guard`, `assert_submission_shape` and the six submission RPCs         |
+| File                                         | Contents                                                                                                                                                                                                                                       |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001_extensions_enums_helpers.sql`          | `pgcrypto`, `citext`, 13 enum types, `set_updated_at()`, `normalize_slug()`, order-reference sequence and generator                                                                                                                            |
+| `0002_accounts_profiles_roles.sql`           | `profiles`, `user_roles`, `addresses`, new-user trigger                                                                                                                                                                                        |
+| `0003_catalogue.sql`                         | `brands`, `models`, `products`, `product_images`, `product_specs`, `collections`, `collection_products`, `inventory`, `inventory_transactions`                                                                                                 |
+| `0004_commerce.sql`                          | `payment_methods`, `delivery_options`, `carts`, `cart_items`, `order_requests`, `order_request_items`, `order_request_events`, `inventory_reservations`                                                                                        |
+| `0005_service_requests.sql`                  | `inquiries` and every service flow, `appointments`, `contact_submissions`, `product_questions`, `messages`, `notifications`                                                                                                                    |
+| `0006_content_and_config.sql`                | `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`, `homepage_sections`, `media`, `site_settings`, `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters`                                                       |
+| `0007_rls_policies.sql`                      | Role helpers, the permission map, RLS enabled on all 47 tables, 96 policies                                                                                                                                                                    |
+| `0008_order_submission_and_reservations.sql` | `reserve_inventory`, `release_reservation`, `confirm_reservation`, `submit_order_request`, status-change trigger                                                                                                                               |
+| `0012_wishlist_and_cart.sql`                 | `discount_kind`, `discount_codes`, `carts.discount_code`, `cart_pricing`, `catalogue_by_ids`, the wishlist tables and the cart quantity/uniqueness constraints                                                                                 |
+| `0013_order_request_submission.sql`          | `order_requests` guest token, idempotency, terms, discount and pickup columns; `evaluate_discount_code`, `redeem_discount_code`, `release_discount_code`, `enforce_rate_limit`, the redefined `submit_order_request` and `read_order_request`  |
+| `0014_account_portal.sql`                    | Column-level `select` grants for the account area, so a self-editable profile row exposes no internal column                                                                                                                                   |
+| `0015_service_workflows.sql`                 | `service_status_events`, `product_offers`, `appointment_availability`, per-flow `workflow_status`, `service_reference_seq`, `generate_service_reference`, `service_form_guard`, `assert_submission_shape` and the six submission RPCs          |
+| `0016_catalogue_search_collections.sql`      | `catalogue_filtered` (the filtered, sorted, paginated catalogue query) and `catalogue_suggest` (type-ahead across products, brands, models and collections)                                                                                    |
+| `0017_published_collection_counts.sql`       | `published_collection_counts`, so a collection's product total is one aggregate rather than N counts                                                                                                                                           |
+| `0018_model_scope.sql`                       | Model scope for catalogue browsing: `published_model_counts` and redefined `catalogue_filtered` / `catalogue_suggest` that accept a model filter                                                                                               |
+| `0019_service_intake_fields.sql`             | The service intake columns the forms collected and the schema had dropped, and redefined `submit_repair_request`, `submit_sell_trade_request` and `submit_sourcing_request` to persist them                                                    |
+| `0020_admin_operations.sql`                  | The administrator's operations as `SECURITY DEFINER` functions: `admin_set_product_status`, `admin_adjust_stock`, `admin_transition_order`, `admin_set_service_status`, `admin_write_audit_log` and `current_admin_permissions`                |
+| `0021_inventory_write_lockdown.sql`          | Revokes `INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`; the balance is derived from its ledger                                                                                                                          |
+| `0022_cms_media_library.sql`                 | The public `media` storage bucket and its policy, `media_category` and `watch_image_category`, `media.title`, `media.checksum_sha256`, `media.last_referenced_at`, `product_images.category`, and the system-page deletion guard               |
+| `0023_profile_avatars.sql`                   | The public `avatars` storage bucket (2 MiB, JPEG/PNG/WebP/AVIF) and its four owner-scoped policies, keyed on `storage.foldername(name)[1] = auth.uid()`. No new column: `profiles.avatar_url` has existed since 0002 and is granted since 0014 |
+| `0024_notifications.sql`                     | `notifications.dedupe_key` and its partial unique index, `notify_user` (SECURITY DEFINER, service role only), `mark_notifications_read`, and a column-scoped `update` grant so a customer can change `is_read`/`read_at` and nothing else      |
+| `0025_email_identity.sql`                    | `email_settings` — a singleton table for the mail display name and reply-to, with RLS enabled and administrator-only read/write. The sending address stays an environment variable                                                             |
 
 ### 1.2 Verify locally
 
@@ -189,7 +199,14 @@ attributes (`condition`, `production_year`, `reference_number`, `case_size_mm`,
 
 **`product_images`** — `id`, `product_id`, `storage_path` **or** `external_url`
 (exactly one, enforced by `product_images_source_exclusive`), `alt_text`,
-`width`, `height`, `sort_order`, `is_primary`, timestamps.
+`width`, `height`, `sort_order`, `is_primary`, `category`
+(`watch_image_category`, default `gallery`), timestamps.
+
+`category` is what lets a gallery say "the caseback" rather than "image 3". It is
+nullable-tolerant at the type level but defaulted, so an untagged image is a
+gallery shot rather than an unknown one. `gallery` is deliberately the fallback:
+the alternative — a `NULL` category — would make every consumer decide what a
+missing tag means.
 
 **`product_specs`** — `id`, `product_id`, `label`, `value`, `sort_order`. The
 flexible label/value table for attributes that do not warrant a column.
@@ -328,6 +345,19 @@ before `0019`). `budget_cents` and `asking_price_cents` are non-negative.
 `site_settings` (22 columns; singleton enforced by a single-row constraint),
 `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters`.
 
+**`media`** — `id`, `storage_bucket`, `storage_path`, `file_name`, `mime_type`,
+`size_bytes`, `width`, `height`, `alt_text`, `caption`, `category`
+(`media_category`, default `general`), `title`, `checksum_sha256`,
+`last_referenced_at`, `uploaded_by`, timestamps. A check constraint allows only
+image mime types, and `0022` pins the bucket's `allowed_mime_types` to the same
+list so the two cannot drift apart.
+
+**The bucket is part of the schema.** `media` has referenced a storage bucket
+since Phase 2, but the bucket itself was never created until `0022` — so every
+upload would have failed at the storage step while the table looked correct. When
+you add a table that stores objects, create the bucket in the same migration and
+document it beside the table.
+
 **`newsletter_subscribers`** carries a `token` column defaulted to
 `encode(extensions.gen_random_bytes(32), 'hex')` for confirmation and unsubscribe
 links. The `extensions.` qualifier is required because Supabase installs `pgcrypto`
@@ -335,6 +365,46 @@ into a separate `extensions` schema, not `public`.
 
 **`admin_audit_logs`** is append-only: there is a `SELECT` policy and no `INSERT`,
 `UPDATE` or `DELETE` policy for any API role. Only the service role can write it.
+
+`entity_id` is a `uuid`, so a singleton settings row has no id to name. Pass
+`null` and let `entity_type` carry the identity — `'singleton'` is not a uuid and
+fails the cast inside the RPC, which is how every settings save went unrecorded
+until `0025`.
+
+**`email_settings`** — `id` (boolean primary key, always `true`), `from_name`,
+`reply_to`, `updated_at`, `updated_by`. One row, enforced by
+`check (id)`. RLS is enabled and there is no public grant: `is_admin()` may read,
+`has_permission('settings.write')` may write.
+
+The sending address is deliberately **not** here. It must match a domain verified
+with Resend, which a form value cannot do, and an editable `from` is a phishing
+primitive — whoever could write it could send mail as the store from a domain it
+does not own. What is editable is presentation: the display name beside the
+address, and where a reply should go. Precedence, highest first:
+
+| Value        | Source                                                                  |
+| ------------ | ----------------------------------------------------------------------- |
+| from address | `RESEND_FROM_EMAIL` only                                                |
+| display name | `email_settings.from_name`, then `RESEND_FROM_NAME`                     |
+| reply-to     | `email_settings.reply_to`, then `RESEND_REPLY_TO_EMAIL`, then no header |
+| admin inbox  | `RESEND_ADMIN_EMAIL` only — a compromised session must not redirect it  |
+
+A database outage costs the custom display name, never the message: the identity
+resolver falls back to the environment and is memoised for 60 seconds so one
+order's two messages cost one read.
+
+**`notifications`** — `id`, `user_id`, `kind` (`notification_kind`), `title`,
+`body`, `link_url`, `is_read`, `read_at`, `dedupe_key`, `created_at`. There is no
+insert policy, so a customer cannot write one to themselves or anyone else. The
+only writer is `notify_user`, which is `SECURITY DEFINER` and granted to
+`service_role` alone; it rejects any `link_url` that is not site-relative or
+`https`, because that value becomes an `href` in the customer's inbox.
+
+`dedupe_key` names the _event_ (`order:<uuid>:<status>`), not the moment, under a
+partial unique index on `(user_id, dedupe_key) where dedupe_key is not null`. A
+repeated dispatch of the same transition returns `null` and inserts nothing, so a
+retry cannot leave the customer with two unread badges for one event. A null key
+is allowed to repeat, which is why the index is partial rather than plain.
 
 ---
 
@@ -832,8 +902,12 @@ By construction, not by policy:
   certain. That is the correct way to test a lock — the alternative is a test whose
   result depends on machine speed — but it means the measured timings are not
   production timings.
-- Supabase Storage bucket policies are not part of these migrations. They are
-  configured in the Supabase dashboard and documented in `ARCHITECTURE.md` §12.
+- Supabase Storage bucket policies **are** part of these migrations, from
+  `0015` onward. Each one is guarded on the presence of the `storage` schema so
+  the migrations still apply to a plain Postgres, which means the verification
+  database skips them. `supabase/tests/63_profile_avatars.sql` builds a minimal
+  `storage` schema and runs the avatar policies against it for exactly that
+  reason; a new bucket's policies need the same treatment or they are untested.
 - Full-text search currently relies on a Postgres GIN index. If catalogue search
   needs ranking or typo tolerance beyond that, an external index will be required;
   it is not planned for any current phase.

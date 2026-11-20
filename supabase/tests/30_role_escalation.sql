@@ -122,6 +122,22 @@ values ('77777777-0000-0000-0000-000000000007', 'SKU-ROLE', 'role-watch', 'Role 
 insert into public.inventory (product_id, quantity)
 values ('77777777-0000-0000-0000-000000000007', 10);
 
+-- An order for the "support can read orders" assertion below. Without it that
+-- assertion counted whatever an earlier suite had left behind, so it passed only
+-- while the suites shared a database and went red once each was isolated (G66).
+insert into public.payment_methods (code, label, is_enabled) values
+  ('bank_transfer', 'Bank transfer', true)
+on conflict (code) do nothing;
+
+insert into public.order_requests (
+  id, reference, customer_name, customer_email, fulfilment_type,
+  pickup_location, payment_method_code, status
+) values (
+  '77777777-0000-0000-0000-0000000000aa', 'LW-ROLE-000001', 'Role Customer',
+  'role-customer@example.test', 'pickup', 'Mayfair', 'bank_transfer', 'submitted'
+)
+on conflict (reference) do nothing;
+
 reset role;
 
 -- =============================================================================

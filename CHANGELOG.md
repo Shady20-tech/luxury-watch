@@ -8,6 +8,386 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Brand pages stop sharing one placeholder sentence
+
+**Date:** 2026-11-19
+
+Auditing the Phase 5 catalogue against its acceptance criteria turned up one
+criterion not met: "unique database-aware title and description" on every
+collection and brand page. All four seeded brands carried the same
+`description = 'Reference brand seeded for development.'`, and `/brands/[slug]`
+prints that value twice — in the hero intro and in `<meta name="description">`.
+Four indexable, self-canonical pages therefore shared one sentence that described
+nothing about the brand.
+
+The placeholder also short-circuited the page's own fallback. `page.tsx` generates
+a sensible sentence when `description` is null; because the column was populated,
+that code never ran.
+
+#### Fixed
+
+- **`supabase/seed/01_catalogue.sql`** — each brand now carries one original
+  sentence of its own. The `on conflict (slug) do update` clause also sets
+  `description = excluded.description`; it previously updated only `name`,
+  `is_active` and `sort_order`, so re-running the seed against an existing
+  database silently left the old text in place. That omission is why the fix is
+  two changes and not one.
+- **`tests/seed-copy.test.ts`** — asserts the seed carries no development
+  placeholder, that each description is long enough to add something a template
+  could not say, that no two brands share a description, and that the conflict
+  clause updates the column. The test was run against the pre-fix seed first and
+  failed three of its five assertions, so it is known to be able to see the
+  difference rather than passing because it looks at nothing.
+
+Recorded as G78 in `KNOWN_ISSUES.md`.
+
+### Notifications that are actually written, and a mail identity an administrator can edit
+
+**Date:** 2026-11-19
+
+`notifications` has existed since 0005 with a read policy and nothing that could
+write a row, and `email_settings` did not exist at all: the mail display name and
+reply-to were environment variables only. This phase adds both write paths, the
+admin editor, and the tests that were missing for either.
+
+#### Added
+
+- **`notify_user`** (`0024_notifications.sql`) — the only writer of a
+  notification. `SECURITY DEFINER`, granted to `service_role` alone, so a
+  customer cannot post one to themselves or to anybody else. It rejects a
+  `link_url` that is not site-relative or `https`, because that value becomes an
+  `href` in the customer's own inbox and a stored `javascript:` there is stored
+  XSS reachable by anyone who can influence it upstream.
+- **`notifications.dedupe_key`** and a partial unique index on
+  `(user_id, dedupe_key)`. The key names the event, not the moment, so a retried
+  dispatch returns `null` rather than giving the customer two unread badges for
+  one order transition.
+- **`mark_notifications_read`** and a column-scoped `update` grant, so a customer
+  can change `is_read` and `read_at` and nothing else. RLS restricts rows, not
+  columns — a policy alone would have let them rewrite a title.
+- **`/account/notifications`** and an unread badge on the account nav. The count
+  is announced as `sr-only` text inside the link rather than through an
+  `aria-label`, which would have replaced the visible name and failed WCAG 2.5.3.
+- **`email_settings`** (`0025_email_identity.sql`) — a singleton table for the
+  display name and reply-to, with RLS enabled and administrator-only access.
+  Editable at `/admin/settings/email`, gated on `settings.write`.
+- **`RESEND_FROM_NAME`** and **`RESEND_REPLY_TO_EMAIL`** as deployment defaults,
+  overridden by the administrator's saved values.
+- **`replyTo`** on `EmailMessage`, sent as `reply_to`. The administrator's
+  new-order notification now replies to the customer it is about, and a
+  customer's message falls back to the configured reply-to.
+
+#### Fixed — every settings save went unrecorded
+
+`writeAudit` passed the literal `'singleton'` as `p_entity_id`, and
+`admin_audit_logs.entity_id` is a `uuid`. The RPC raised
+`invalid input syntax for type uuid`, the error was logged as
+`admin.audit_write_failed`, and the action still returned success — so site
+settings, and now email settings, changed with no audit row at all. The failure
+was invisible from the application because the audit write is best-effort by
+design. It now passes `null`, which the table's own constraint permits alongside
+a non-null `entity_type`, and `64_notifications_and_email.sql` asserts the record
+is written and findable.
+
+#### Fixed — `email_settings` had policies that were never consulted
+
+The first version of `0025` created `email_settings` with an `is_admin()` read
+policy and never enabled row level security on it. The policies existed and
+applied to nothing; the `SELECT` grant was the whole access model, and a signed-in
+customer could read the store's mail identity. The new SQL suite caught it because
+it asserted the customer sees zero rows and they saw one. `alter table ... enable
+row level security` is now in the migration, with a comment saying why, because
+this is the failure mode of a table whose policies look correct in review.
+
+#### Tests
+
+- `supabase/tests/64_notifications_and_email.sql` — 25 assertions across the
+  write path's grants, dedupe under a repeated call (not one call, which can never
+  collide), link validation, per-customer read scoping, the column-scoped update,
+  and the audit record.
+- `tests/notifications.test.ts` — 14 cases: the service calls `notify_user` with
+  the right arguments, a dedupe is not an error, and **nothing throws** when the
+  write or the send fails, because every call runs after a committed transition.
+- `tests/email-lifecycle.test.ts` — 16 cases for the templates `lifecycle.ts`
+  claimed were enforced and which no test file existed to enforce.
+- `tests/email-transport.test.ts` grew to 11, covering the `from` header's display
+  name, its quoting against header injection, and `reply_to` precedence.
+- `tests/account-portal.test.tsx` asserts the badge's accessible name keeps the
+  visible link text.
+
+### Profile photographs, and the storage policies nothing was testing
+
+**Date:** 2026-11-20
+
+`profiles.avatar_url` has existed since 0002 and the account portal has granted
+`select` on it since 0014, but nothing had ever written it. Every customer
+rendered as an initial and the column was dead weight. This adds the write path,
+the bucket, and — the part worth reading — the test that was missing.
+
+#### Added
+
+- **`avatars` bucket and its policies** (`0023_profile_avatars.sql`). Public to
+  read, because an avatar is a public-facing picture and signing a URL per render
+  would cost real time for no privacy; write, update and delete are the owner's
+  alone, keyed on `storage.foldername(name)[1] = auth.uid()`. The object name
+  carries a content hash, so replacing a picture writes a new object rather than
+  overwriting one a browser has already cached.
+- **Upload endpoint** (`/api/account/avatar`) and a client uploader on both the
+  customer profile page and a new `/admin/account` page. The staff page also
+  carries the existing profile and password forms, so a staff member has one
+  place for their own account rather than being sent to the customer portal.
+- **`fetchAvatarUrl`** in `auth-repository.ts`, which both shells use. It returns
+  `null` on any failure rather than throwing: a layout runs for every page beneath
+  it, so a transient database error there would have broken the chrome on all of
+  them. An initial is a correct fallback and costs the reader nothing.
+- **`tests/avatar.test.ts`** and **`tests/image-signature.test.ts`** — 20 cases,
+  including the mismatch directions that matter: a file declared as one image but
+  containing another, a RIFF container that is a WAV rather than a WebP, and a
+  URL on a foreign host that contains our bucket marker.
+
+#### Fixed — 0023's policies were never executed by any test
+
+`0023` guards its bucket and policy blocks on the presence of the `storage`
+schema, as `0015` and `0022` do, so that the migrations still apply to a plain
+Postgres. The verification database has no `storage` schema, so those blocks were
+skipped — meaning the policies the migration creates were never run by anything.
+The SQL was correct and nothing proved it, which is the same shape of gap that
+once let `anon` read `products.cost_cents` while every policy read correctly.
+
+`supabase/tests/63_profile_avatars.sql` now builds the two tables and the one
+function the policies touch, re-applies the policy SQL against them, and asserts
+the behaviour with real JWTs: the owner may write into their own folder, another
+customer may not, an object at the bucket root is refused (a naive
+`name like uid || '%'` would have allowed it), the `using` half of the update
+policy blocks a rename *out* of another customer's folder, `anon` may read but
+not write, and the bucket is public, 2 MiB, and accepts no GIF.
+
+#### Corrected
+
+The `0023` comment claimed the upload path "resizes before it stores". It does
+not — this project has no image pipeline. The 2 MiB limit is the only bound on
+what a customer stores, and the comment now says so.
+
+Re-uploading an unchanged photo used to fail. The object name is the content
+hash, so the second upload collided with the first and `upsert: false` returned
+an error — for what is, from the customer's side, a no-op. A collision now means
+the same image is already in the caller's own folder, so the route confirms the
+object exists and points the profile at it. The name is the hash precisely so
+this collision is provably harmless.
+
+---
+
+### Phase 5 re-audit — every acceptance criterion re-verified against the live stack
+
+**Date:** 2026-11-20
+
+> Phase 5 was built and audited in an earlier pass. This pass re-ran the whole
+> audit independently, against a real PostgreSQL + PostgREST + auth preview and
+> a fresh production build, rather than trusting the earlier record. **No
+> catalogue code changed**, because nothing failed. The value of the pass is the
+> evidence below and the two places where a first reading of the output looked
+> like a defect and was not — both worth recording so the next reader does not
+> spend the same time.
+
+#### Verified, with the command that proved it
+
+- **Routes.** `/shop`, `/collections`, `/collections/[slug]`, `/brands/[slug]`,
+  `/brands/[slug]/models/[model]` and `/search` all `200`. `/collections/all`
+  `308`s to `/shop` (G25). Unknown brand, collection and model slugs `404`.
+- **Only published rows.** The database holds 4110 products, **12 published and
+  4098 draft**. `/shop` reports "Showing 1 – 12 of 12" and a draft slug appears
+  in neither `/shop` nor `sitemap.xml` and `404`s at its own URL.
+- **Search covers all four entity types.** `milgauss`, `rolex`, `royal oak`,
+  `116400`, `new arrivals`, `price on request` and `featured` each return rows;
+  `zzzznothing` renders the filtered empty state rather than a blank grid.
+  `catalogue_suggest` returns `product`, `model`, `brand` and `collection`
+  kinds, each with a real href.
+- **Sorting is genuinely ordered.** `title_asc`/`title_desc` reverse,
+  `reference_asc` groups by reference, and `price_asc`/`price_desc` are
+  null-safe (`nulls last`) with `published_at`/`id` tie-breakers. No
+  "best selling" option exists.
+- **Filters are multi-select by design.** With `brand=rolex` applied, Audemars
+  Piguet and Patek Philippe still carry their own count of 4 rather than dropping
+  to zero — `p_exclude` (G27) working as intended. Richard Mille is absent
+  entirely because it holds no published piece, which is the same rule that
+  makes its brand page `noindex`.
+  `condition=new` yields an honest "No watches match these filters" with the
+  clear-all action present.
+- **Out-of-range pagination is handled.** `?page=2` against 12 results says
+  "Page 2 is past the end of 12 results", and the grid area reads "There is
+  nothing on this page … go back to the first page" with a working "Go to page 1"
+  link. Not an empty grid, and not the "Showing 25–23 of 23" arithmetic bug.
+- **Hostile query parameters are inert.** `sort=best_selling`, `sort=DROP TABLE`,
+  `page=-5`, `pageSize=5000`, `priceMin=abc`, `yearMin=99999` and an SQL-ish
+  `brand` value all fall back to the default listing with `200`.
+  Unknown-but-well-formed facet slugs produce the empty state, not an error.
+- **Query cost is bounded at both layers.** The browser may ask for 12/24/48;
+  `catalogue_search` independently clamps to 1–60 and offsets to ≥ 0.
+  `catalogue_filtered` with a brand filter runs in **4.8 ms**; `catalogue_facets`
+  (one pass per dimension) in **39.5 ms**; a full `/shop` request in **84 ms**.
+  Indexes exist for every filter dimension plus a GIN full-text index.
+- **SEO rules are consistent with the sitemap.** `/shop?brand=rolex` is
+  `noindex, follow` with a canonical to clean `/shop`; `/search` is `noindex`.
+  A sort-only or page-only URL stays indexable but canonicalises to the default
+  ordering. An empty brand (`richard-mille`) is `noindex` and says "No Richard
+  Mille pieces in stock". `sitemap.xml` lists 26 URLs — clean taxonomy, models
+  and products only, no filter permutations.
+- **Crawl paths exist.** `/search` and `/brands/[slug]` serve plain `<a>` links
+  to model pages, so an indexable model page is reachable from served HTML
+  (G71).
+- **Accessibility and layout.** `audit:a11y` passed 32 pages × 4 viewports with
+  no critical or serious issues and no horizontal overflow, including the
+  product and model templates discovered at runtime.
+- **`npm run verify` green**: payment guard, suite isolation, format, lint,
+  typecheck, **844 tests**, production build.
+
+#### Two false alarms, recorded so they are not re-investigated
+
+- **`?price_mode=priced` appeared to stay indexable.** It did — because the real
+  parameter is camelCase `priceMode`. The snake_case spelling is not read, so the
+  listing was correctly clean. Re-tested with `?priceMode=priced`: `noindex`.
+- **A grep for "No watches match" suggested an out-of-range page rendered
+  blank.** The page was fine; the message is "There is nothing on this page" and
+  the earlier grep pattern did not include it.
+
+### Phase 12 — the CMS, the media library and a bucket that was never there
+
+**Date:** 2026-11-19
+
+The storefront's copy is now editable by the people who own it. Homepage sections,
+pages, questions, testimonials, navigation links, announcements, payment methods,
+delivery options and the business's own details all have editors at
+`/admin/settings`, and every save goes through a permission-gated, audited server
+action. A media library uploads images into a public bucket, records each asset,
+and refuses to delete one while a product, page, section or the logo still points
+at it.
+
+**The `media` table existed; the bucket did not.** `media` has been in the schema
+since Phase 2 and nothing ever wrote to it, because the storage bucket it
+references was never created. Every upload would have failed at the storage step
+with a message that reads like a permissions problem, and the table would have
+stayed empty forever. `0022_cms_media_library.sql` creates the bucket, matches its
+mime list exactly to the table's own image-only check, and adds the categories and
+checksum columns the library needs. This is the kind of gap a schema document
+cannot show: the table was correct and the thing beside it was missing.
+
+**A row-scoped policy is not a column-scoped one, again.** The `media` table is
+readable by staff through a `content.read` policy, which says nothing about which
+columns. The migration therefore does not add a column that must stay private —
+but the standing obligation from Phase 6 applies, and it is restated in
+`DATABASE_SCHEMA.md` so the next column added to a publicly-readable table is a
+deliberate decision rather than a default.
+
+**Three deliberate limits, recorded so they are not read as unfinished work.**
+The page editor takes JSON rather than offering a block builder, because a
+half-built builder that can produce a block the renderer silently drops is worse
+than an honest editor with a documented shape; the JSON is validated against the
+renderer's own parser, so an unknown block is rejected rather than saved and
+ignored. The homepage editor cannot invent a section key, because the renderer
+knows a fixed set and a new key would render nothing; it warns instead. And no
+testimonial is ever generated — a quote that a customer did not give is a false
+claim about a real person, so the site shows none until a real one is added.
+
+**Two defects the tests could not have caught, and did not.** The stale
+`database.types.ts` was the reason the new code would not typecheck: `media` was
+missing the columns the migration adds, so every query against them was a type
+error rather than a runtime one — the good failure mode. Separately, the shared
+form kit called a hook conditionally (`error ?? useFieldError(name)`), which
+`eslint-plugin-react-hooks` caught and a typecheck could not; the fix calls the
+hook unconditionally and chooses afterwards.
+
+**Verification**
+- `0022_cms_media_library.sql` applies cleanly on a fresh database and on re-run.
+- `supabase/tests/62_cms_media.sql` — 20 assertions covering the image-only
+  constraint, the `content.write` gate, the system-page deletion guard, and that
+  `content.write` cannot reach site settings. Repeatable across runs.
+- `scripts/db-verify.sh` green: 22 migrations, 18 RLS/auth suites, 4 seeds
+  idempotent on re-run.
+- `npm run verify` green: 836 unit tests (12 new editor render tests, 27 content
+  validation, 24 media reference), typecheck, lint, production build.
+- `scripts/a11y-audit.mjs` against the preview with real rows: 32 pages × 4
+  viewports, no critical or serious violations, no horizontal overflow.
+- The `media` bucket creation was exercised against a simulated `storage`
+  schema, because the local stack has none: the row lands `public = true` with
+  an 8 MB limit and five allowed types, matching `media_mime_image_only`
+  exactly.
+
+### Fixed — the sitemap listed taxonomy but not a single product
+
+**Date:** 2026-11-19
+
+`/products/[slug]` has rendered `index, follow` with a self-canonical since
+Phase 6, and `sitemap.xml` listed brands, collections and models — but no
+product. A crawler could reach a product page only by following a link from a
+listing, and the per-product `lastmod` the project requires was never emitted.
+G33 (taxonomy) had been closed; G34 (products) had been deferred to "the
+database-driven sitemap in Phase 12", and Phase 12 shipped without it, so the
+deferral had quietly become a promise nothing kept.
+
+`fetchProductSitemapRows` reads the published catalogue through the public,
+session-free client — the same one the taxonomy queries use — and pages it,
+because PostgREST caps a single response and a silently truncated sitemap is
+worse than a slow one. Membership is decided by RLS, exactly as it is for a
+brand: the query repeats no status filter of its own, so a draft or archived row
+cannot appear and the page and the sitemap cannot disagree.
+
+Verified against the local stack: 23 published rows produced 23 product entries,
+each with the row's real `updated_at`, and every draft and archived slug was
+absent. Two tests were added to `sitemap-taxonomy.test.ts` — one asserting the
+`lastmod` is the row's own timestamp, one asserting the sitemap adds no row the
+public query did not return.
+
+### Phase 10 — the admin platform, and two bugs that only a real caller would find
+
+**Date:** 2026-11-20
+
+The admin application now exists: a section at `/admin` with its own layout, its own session
+check, and navigation built from the permissions the signed-in person actually holds. Products
+can be created, edited, published and archived; stock can be adjusted; an order request can be
+moved through its lifecycle; every change writes an audit row. Inquiries, appointments,
+customers and settings are read-only but show their real rows, and say so, rather than offering
+inputs that do nothing.
+
+Two defects were found on the way, and they share a shape worth recording.
+
+**Every admin write would have failed in the browser.** The actions performed their writes with
+the service-role client. That client carries no user, so `auth.uid()` is null, so
+`admin_write_audit_log` refused the audit row — correctly, because an audit row with no actor
+reads as a system action. The database suites were green the whole time, because they call the
+functions directly as a simulated user and never exercise the client the application actually
+uses. Writes now go through the request-scoped session client, which is also the safer choice:
+the service-role client authenticates the call but not the caller, and would bypass the policies
+that scope what a staff member may write. `61_admin_write_paths.sql` section 1 now asserts that
+the service-role client cannot audit, so the mistake cannot be made again silently.
+
+**Every product save would have failed validation.** The form schema declared optional fields as
+`z.string()` and checkboxes as `z.coerce.boolean()`, both of which reject `undefined`. A browser
+does not submit an unchecked checkbox at all, and a blank optional input read through
+`Object.fromEntries` is absent rather than empty — so the schema rejected the very shape the
+browser produces, on fields the administrator never touched. The schema now treats an absent
+field as absent, and `tests/admin-validation.test.ts` parses the minimal payload a browser really
+sends rather than a tidy object assembled by hand.
+
+### Fixed — the inventory balance could be written directly, bypassing its own ledger
+
+**Date:** 2026-11-20
+
+`inventory` had a write policy and a ledger trigger, and the application never wrote the balance
+directly. Nothing *stopped* it, though: `inventory.write` could issue a plain `update` and change
+stock with no ledger row and no audit entry. The balance would then disagree with the history
+that produced it, permanently and invisibly, because every screen reads the balance and nothing
+recomputes it from the ledger to notice. `0021_inventory_write_lockdown.sql` revokes
+`INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`; every legitimate writer is
+`SECURITY DEFINER` and unaffected. The suite asserts the revoke, so a later `grant` that reopens
+the hole fails loudly instead of quietly.
+
+### Added — `supabase/tests/61_admin_write_paths.sql` and `tests/admin-validation.test.ts`
+
+The first proves the write path the actions actually use: the service-role client cannot audit, a
+signed-in administrator can, a customer cannot write a product despite holding the grant, support
+cannot publish, and the balance cannot be written directly. The second proves the form accepts
+the payload a browser actually produces.
+
 ### Fixed — the sell/trade form asked "sell or trade?", validated the answer, and threw it away
 
 **Date:** 2026-11-19

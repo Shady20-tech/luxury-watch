@@ -13,9 +13,26 @@ import type { CatalogueProduct } from '@/lib/catalogue/types';
  * shapes.
  */
 
+/** The views an editor may tag an image with (see `watch_image_category`). */
+export type WatchImageCategory =
+  | 'gallery'
+  | 'dial'
+  | 'caseback'
+  | 'movement'
+  | 'bracelet'
+  | 'box_and_papers'
+  | 'certificate'
+  | 'wrist';
+
 /** One gallery image, with the metadata a layout needs to reserve its space. */
 export type ProductImage = {
   id: string;
+  /**
+   * What the photograph shows: the dial, the caseback, the movement, the box and
+   * papers, or a general gallery shot. Used to group a gallery by view and to
+   * label a thumbnail for a screen-reader user.
+   */
+  category: WatchImageCategory;
   /** Resolved URL, or `null` when neither source could be resolved. */
   url: string | null;
   /** Never empty: the schema requires alt text, and the assembly falls back to the title. */

@@ -7,15 +7,15 @@ import {
   fetchBrandSitemapRows,
   fetchCollectionSitemapRows,
   fetchModelSitemapRows,
+  fetchProductSitemapRows,
 } from '@/server/repositories/sitemap-repository';
 
 /**
  * XML sitemap.
  *
  * Only routes that genuinely exist are listed, and only rows a visitor can
- * actually reach. Product entries arrive with the database-driven sitemap in
- * Phase 12; brands and collections are listed here because Phase 5 built their
- * pages.
+ * actually reach. Products, brands, collections and models all come from the
+ * database; a static route is listed only when it has no row to read.
  *
  * -----------------------------------------------------------------------------
  * THE SAME RULE THE PAGES USE
@@ -30,6 +30,9 @@ import {
  *     `noindex, follow` and canonicalised onto the clean listing, so listing one
  *     would advertise a URL that asks not to be indexed — a sitemap that
  *     contradicts the page it points at.
+ *   * Every published product is listed with its own `updated_at`. A product
+ *     route is never filtered, so it has no permutation to consolidate and its
+ *     canonical is itself.
  *   * `/collections/all` is not listed: it redirects to `/shop`, and a sitemap
  *     should carry the destination, not the redirect.
  *   * A brand, collection or model with **no published pieces** is not listed.
@@ -46,9 +49,10 @@ import {
  * LAST-MODIFIED HONESTY
  * -----------------------------------------------------------------------------
  *
- * Brand and collection entries carry the row's real `updated_at`. The shop and
- * the two index pages have no single row to read, so they carry no `lastmod` at
- * all rather than a build timestamp pretending to be a change.
+ * Product, brand, collection and model entries carry the row's real
+ * `updated_at`. The shop and the two index pages have no single row to read, so
+ * they carry no `lastmod` at all rather than a build timestamp pretending to be
+ * a change.
  */
 export const revalidate = 3600;
 
@@ -67,11 +71,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const [brands, collections, models] = await Promise.all([
+    const [products, brands, collections, models] = await Promise.all([
+      fetchProductSitemapRows(),
       fetchBrandSitemapRows(),
       fetchCollectionSitemapRows(),
       fetchModelSitemapRows(),
     ]);
+
+    for (const product of products) {
+      entries.push(
+        buildSitemapEntry({
+          path: `/products/${product.slug}`,
+          lastModified: product.updated_at,
+          changeFrequency: 'weekly',
+          priority: 0.7,
+        }),
+      );
+    }
 
     for (const brand of brands) {
       if (brand.product_count <= 0) continue;

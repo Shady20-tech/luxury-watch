@@ -367,13 +367,24 @@ $$;
 --      version of this suite tried to mark a piece sold out as `anon`, the
 --      update silently affected zero rows, and the test read as a product bug
 --      when the real cause was that the security model was working.
+--
+--      Since 0021 the write grant is revoked as well as the policy, so this is a
+--      hard `insufficient_privilege` rather than a silently filtered zero-row
+--      update. Both outcomes mean "the caller cannot change stock"; the test
+--      accepts either so that it keeps asserting the boundary rather than the
+--      mechanism, and still fails if the update ever succeeds.
 do $$
 declare
   v_rows integer;
 begin
-  update public.inventory set quantity = 999, reserved_quantity = 0
-   where product_id = 'e0000000-0000-4000-8000-000000000106';
-  get diagnostics v_rows = row_count;
+  begin
+    update public.inventory set quantity = 999, reserved_quantity = 0
+     where product_id = 'e0000000-0000-4000-8000-000000000106';
+    get diagnostics v_rows = row_count;
+  exception when insufficient_privilege then
+    raise notice 'pass [inventory: an anonymous caller cannot change stock]';
+    return;
+  end;
 
   if v_rows <> 0 then
     raise exception 'FAIL: anon updated % inventory rows', v_rows;

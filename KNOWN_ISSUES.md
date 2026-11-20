@@ -156,16 +156,17 @@ Recorded so no future phase claims to have verified something it did not.
 | G27 | **Facet counts exclude the dimension being counted.** Selecting a brand must not zero every other brand, or the filter list becomes one-way and a visitor cannot switch brand without clearing the filter first. `p_exclude` on `catalogue_filtered` implements this. | low | **resolved** | Implemented in migration `0010` and verified against real data: with `brand=rolex` selected, the other three brands still render with their own counts. | 
 | G28 | **Filtered, searched and sorted listings are `noindex, follow` and canonicalise onto the clean listing.** The decision is made by `isIndexableListing`, not by comparing the canonical path to the listing base. Filtering preserves the base path, so that comparison would have been true for a clean listing and a filtered one alike, and every permutation would have been indexable. | high | **resolved** | Verified at runtime: `/shop` renders `index, follow`; `/shop?brand=rolex` renders `noindex, follow` with `canonical` pointing at the clean `/shop`. The same rule is applied to the brand and collection routes. |
 | G29 | **Search has no ranking beyond `ts_rank` defaults and no typo tolerance** (previously G7). Phase 5 wired real database search across title, SKU, reference number, brand and model, but did not add fuzzy matching. | low | open | Sufficient for the current catalogue size. If result quality proves inadequate, a trigram index or an external index would be the next step; neither is planned in a current phase. |
-| G30 | **The seed has almost no priced products, so the price sort and price band filter are verified against a small sample.** G5 stands: the seed is `price_on_request` throughout, and the test fixtures add only a handful of priced rows. | low | accepted | Consequence of G5 and A6, not a defect in the query layer. The sort was verified to match the database's own ordering on the rows that do have prices. |
+| G30 | **The seed has no priced products at all, so the price sort and price band filter cannot be exercised against seeded data.** G5 stands: every one of the 4110 rows is `price_on_request`, and the 12 rows `03_homepage_demo.sql` publishes are `price_on_request` too. The count is zero, not "a small sample". | low | accepted | Consequence of G5 and A6, not a defect in the query layer. Verified in this pass by temporarily pricing three published rows and confirming the ordering: `price_asc` put the 900,000-cent piece first and `price_desc` put the 5,000,000-cent piece first, with `priceMax=1000000` returning three and `priceMin=9000&priceMax=20000` returning two. The temporary prices were reverted, so the seeded database is back to zero priced rows. `tests/catalogue-params.test.ts` covers parsing and canonicalisation; the ordering itself has no committed regression test because there is no committed priced data to order. |
 | G31 | **A card's wishlist and add-to-cart controls were absent in Phase 5.** The whole card was a single link to the product. | low | **resolved** | `catalogue-card.tsx` now carries `AddToCartButton` and `WishlistToggle` once Phase 7 and Phase 9 built them. The add-to-cart control renders only for an available piece; the wishlist toggle renders always and prompts sign-in for a guest. |
 | G32 | **Phase 5 was verified against a local PostgreSQL + PostgREST stack, not a real Supabase project** (A1 still open). The `supabase-js` client path and RLS were exercised for real; what is unverified is Supabase's own platform behaviour. | high | open | Follows A1 and G1. Re-run the same checks against the real project once it exists. |
 | G33 | **`/brands/[slug]` and `/collections/[slug]` are indexable but absent from `sitemap.xml`.** Phase 5 made these routes real and they render `index, follow` with a self-canonical, yet the sitemap still lists only `/` and `/shop`. | medium | **resolved** | The sitemap now reads brand and collection rows through `sitemap-repository.ts` and lists each one that holds at least one published piece, carrying the row's real `updated_at` as `<lastmod>`. It uses a cookie-free client so the route stays static. Empty scopes are omitted, which is the same rule their own metadata applies. Product entries remain Phase 12. `/shop` and the two index pages carry no `lastmod` rather than a build timestamp. |
-| G66 | **`db-verify.sh` leaves published test products and brands in the database, and they appear in the public catalogue and the sitemap.** Suites `10_public_boundary.sql` and `50_service_flows.sql` insert a published product under their own brand (`Test Brand` / `test-brand`, `Service Brand` / `service-brand`) and never remove it. A developer who runs `db-verify.sh` and then `npm run preview` therefore sees 4126 products and 6 brands, and `/brands`, the brand facet and `/sitemap.xml` all offer the fixtures as if they were stock. This is the same class as the documented 4120/5 count drift, but it now reaches a crawler-facing surface rather than only a row count. | medium | open | Clean the dev database with `./scripts/db-reset.sh` before generating a preview, and re-run `db-verify.sh` afterwards if the suites need to run again. A real fix needs the two suites to delete their own fixtures at the end; that was attempted and reverted because `40_order_and_inventory.sql` and `21_customer_column_privacy.sql` depend on the `bank_transfer` payment method that suite 10 inserts, so teardown ordering has to be designed rather than bolted on. |
+| G66 | **`db-verify.sh` left published test products and brands in the database, and they appeared in the public catalogue and the sitemap.** Suites `10_public_boundary.sql` and `50_service_flows.sql` inserted a published product under their own brand (`Test Brand` / `test-brand`, `Service Brand` / `service-brand`) and never removed it, so a developer who ran `db-verify.sh` and then `npm run preview` saw 4126 products and 6 brands, and `/brands`, the brand facet and `/sitemap.xml` offered the fixtures as if they were stock. | medium | **resolved** | The earlier attempt at per-suite teardown was reverted because `40_order_and_inventory.sql` and `21_customer_column_privacy.sql` depended on the `bank_transfer` payment method suite 10 inserted, so teardown order had to be designed. The fix removes the need for teardown entirely: **every suite now runs inside `begin; … rollback;`**, so no suite can leave a row behind whatever it inserts. The cross-suite dependency that made teardown hard is also gone — suites 20, 40 and 60 seed the payment methods they use with `on conflict do nothing`, and suites 15 and 30 create the brand and order they assert on instead of reading another suite's leftovers. Three assertions had been passing *for the wrong reason* and were corrected: suite 15 asserted a published-product count of at least one that only existed because suite 10 had leaked a product, suite 30 asserted a role could read an order it never created, and `PAGES_MIN` was 6 because the sixth page was suite 10's leaked fixture — the seed publishes 5. `scripts/check-test-suite-isolation.mjs` now fails the build if a suite contains transaction control or a non-transactional statement, which is what keeps the rollback wrapping honest as suites are added. Verified by `./scripts/db-reset.sh && ./scripts/db-verify.sh` returning the exact seed baseline — 4 brands, 4110 products, 12 published, 41 models, 8785 specs, 0 payment methods — with every suite still passing. |
 | G68 | **A model page exists only when the brand and the model slug are given together, because a model slug is not unique on its own.** `models` is unique on `(brand_id, slug)`, and the seed holds 41 models across 38 distinct slugs — `other` appears four times, once per brand. The scope slug is therefore `<brand-slug>/<model-slug>` and the route is `/brands/[brand]/models/[model]`. A URL that supplies the wrong brand for a real model is a 404, not a redirect, because there is no correct page to redirect to. | low | accepted | Deliberate. A bare `/models/[slug]` would resolve to four brands' stock and look entirely normal while showing the wrong watches, so the nesting matches the database's own uniqueness. The alternative — renaming the four colliding slugs — would edit seed data to suit a URL shape, which is the wrong direction. |
 | G69 | **A model with no published pieces is a real page but is `noindex` and absent from `sitemap.xml`.** The page renders an honest empty state naming the model, but a page that can only say "we hold none of these" is thin content that cannot rank, so it is excluded on both sides — the page's metadata and the sitemap — from the same `published_model_counts()` aggregate. This is the brand/collection rule (G33) extended to the third level. | low | accepted | Publish a piece into the model and both the `noindex` and the sitemap exclusion lift with no code change. If a model is deliberately kept empty as a coming-soon landing page, it needs its own copy and a decision to index it, which is a product call rather than a defect. |
 | G70 | **`catalogue_suggest` searches model *names*, not model slugs, so a suggestion cannot be produced by typing a slug.** Typing `milgauss` finds the model because the name is "Milgauss"; a hypothetical model whose slug differs materially from its name would be found by the name only. | low | accepted | Matches how a shopper searches. The suggestion href now points at the model page rather than the brand's `?model=` facet, which is the fix this pass made. Extending the match to `models.slug` is a one-line change if it proves useful, but it would also make a slug-like query return a model hit that the result grid does not, which is a mismatch worth avoiding until there is evidence. |
 | G71 | **An indexable page that nothing links to is invisible, and the mega-menu did not link to the model pages.** The header's mega-menu does render model links, but it is a Radix panel that mounts on interaction, so its anchors are absent from the served HTML — the crawlable path to a model page was therefore zero, while the page was indexable and listed in `sitemap.xml`. `/search` did render server-side model links, but pointed them at the `?model=` facet, which is `noindex`. The brand page and the search landing now render plain `<a href>` links to `/brands/<brand>/models/<model>`, filtered to models with published stock so the crawl path and the sitemap agree. | medium | **resolved** | Fixed in this pass. The rule to keep: a route is not "done" because it is indexable and in the sitemap — something in the served HTML must link to it. Assert the anchor, not the sitemap entry: `tests/search-landing.test.tsx` checks the href, and the browser audit now resolves the model URL from `/brands/rolex` at runtime rather than hardcoding a seed slug, then fails if the request is not a `2xx`. |
 | G72 | **The accessibility audit reported a clean pass for a URL that returned `404`.** `axe` audits whatever document it is given, and the not-found template is perfectly accessible, so a page that no longer exists scored "ok". This is how a hardcoded seed slug could silently stop measuring anything — the failure mode G21 records for detector versions has a sibling in URL drift. | medium | **resolved** | `auditPage` now records an `http-error` problem for any non-`2xx` response except the deliberate `/this-page-does-not-exist`, and the model and product paths are discovered from the served HTML at runtime. A discovered path that 404s now fails the audit loudly instead of passing vacuously. |
+| G78 | **Every indexable brand page rendered the same placeholder sentence as its visible introduction and its meta description.** All four seeded brands carried `description = 'Reference brand seeded for development.'`, and `/brands/[slug]` printed it in the hero and in `<meta name="description">`. Four indexable, self-canonical pages therefore shared one sentence that described nothing about the brand — the thin-and-duplicate content the Phase 5 brief asked the catalogue to avoid. The placeholder also short-circuited the good generated fallback in `page.tsx`, which only runs when `description` is null. | medium | **resolved** | The seed now carries one original sentence per brand, and the `on conflict` clause updates `description` so an existing database is corrected rather than left on the old text (it previously updated only `name`, `is_active` and `sort_order`). Verified against the running preview: all four `/brands/<slug>` responses now return a distinct `meta description` and hero intro. Do not copy the reference site's prose — see the content and licensing rule in `AGENTS.md`. |
 
 ---
 
@@ -173,7 +174,7 @@ Recorded so no future phase claims to have verified something it did not.
 
 | # | Issue | Severity | Status | Next action |
 |---|---|---|---|---|
-| G34 | **`/products/[slug]` is indexable but absent from `sitemap.xml`.** Phase 6 made the route real and it renders `index, follow` with a self-canonical, yet the sitemap still lists only `/` and `/shop`. This is G33 extended to products, and it is the same deliberate ordering: the database-driven sitemap is Phase 12. Until then a crawler reaches a product page only by following a link, and the dynamic product `lastmod` timestamps the project requires are not yet emitted. | medium | open | Phase 12. `products.updated_at` and `published_at` are already selected by the repository, so the entries can carry a real `<lastmod>` rather than a build-time fallback. |
+| G34 | **`/products/[slug]` is indexable but was absent from `sitemap.xml`.** Phase 6 made the route real and it renders `index, follow` with a self-canonical, yet the sitemap listed only `/` and `/shop`, so a crawler reached a product page only by following a link. | medium | **resolved** | Resolved in Phase 12: `fetchProductSitemapRows` pages the published catalogue through the public client and every entry carries the row's real `updated_at` as `<lastmod>`. RLS decides membership, so a draft or archived piece cannot appear; verified against the local stack, where 23 published rows produced 23 entries and no draft or archived slug was listed. |
 | G35 | **The product detail page is server-rendered per request, not prerendered.** `generateStaticParams` returns `[]` and the route carries `export const dynamic = 'force-dynamic'` by design: prerendering would freeze price, stock and `lastmod` into the deployment. The consequence is that every product view hits the database, and the page cannot be served from the CDN edge as static HTML. | medium | accepted | Revisit in Phase 12 with ISR (`export const revalidate`) once the sitemap and cache-invalidation story exists, so a stale price and a stale sitemap timestamp are handled together rather than separately. |
 | G36 | **The enquiry rate limit is per email address, not per IP.** `submit_product_question` counts submissions for the same address inside a window. Someone willing to vary the email address can submit more, and there is no IP-level throttle because the application cannot see a trustworthy client IP behind Vercel's proxy without extra configuration. | medium | open | Add an IP- or session-level limit in Phase 7, where the order-request flow needs the same protection and the trusted-header question has to be settled once for both. |
 | G37 | **The enquiry form has no email-verification step and no spam challenge beyond a honeypot.** A honeypot plus the database rate limit stops naive bots, but nothing stops a determined sender, and no enquiry is confirmed to the sender by email until Phase 8 (Resend). | medium | open | Phase 8 sends the acknowledgement and the admin notification. Reassess whether a stronger challenge is warranted once real traffic exists; adding one now, with no traffic data, would trade conversion for an unmeasured risk. |
@@ -283,15 +284,22 @@ each time — read back what the consumer will read, not what the producer was h
 |---|---|---|
 | critical | 7 | 1 |
 | high | 26 | 13 |
-| medium | 34 | 17 |
-| low | 48 | 13 |
+| medium | 42 | 18 |
+| low | 56 | 15 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
 
 Counts are generated from the tables above rather than maintained by hand. The previous
 table had drifted from its own rows by nine items, which is the usual fate of a
-hand-maintained total; recount with `grep` before trusting it.
+hand-maintained total; recount with `grep` before trusting it. Recounted again when
+G78 was added: 131 issue rows across sections A–H and P (the eight F rows are open
+questions, not issues, and are excluded), and the totals above are that count. The
+tally must read the whole file, not just the part above this heading — section N, the
+admin section, O and P all sit after it, which is how the earlier figure came up short.
+That admin section is also headed `## H`, duplicating the letter used at the top of the
+file; it is left as it is because renumbering it would invalidate every `H<n>` reference
+in the changelog, but a reader counting by heading will miscount until it is fixed.
 
 **Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository has a
 `.gitignore`, a committed lockfile, a documented `.env.example`, a `server-only` guard on every
@@ -359,3 +367,93 @@ Recorded as D10, and it carries a lesson for every later phase: on a publicly-re
 column is exposed by default unless the grant list is updated with it. This is the second defect of
 this kind the project has found by testing against real infrastructure rather than trusting a
 reading of the policies, which is why that practice is kept.
+
+---
+
+## H. Admin platform items (raised in Phase 10)
+
+The admin application is delivered for the operations a store actually performs daily: editing
+products, adjusting stock, moving an order request through its lifecycle, and reading the audit
+trail. The rest is recorded here rather than left as a dead button, because a control that looks
+available and does nothing is worse than one that is absent.
+
+| # | Issue | Severity | Status | Next action |
+|---|---|---|---|---|
+| H1 | **No admin could sign in on a local preview.** `npm run preview` brought up PostgREST but not GoTrue, so there was no way to obtain a real session cookie locally. The admin routes were therefore verified only as *redirecting an anonymous caller* — the security-critical direction — and the write paths were verified at the database, not through the browser. | medium | **resolved** | The preview stack now runs a local auth server (`scripts/dev-auth-stub.mjs`) on :3003, and `dev-postgrest-proxy.mjs` forwards `/auth/v1` to it as well as `/rest/v1` to PostgREST — which is what Kong does in a real project, so the app needs no knowledge that these are two processes. The stub verifies the password against `auth.users.encrypted_password` with `extensions.crypt()`, the same bcrypt comparison GoTrue performs, and mints an HS256 token signed with the secret PostgREST was started with. The token carries `sub` and `role: authenticated`, so PostgREST verifies it and applies the signed-in RLS policies, and `auth.uid()` attributes the write to that user. `scripts/seed-preview-admin.sh` creates a `SUPER_ADMIN` account in the local database only — it is not in the seed or any migration. **Verified end to end in a browser:** signed in through the real `/login` form, opened `/admin` (which showed the real role and live counts), saved a page through the real CMS editor, and confirmed the new value in Postgres together with an `admin_audit_logs` row whose `actor_id` is that user's `auth.uid()`. A wrong password is rejected with the same single message GoTrue returns, and an anonymous request to `/admin` still redirects to `/login?next=/admin`. What remains unverified is Supabase's own GoTrue implementation rather than the app's session handling — the same platform gap A1 records. |
+| H2 | **Brand, model and collection merchandising is not editable.** Products can be assigned to an existing brand and model, but the taxonomy itself is seed-managed. Drag-order, create and rename are not built. | medium | open | Add CRUD for `brands`, `models` and `collections` when the owner needs it; the tables, policies and permission (`catalog.write`) already exist. |
+| H3 | **Media library is not built.** A product's image URL can be set as text; uploading to Supabase Storage is not wired. This is the same dependency as A4. | medium | open | Follows A4. The buckets exist in the migrations; the upload UI does not. |
+| H4 | **Content editing (pages, FAQs, testimonials, navigation, announcements).** Editors are built in Phase 12 and every save revalidates the root layout. | medium | resolved | Phase 12. See H7–H10 for the limits that remain. |
+| H5 | **Inquiries and appointments are read-only in the admin.** They are listed with their real rows, but replying and closing are not implemented. | low | open | Add reply/close actions; `inquiries.write` already exists and is held by the roles that need it. |
+| H6 | **The dashboard's "recent activity" reads the audit log, which is empty on a fresh install.** It renders an empty state rather than placeholder rows, deliberately. | low | accepted | Expected. Real activity appears as soon as an admin performs an action. |
+
+### Two defects found while building Phase 10, and what they have in common
+
+Both were invisible to the tests that existed at the time, and both would have made the admin
+application look broken while every unit test stayed green.
+
+**The service-role client cannot write an audit row.** The first version of the actions performed
+every write with the service-role client. That client carries no user, so `auth.uid()` is null, so
+`admin_write_audit_log` refuses with "must be attributable to a signed-in user" — correctly, since
+an audit row with no actor is indistinguishable from a system action. Every admin action would
+have failed in the browser. The fix was to perform writes through the request-scoped session
+client, which is also the safer choice: the service-role client authenticates the *call* but not
+the *caller*, and would bypass the very policies that scope a staff member's writes. This is now
+asserted in `61_admin_write_paths.sql` section 1, so the design cannot quietly regress.
+
+**The form schema rejected the shape a browser actually sends.** Optional fields were declared
+`z.string()` and checkboxes `z.coerce.boolean()`, both of which reject `undefined`. A browser does
+not submit an unchecked checkbox at all, and a blank optional input in a form read with
+`Object.fromEntries` is absent rather than empty. So *every* product save failed validation on a
+field the administrator never touched. `tests/admin-validation.test.ts` now parses the minimal
+payload a browser really produces, and would have caught this on the first run.
+
+The common thread is the one this project keeps rediscovering: a test that exercises the layer
+below the one that is broken passes. The database suites were green while the client that called
+them could not authenticate; the schema was green when handed a tidy object while the browser
+never sends one. Test the shape the caller actually produces, not the shape that is convenient to
+write.
+
+### The inventory balance is now unwritable directly
+
+`inventory` carried a write policy but the balance is derived from `inventory_transactions` by a
+trigger. Nothing in `src/` wrote it directly, but nothing stopped a staff member from doing so —
+and a direct write changes stock with no ledger row and no audit entry, leaving the balance
+permanently disagreeing with its own history, invisibly. `0021_inventory_write_lockdown.sql`
+revokes `INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`. Every legitimate
+writer is `SECURITY DEFINER` and therefore unaffected. `61_admin_write_paths.sql` asserts the
+revoke, so a later `grant` that reopens it fails the suite.
+
+## O. CMS, media and settings items (raised in Phase 12)
+
+| ID | Item | Severity | Status | Next action |
+|---|---|---|---|---|
+| H7 | **The page editor takes JSON, not a block builder.** `pages.content` is a JSON array of five block types; the editor accepts JSON and validates it against the renderer's own parser, so an unknown block is rejected rather than saved and silently dropped. | medium | accepted | A block builder is a larger piece of work than this phase. The JSON shape is documented in `DATABASE_SCHEMA.md` and the parser is the single source of truth for what is valid. |
+| H8 | **A media asset's usage check is a reference scan, not a foreign key.** `media-references.ts` matches a URL against `product_images`, `products`, pages, homepage sections and `site_settings.logo_url`. A URL stored in a column nobody listed would not be seen. | medium | open | Replace with real foreign keys from those columns to `media` once the schema can carry them. Until then, the scan is the guard, and a delete that slips through leaves a broken image rather than a broken page. |
+| H9 | **Storage object deletion happens before the row deletion, and the two are not in one transaction.** If the storage delete succeeds and the row delete fails, the row survives pointing at a missing object. | low | accepted | Storage and Postgres cannot share a transaction here. The order is deliberate: a dangling row is visible and repairable, an orphaned object is not. The row delete is attempted immediately after and its failure is logged. |
+| H10 | **Media uploads are not virus-scanned and not re-encoded.** The route checks the declared mime type, the file's own magic bytes and the size, and refuses SVG. A polyglot file that is a valid JPEG and something else is still stored as-is. | low | accepted | Supabase Storage serves the object with the recorded content type and `Content-Disposition`, which limits the impact. Re-encoding on upload is the real fix and needs an image pipeline this project does not have. |
+
+### The bucket was the missing half of a table that had existed since Phase 2
+
+`media` was created in Phase 2, given a policy in Phase 9 and read by the admin in Phase 10. Nothing
+ever inserted into it, because the `storage.objects` side was never set up: no bucket row, no policy
+on the bucket, no upload route. The first upload attempt in Phase 12 failed at the storage step with
+a message that reads like an authorisation problem, which is exactly how a missing bucket presents.
+
+A schema document lists tables. It does not list the *storage buckets* those tables assume, so the
+gap was invisible in every review of `DATABASE_SCHEMA.md`. `0022_cms_media_library.sql` now creates
+the bucket and pins its `allowed_mime_types` to the same list the table's own check constraint
+enforces, so the two cannot drift apart. When a table references an object store, the bucket belongs
+in the migration and in the schema document beside the table — not in a dashboard someone has to
+remember to visit.
+
+---
+
+## P. Notifications and mail identity items (raised in Phase 13)
+
+| ID | Item | Severity | Status | Next action |
+|---|---|---|---|---|
+| P1 | **The audit write is best-effort, so a failure is silent by design.** `writeAudit` logs `admin.audit_write_failed` and the action reports success. That is deliberate — a content edit must not fail because the audit insert did — but it is how the `'singleton'`-cast bug survived: the record was never written and nothing surfaced it. | medium | accepted | A durable outbox or a non-null constraint that forces the insert would make the failure visible. Neither is worth it until an audit trail becomes a compliance requirement. Until then the SQL suite asserts the *shape* the action produces is accepted, which is the part a unit test cannot see. |
+| P2 | **Only order status changes produce a notification today.** `notify_user` and `createNotification` are general, but the only caller is `announceTransition`. Enquiries, appointments and service flows record rows and send email without an in-app counterpart. | low | open | Add a `createNotification` call beside each `sendEmail` in the service-flow actions, keyed on the flow's own reference so a retry deduplicates. |
+| P3 | **A notification is not deleted when its subject is.** `link_url` points at `/account/orders/<id>`; if that order were ever removed the link would 404 rather than the notification disappearing. Orders are not deletable, so this is theoretical today. | low | accepted | Would need `on delete cascade` from each linked entity, which the schema cannot express because `link_url` is a string. Keep the 404 honest if it ever happens. |
+| P4 | **The unread badge counts on every account page render.** `countUnreadNotifications` is a `head` count on an indexed column, so it is cheap, but it is one more query in the account layout's critical path and it is not cached. | low | accepted | The layout is `force-dynamic` and per-customer, so caching it would need a cache key per user for a badge that is wrong for up to the TTL. A cheap count is the better trade. |
+| P5 | **`resolveMailIdentity` memoises for 60 seconds, per process.** An administrator who saves a change may wait up to a minute before the next message uses it, and in a multi-instance deployment each instance has its own cache. | low | accepted | Documented in `identity.ts`. The alternative is a read per message, which doubles the queries on a two-message submission for a value that changes a few times a year. |

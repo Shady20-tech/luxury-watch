@@ -85,6 +85,13 @@ insert into public.inventory (product_id, quantity) values
   ('40000000-0000-0000-0000-000000000003', 1),
   ('40000000-0000-0000-0000-000000000004', 5);
 
+-- The offline method, and a disabled one the rejection case needs. Seeded here so
+-- the suite does not depend on another suite having run first.
+insert into public.payment_methods (code, label, is_enabled) values
+  ('bank_transfer', 'Bank transfer', true),
+  ('disabled_method', 'Disabled method', false)
+on conflict (code) do nothing;
+
 insert into public.delivery_options (code, label, fee_cents, is_enabled) values
   ('standard_delivery', 'Standard delivery', 5000, true),
   ('pickup_in_store', 'Collect in store', 0, true),

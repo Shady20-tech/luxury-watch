@@ -50,6 +50,7 @@ export type Profile = {
   email: string | null;
   fullName: string | null;
   phone: string | null;
+  avatarUrl: string | null;
   marketingOptIn: boolean;
 };
 
@@ -291,7 +292,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, phone, marketing_opt_in')
+    .select('id, email, full_name, phone, avatar_url, marketing_opt_in')
     .eq('id', userId)
     .maybeSingle();
 
@@ -303,6 +304,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
     email: data.email ?? null,
     fullName: data.full_name ?? null,
     phone: data.phone ?? null,
+    avatarUrl: data.avatar_url ?? null,
     marketingOptIn: data.marketing_opt_in,
   };
 }
@@ -328,6 +330,62 @@ export async function updateProfile(
       phone: input.phone ?? null,
       marketing_opt_in: input.marketingOptIn,
     })
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+/**
+ * The signed-in customer's avatar URL, for shells that only need a picture.
+ *
+ * Deliberately swallows every failure and returns `null`. A layout runs for every
+ * page beneath it, so a thrown error here would turn one transient database blip
+ * into a broken chrome on all of them; an initial is a correct fallback and costs
+ * the reader nothing. This is the only place in this module that does that, and it
+ * is because the caller is decoration rather than the page's subject.
+ */
+export async function fetchAvatarUrl(userId: string): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn('profile.avatar_url_unavailable', { code: error.code ?? 'unknown' });
+      return null;
+    }
+
+    return data?.avatar_url ?? null;
+  } catch (error) {
+    logger.warn('profile.avatar_url_failed', {
+      message: error instanceof Error ? error.message : 'unknown',
+    });
+    return null;
+  }
+}
+
+/**
+ * Set or clear the customer's own avatar.
+ *
+ * Stored as the object's public URL rather than a storage path, because the
+ * column is named `avatar_url` and predates the media library's path convention.
+ * The bucket is public (0023), so the URL is stable and needs no signing.
+ *
+ * The path is built by the caller from the session id; this function writes
+ * whatever it is given. That split is deliberate: the path is a security
+ * boundary and belongs beside the session, while the write is a single column.
+ */
+export async function updateAvatarUrl(userId: string, avatarUrl: string | null): Promise<void> {
+  const supabase = await createSupabaseServerClientWritable();
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
     .eq('id', userId);
 
   if (error) throw error;

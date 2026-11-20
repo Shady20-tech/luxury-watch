@@ -42,6 +42,13 @@ jobs:
       - name: Payment-provider guard
         run: npm run check:no-payment
 
+      # Fails if a suite gains transaction control or a statement Postgres
+      # refuses inside a transaction, either of which would silently defeat the
+      # per-suite rollback in db-verify.sh and leak fixture rows into the
+      # catalogue (G66).
+      - name: Test-suite isolation guard
+        run: npm run check:test-isolation
+
       - name: Check formatting
         run: npm run format:check
 
