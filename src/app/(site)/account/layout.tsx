@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { AccountNav } from '@/components/account/account-nav';
+import { UserAvatar } from '@/components/account/user-avatar';
+import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
 
 /**
@@ -68,14 +70,21 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     redirect(loginPathFor(returnTo));
   }
 
+  const avatarUrl = await fetchAvatarUrl(access.user.id);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
       <header className="mb-8">
         <p className="eyebrow">Account</p>
-        <h1 className="mt-3 text-3xl">Your account</h1>
-        <p className="text-foreground-muted mt-3 max-w-prose text-sm">
-          {access.user.email ? `Signed in as ${access.user.email}` : 'Signed in.'}
-        </p>
+        <div className="mt-3 flex items-center gap-4">
+          <UserAvatar url={avatarUrl} name={access.user.email} size="md" />
+          <div>
+            <h1 className="text-3xl">Your account</h1>
+            <p className="text-foreground-muted mt-2 text-sm">
+              {access.user.email ? `Signed in as ${access.user.email}` : 'Signed in.'}
+            </p>
+          </div>
+        </div>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[220px_1fr] lg:gap-12">

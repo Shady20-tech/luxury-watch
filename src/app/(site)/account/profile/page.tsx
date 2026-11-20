@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { ProfileForm } from '@/components/account/profile-form';
+import { AvatarUploader } from '@/components/account/avatar-uploader';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { fetchProfile } from '@/server/repositories/auth-repository';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
@@ -34,12 +35,18 @@ export default async function AccountProfilePage() {
       </div>
 
       {profile ? (
-        <ProfileForm
-          email={profile.email}
-          fullName={profile.fullName}
-          phone={profile.phone}
-          marketingOptIn={profile.marketingOptIn}
-        />
+        <div className="flex flex-col gap-10">
+          <AvatarUploader initialUrl={profile.avatarUrl} name={profile.fullName} />
+
+          <div className="border-line-300 border-t pt-8">
+            <ProfileForm
+              email={profile.email}
+              fullName={profile.fullName}
+              phone={profile.phone}
+              marketingOptIn={profile.marketingOptIn}
+            />
+          </div>
+        </div>
       ) : (
         <p role="alert" className="text-foreground-muted text-sm">
           We could not load your details. Please refresh the page, or contact us if this continues.

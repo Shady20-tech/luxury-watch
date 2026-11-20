@@ -8,6 +8,7 @@ import {
   validateMediaUpload,
   type MediaCategory,
 } from '@/lib/admin/content-validation';
+import { checkImageSignature } from '@/lib/images/signature';
 import { logger } from '@/lib/logger';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -79,6 +80,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, message: validation.message }, { status: 400 });
   }
 
+  const bytes = Buffer.from(await file.arrayBuffer());
+
+  // The declared type passed the allow-list above. That is a statement about the
+  // claim; this is the statement about the bytes. A file that is really a PNG
+  // but was declared `image/jpeg` is refused here, and a file that is not an
+  // image at all never reaches storage.
+  const signature = checkImageSignature(bytes, file.type);
+  if (!signature.ok) {
+    logger.warn('admin.media_signature_rejected', {
+      declared: file.type,
+      detected: signature.detected ?? 'none',
+    });
+    return NextResponse.json({ ok: false, message: signature.message }, { status: 400 });
+  }
+
   const requestedCategory = String(formData.get('category') ?? 'editorial');
   const category: MediaCategory = (MEDIA_CATEGORIES as readonly string[]).includes(
     requestedCategory,
@@ -88,7 +104,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const altText = String(formData.get('altText') ?? '').trim();
 
-  const bytes = Buffer.from(await file.arrayBuffer());
   const checksum = createHash('sha256').update(bytes).digest('hex');
 
   const supabase = await createSupabaseServerClient();

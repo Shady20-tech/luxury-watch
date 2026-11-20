@@ -5,7 +5,9 @@ import { redirect } from 'next/navigation';
 import { LogOut, ShieldAlert } from 'lucide-react';
 
 import { AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
+import { UserAvatar } from '@/components/account/user-avatar';
 import { logoutAction } from '@/server/actions/auth-actions';
+import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
 import {
   getAdminIdentity,
@@ -109,6 +111,10 @@ function buildNav(identity: AdminIdentity): AdminNavGroup[] {
   if (customers.length > 0) groups.push({ heading: 'Customers', items: customers });
   if (system.length > 0) groups.push({ heading: 'System', items: system });
 
+  // Always present: every staff member has a profile and a password, whatever
+  // their role, so this item needs no permission check.
+  groups.push({ heading: 'Account', items: [{ href: '/admin/account', label: 'Your account' }] });
+
   return groups;
 }
 
@@ -158,6 +164,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     );
   }
 
+  // The avatar is the only profile field this shell needs. A missing row is not
+  // an error here — the layout's job is to render the page, and an initial is a
+  // correct fallback.
+  const avatarUrl = await fetchAvatarUrl(identity.userId);
+
   return (
     <div className="bg-surface-50 min-h-dvh">
       <a
@@ -182,12 +193,19 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </div>
 
           <div className="flex items-center gap-3">
-            <p className="text-foreground-muted hidden text-xs sm:block">
-              {identity.email ?? 'Signed in'}
-              {identity.roles.length > 0 ? (
-                <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
-              ) : null}
-            </p>
+            <Link
+              href="/admin/account"
+              className="focus-visible:outline-gold-700 flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <UserAvatar url={avatarUrl} name={identity.email} size="sm" />
+              <span className="text-foreground-muted hidden text-xs sm:block">
+                {identity.email ?? 'Signed in'}
+                {identity.roles.length > 0 ? (
+                  <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
+                ) : null}
+              </span>
+              <span className="sr-only">Your account</span>
+            </Link>
             {/* A real form, not a link: signing out is a state change, and a
                 link would be followed by a prefetch or a crawler. */}
             <form action={logoutAction}>

@@ -9,6 +9,7 @@ import {
   ScrollText,
   Settings,
   Tag,
+  UserRound,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -58,6 +59,7 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
   '/admin/customers': Users,
   '/admin/settings': Settings,
   '/admin/audit': ScrollText,
+  '/admin/account': UserRound,
 };
 
 export function AdminNav({ groups }: { groups: AdminNavGroup[] }) {

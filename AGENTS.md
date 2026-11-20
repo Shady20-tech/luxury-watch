@@ -510,6 +510,17 @@ block that does not appear is worse than a refusal that explains itself.
   the defect above survived to the browser stage while `50_service_flows.sql` was
   green. When you assert that something is unique, produce several of them in the
   smallest interval the system can distinguish, not one.
+- **A migration that skips its own body is a migration nothing tests.** `0015`,
+  `0022` and `0023` all guard their bucket and storage-policy blocks on
+  `information_schema.schemata` containing `storage`, so the migrations still
+  apply to a plain Postgres. The verification database has no `storage` schema,
+  so on it those blocks create nothing — and the policies they define were
+  executed by no test at all, while reading correctly. This is the same shape of
+  gap as the column-grant leak: the SQL is right and nothing proves it.
+  `supabase/tests/63_profile_avatars.sql` closes it for `0023` by building the two
+  `storage` tables and `storage.foldername` the policies need, re-applying the
+  policy SQL, and asserting behaviour with real JWTs. Any new bucket needs the
+  same suite; a policy asserted nowhere is a policy you are trusting.
 - **Assert the statement shape the code actually sends.** Two separate inserts
   and one insert with a repeated row are different tests. `mergeGuestWishlist`
   hands the whole id list to supabase-js as a single `upsert`, so a tampered

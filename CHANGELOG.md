@@ -8,6 +8,68 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Profile photographs, and the storage policies nothing was testing
+
+**Date:** 2026-11-20
+
+`profiles.avatar_url` has existed since 0002 and the account portal has granted
+`select` on it since 0014, but nothing had ever written it. Every customer
+rendered as an initial and the column was dead weight. This adds the write path,
+the bucket, and — the part worth reading — the test that was missing.
+
+#### Added
+
+- **`avatars` bucket and its policies** (`0023_profile_avatars.sql`). Public to
+  read, because an avatar is a public-facing picture and signing a URL per render
+  would cost real time for no privacy; write, update and delete are the owner's
+  alone, keyed on `storage.foldername(name)[1] = auth.uid()`. The object name
+  carries a content hash, so replacing a picture writes a new object rather than
+  overwriting one a browser has already cached.
+- **Upload endpoint** (`/api/account/avatar`) and a client uploader on both the
+  customer profile page and a new `/admin/account` page. The staff page also
+  carries the existing profile and password forms, so a staff member has one
+  place for their own account rather than being sent to the customer portal.
+- **`fetchAvatarUrl`** in `auth-repository.ts`, which both shells use. It returns
+  `null` on any failure rather than throwing: a layout runs for every page beneath
+  it, so a transient database error there would have broken the chrome on all of
+  them. An initial is a correct fallback and costs the reader nothing.
+- **`tests/avatar.test.ts`** and **`tests/image-signature.test.ts`** — 20 cases,
+  including the mismatch directions that matter: a file declared as one image but
+  containing another, a RIFF container that is a WAV rather than a WebP, and a
+  URL on a foreign host that contains our bucket marker.
+
+#### Fixed — 0023's policies were never executed by any test
+
+`0023` guards its bucket and policy blocks on the presence of the `storage`
+schema, as `0015` and `0022` do, so that the migrations still apply to a plain
+Postgres. The verification database has no `storage` schema, so those blocks were
+skipped — meaning the policies the migration creates were never run by anything.
+The SQL was correct and nothing proved it, which is the same shape of gap that
+once let `anon` read `products.cost_cents` while every policy read correctly.
+
+`supabase/tests/63_profile_avatars.sql` now builds the two tables and the one
+function the policies touch, re-applies the policy SQL against them, and asserts
+the behaviour with real JWTs: the owner may write into their own folder, another
+customer may not, an object at the bucket root is refused (a naive
+`name like uid || '%'` would have allowed it), the `using` half of the update
+policy blocks a rename *out* of another customer's folder, `anon` may read but
+not write, and the bucket is public, 2 MiB, and accepts no GIF.
+
+#### Corrected
+
+The `0023` comment claimed the upload path "resizes before it stores". It does
+not — this project has no image pipeline. The 2 MiB limit is the only bound on
+what a customer stores, and the comment now says so.
+
+Re-uploading an unchanged photo used to fail. The object name is the content
+hash, so the second upload collided with the first and `upsert: false` returned
+an error — for what is, from the customer's side, a no-op. A collision now means
+the same image is already in the caller's own folder, so the route confirms the
+object exists and points the profile at it. The name is the hash precisely so
+this collision is provably harmless.
+
+---
+
 ### Phase 5 re-audit — every acceptance criterion re-verified against the live stack
 
 **Date:** 2026-11-20
