@@ -70,13 +70,14 @@ begin;
 insert into public.brands (name, slug, description, is_active, sort_order)
 values
 
-  ('Rolex', 'rolex', 'Reference brand seeded for development.', true, 1),
-  ('Patek Philippe', 'patek-philippe', 'Reference brand seeded for development.', true, 2),
-  ('Audemars Piguet', 'audemars-piguet', 'Reference brand seeded for development.', true, 3),
-  ('Richard Mille', 'richard-mille', 'Reference brand seeded for development.', true, 4)
+  ('Rolex', 'rolex', 'Swiss watchmaker founded in London in 1905 and based in Geneva since 1919. Known for the Oyster case, the Perpetual rotor and the Milgauss, an antimagnetic model originally built for laboratory and industrial work.', true, 1),
+  ('Patek Philippe', 'patek-philippe', 'Geneva watchmaker with roots back to 1839, and the family-owned house behind the Calatrava, Nautilus and, from 2024, the Cubitus. Its pieces are typically offered with an archive extract or certificate of origin.', true, 2),
+  ('Audemars Piguet', 'audemars-piguet', 'Independent Swiss house based in Le Brassus since 1875. It introduced the Royal Oak in 1972, a steel sports watch with an integrated bracelet and the octagonal bezel that has defined the collection since.', true, 3),
+  ('Richard Mille', 'richard-mille', 'Swiss maker founded in 2001, working in tonneau-shaped cases and skeletonised movements with materials borrowed from aerospace and motorsport. Production is small and references are typically released in limited runs.', true, 4)
 
 on conflict (slug) do update
   set name = excluded.name,
+      description = excluded.description,
       is_active = excluded.is_active,
       sort_order = excluded.sort_order;
 

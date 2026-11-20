@@ -727,6 +727,31 @@ movement, dial, and so on. It deliberately excludes the reference site's
 photography, marketing prose and prices, and claims no authorised-dealer status.
 Do not add those back from the reference site; it is not our content.
 
+**Seed copy that reaches a page is page content, not filler.** `brands.description`
+is printed in the hero and in `<meta name="description">` of `/brands/[slug]`,
+which is indexable and self-canonical, so a placeholder there is a thin-content
+defect on a ranking page — not a harmless stub. All four brands once carried the
+same `'Reference brand seeded for development.'`, and each page passed the
+published-count check and appeared in the sitemap because a count asks "is there
+anything to show?", never "is there anything to say?" (G78).
+
+The trap is that placeholder data is _worse_ than missing data: `page.tsx` falls
+back to a generated sentence naming the brand, but only when `description` is
+null, so a populated placeholder defeats code written to handle the gap.
+`tests/seed-copy.test.ts` guards the seed — no placeholder phrasing, no two brands
+alike, each description long enough to add something a template could not say.
+
+Two mechanics to remember when changing seeded copy:
+
+- **The `on conflict` clause must name the column you changed.** The brand seed
+  updated only `name`, `is_active` and `sort_order`, so re-running it against an
+  existing database left the old description in place. Editing the `insert` alone
+  fixes a fresh database and nothing else.
+- **Edit the seed with a byte-level tool, not a text round-trip.** `01_catalogue.sql`
+  contains stray CR characters in a handful of spec strings; a naive read/write in
+  Python strips them and turns a four-line change into an unrelated multi-line
+  diff. Use `git diff` on the seed and expect only your own lines.
+
 ## Payments
 
 There is no payment gateway, no card handling, and no provider abstraction. A CI

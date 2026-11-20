@@ -8,6 +8,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Brand pages stop sharing one placeholder sentence
+
+**Date:** 2026-11-19
+
+Auditing the Phase 5 catalogue against its acceptance criteria turned up one
+criterion not met: "unique database-aware title and description" on every
+collection and brand page. All four seeded brands carried the same
+`description = 'Reference brand seeded for development.'`, and `/brands/[slug]`
+prints that value twice — in the hero intro and in `<meta name="description">`.
+Four indexable, self-canonical pages therefore shared one sentence that described
+nothing about the brand.
+
+The placeholder also short-circuited the page's own fallback. `page.tsx` generates
+a sensible sentence when `description` is null; because the column was populated,
+that code never ran.
+
+#### Fixed
+
+- **`supabase/seed/01_catalogue.sql`** — each brand now carries one original
+  sentence of its own. The `on conflict (slug) do update` clause also sets
+  `description = excluded.description`; it previously updated only `name`,
+  `is_active` and `sort_order`, so re-running the seed against an existing
+  database silently left the old text in place. That omission is why the fix is
+  two changes and not one.
+- **`tests/seed-copy.test.ts`** — asserts the seed carries no development
+  placeholder, that each description is long enough to add something a template
+  could not say, that no two brands share a description, and that the conflict
+  clause updates the column. The test was run against the pre-fix seed first and
+  failed three of its five assertions, so it is known to be able to see the
+  difference rather than passing because it looks at nothing.
+
+Recorded as G78 in `KNOWN_ISSUES.md`.
+
 ### Profile photographs, and the storage policies nothing was testing
 
 **Date:** 2026-11-20
