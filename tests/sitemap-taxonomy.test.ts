@@ -29,6 +29,7 @@ import { resetPublicEnvCache } from '@/lib/env';
 const fetchBrandSitemapRows = vi.fn();
 const fetchCollectionSitemapRows = vi.fn();
 const fetchModelSitemapRows = vi.fn();
+const fetchProductSitemapRows = vi.fn();
 
 vi.mock('server-only', () => ({}));
 
@@ -36,6 +37,7 @@ vi.mock('@/server/repositories/sitemap-repository', () => ({
   fetchBrandSitemapRows: (...args: unknown[]) => fetchBrandSitemapRows(...args),
   fetchCollectionSitemapRows: (...args: unknown[]) => fetchCollectionSitemapRows(...args),
   fetchModelSitemapRows: (...args: unknown[]) => fetchModelSitemapRows(...args),
+  fetchProductSitemapRows: (...args: unknown[]) => fetchProductSitemapRows(...args),
 }));
 
 vi.mock('@/lib/env', async (importOriginal) => {
@@ -54,6 +56,8 @@ beforeEach(() => {
   // the model branch added with the model page.
   fetchModelSitemapRows.mockReset();
   fetchModelSitemapRows.mockResolvedValue([]);
+  fetchProductSitemapRows.mockReset();
+  fetchProductSitemapRows.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -153,6 +157,34 @@ describe('sitemap taxonomy membership', () => {
       (candidate) => candidate.url === 'https://example.com/brands/rolex',
     );
     expect(new Date(entry?.lastModified ?? 0).toISOString()).toBe('2026-10-01T12:00:00.000Z');
+  });
+});
+
+describe('sitemap product membership', () => {
+  it('lists a published product with its real lastmod', async () => {
+    fetchBrandSitemapRows.mockResolvedValue([]);
+    fetchCollectionSitemapRows.mockResolvedValue([]);
+    fetchProductSitemapRows.mockResolvedValue([
+      { slug: 'rolex-milgauss-116400gv', updated_at: '2026-09-02T08:00:00.000Z' },
+    ]);
+
+    const entry = (await sitemap()).find(
+      (candidate) => candidate.url === 'https://example.com/products/rolex-milgauss-116400gv',
+    );
+    expect(entry).toBeDefined();
+    expect(new Date(entry?.lastModified ?? 0).toISOString()).toBe('2026-09-02T08:00:00.000Z');
+  });
+
+  it('lists only the rows the public query returned, so an archived piece is absent', async () => {
+    // RLS is what excludes a draft or archived row; the sitemap must not add a
+    // second, weaker filter of its own and must not re-add anything it is given.
+    fetchBrandSitemapRows.mockResolvedValue([]);
+    fetchCollectionSitemapRows.mockResolvedValue([]);
+    fetchProductSitemapRows.mockResolvedValue([{ slug: 'published-piece', updated_at: null }]);
+
+    const result = await urls();
+    expect(result).toContain('https://example.com/products/published-piece');
+    expect(result.some((url) => url.includes('/products/archived-piece'))).toBe(false);
   });
 });
 

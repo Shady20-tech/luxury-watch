@@ -173,7 +173,7 @@ Recorded so no future phase claims to have verified something it did not.
 
 | # | Issue | Severity | Status | Next action |
 |---|---|---|---|---|
-| G34 | **`/products/[slug]` is indexable but absent from `sitemap.xml`.** Phase 6 made the route real and it renders `index, follow` with a self-canonical, yet the sitemap still lists only `/` and `/shop`. This is G33 extended to products, and it is the same deliberate ordering: the database-driven sitemap is Phase 12. Until then a crawler reaches a product page only by following a link, and the dynamic product `lastmod` timestamps the project requires are not yet emitted. | medium | open | Phase 12. `products.updated_at` and `published_at` are already selected by the repository, so the entries can carry a real `<lastmod>` rather than a build-time fallback. |
+| G34 | **`/products/[slug]` is indexable but was absent from `sitemap.xml`.** Phase 6 made the route real and it renders `index, follow` with a self-canonical, yet the sitemap listed only `/` and `/shop`, so a crawler reached a product page only by following a link. | medium | **resolved** | Resolved in Phase 12: `fetchProductSitemapRows` pages the published catalogue through the public client and every entry carries the row's real `updated_at` as `<lastmod>`. RLS decides membership, so a draft or archived piece cannot appear; verified against the local stack, where 23 published rows produced 23 entries and no draft or archived slug was listed. |
 | G35 | **The product detail page is server-rendered per request, not prerendered.** `generateStaticParams` returns `[]` and the route carries `export const dynamic = 'force-dynamic'` by design: prerendering would freeze price, stock and `lastmod` into the deployment. The consequence is that every product view hits the database, and the page cannot be served from the CDN edge as static HTML. | medium | accepted | Revisit in Phase 12 with ISR (`export const revalidate`) once the sitemap and cache-invalidation story exists, so a stale price and a stale sitemap timestamp are handled together rather than separately. |
 | G36 | **The enquiry rate limit is per email address, not per IP.** `submit_product_question` counts submissions for the same address inside a window. Someone willing to vary the email address can submit more, and there is no IP-level throttle because the application cannot see a trustworthy client IP behind Vercel's proxy without extra configuration. | medium | open | Add an IP- or session-level limit in Phase 7, where the order-request flow needs the same protection and the trusted-header question has to be settled once for both. |
 | G37 | **The enquiry form has no email-verification step and no spam challenge beyond a honeypot.** A honeypot plus the database rate limit stops naive bots, but nothing stops a determined sender, and no enquiry is confirmed to the sender by email until Phase 8 (Resend). | medium | open | Phase 8 sends the acknowledgement and the admin notification. Reassess whether a stronger challenge is warranted once real traffic exists; adding one now, with no traffic data, would trade conversion for an unmeasured risk. |
@@ -283,7 +283,7 @@ each time — read back what the consumer will read, not what the producer was h
 |---|---|---|
 | critical | 7 | 1 |
 | high | 26 | 13 |
-| medium | 40 | 21 |
+| medium | 40 | 20 |
 | low | 52 | 14 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
@@ -293,6 +293,8 @@ Counts are generated from the tables above rather than maintained by hand. The p
 table had drifted from its own rows by nine items, which is the usual fate of a
 hand-maintained total; recount with `grep` before trusting it. Phase 12 recounted:
 125 rows, and the totals above are those counts, not an increment of the old ones.
+Resolving G34 in Phase 12 moved one medium item from open to resolved, which is the
+only change since that recount.
 
 **Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository has a
 `.gitignore`, a committed lockfile, a documented `.env.example`, a `server-only` guard on every

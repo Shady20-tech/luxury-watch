@@ -678,6 +678,14 @@ the cookie-aware one. Reading a cookie makes the route dynamic, and a crawler's
 repeated fetch would become a repeated database query. `sitemap-repository.ts`
 exists for this reason; do not "simplify" it into `catalogue-repository.ts`.
 
+**Product entries are paged, and membership is RLS's decision.** `products` is
+read 1000 rows at a time because PostgREST caps a single response — a one-shot
+query would silently truncate the catalogue at the cap and the sitemap would look
+complete while missing most of it. The query applies no status filter of its own:
+the public-read policy already restricts it to published rows, so adding a second
+filter here would be a second rule that can disagree with the page. If a product
+entry goes missing, check the policy before adding a `where` clause.
+
 ### `/search` is a query surface, never a document
 
 `/search` is `noindex` unconditionally — including the blank page. With no term

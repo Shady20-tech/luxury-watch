@@ -135,3 +135,42 @@ export async function fetchModelSitemapRows(): Promise<ModelSitemapRow[]> {
     ];
   });
 }
+
+export type ProductSitemapRow = {
+  slug: string;
+  /** The row's real last change, so an entry carries a truthful `lastmod`. */
+  updated_at: string | null;
+};
+
+/**
+ * Published product rows for the sitemap.
+ *
+ * RLS restricts this to published, non-archived rows, so no status filter is
+ * repeated here — the same reason the brand query does not repeat `is_active`.
+ * A product whose slug is not unique cannot exist: `products.slug` carries a
+ * unique constraint, so each entry is a stable, one-to-one address.
+ *
+ * The catalogue is paginated because PostgREST caps a single response. Reading
+ * it page by page keeps the sitemap complete as the catalogue grows instead of
+ * silently truncating at the cap.
+ */
+export async function fetchProductSitemapRows(): Promise<ProductSitemapRow[]> {
+  const supabase = createSupabasePublicClient();
+  const pageSize = 1000;
+  const rows: ProductSitemapRow[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('products')
+      .select('slug, updated_at')
+      .order('slug')
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page.map((row) => ({ slug: row.slug, updated_at: row.updated_at })));
+
+    if (page.length < pageSize) return rows;
+  }
+}

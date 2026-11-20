@@ -59,11 +59,41 @@ hook unconditionally and chooses afterwards.
 - `supabase/tests/62_cms_media.sql` — 20 assertions covering the image-only
   constraint, the `content.write` gate, the system-page deletion guard, and that
   `content.write` cannot reach site settings. Repeatable across runs.
-- `scripts/db-verify.sh` green: 22 migrations, 19 RLS suites, 4 seeds idempotent.
-- `npm run verify` green: 824 unit tests (12 new editor render tests, 27 content
+- `scripts/db-verify.sh` green: 22 migrations, 18 RLS/auth suites, 4 seeds
+  idempotent on re-run.
+- `npm run verify` green: 836 unit tests (12 new editor render tests, 27 content
   validation, 24 media reference), typecheck, lint, production build.
 - `scripts/a11y-audit.mjs` against the preview with real rows: 32 pages × 4
   viewports, no critical or serious violations, no horizontal overflow.
+- The `media` bucket creation was exercised against a simulated `storage`
+  schema, because the local stack has none: the row lands `public = true` with
+  an 8 MB limit and five allowed types, matching `media_mime_image_only`
+  exactly.
+
+### Fixed — the sitemap listed taxonomy but not a single product
+
+**Date:** 2026-11-19
+
+`/products/[slug]` has rendered `index, follow` with a self-canonical since
+Phase 6, and `sitemap.xml` listed brands, collections and models — but no
+product. A crawler could reach a product page only by following a link from a
+listing, and the per-product `lastmod` the project requires was never emitted.
+G33 (taxonomy) had been closed; G34 (products) had been deferred to "the
+database-driven sitemap in Phase 12", and Phase 12 shipped without it, so the
+deferral had quietly become a promise nothing kept.
+
+`fetchProductSitemapRows` reads the published catalogue through the public,
+session-free client — the same one the taxonomy queries use — and pages it,
+because PostgREST caps a single response and a silently truncated sitemap is
+worse than a slow one. Membership is decided by RLS, exactly as it is for a
+brand: the query repeats no status filter of its own, so a draft or archived row
+cannot appear and the page and the sitemap cannot disagree.
+
+Verified against the local stack: 23 published rows produced 23 product entries,
+each with the row's real `updated_at`, and every draft and archived slug was
+absent. Two tests were added to `sitemap-taxonomy.test.ts` — one asserting the
+`lastmod` is the row's own timestamp, one asserting the sitemap adds no row the
+public query did not return.
 
 ### Phase 10 — the admin platform, and two bugs that only a real caller would find
 
