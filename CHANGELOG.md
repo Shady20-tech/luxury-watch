@@ -8,6 +8,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed — a lost appointment race showed the customer a database constraint
+
+**Date:** 2026-11-19
+
+> `request_appointment` checked availability, then inserted. That check is the
+> friendly answer, but it is not the guarantee: two requests can pass it in the
+> same instant, and the partial unique index `appointments_slot_start_key` is
+> what actually keeps one booking per live slot. The loser of that race had the
+> raw unique violation escape — the browser received a 409 whose body read
+> `Key (slot_start)=(2026-11-23 09:00:00+00) already exists`.
+>
+> The friendly alternative was already written and already allowlisted.
+> `src/lib/service/validation.ts` lists "That time has just been taken. Please
+> choose another." in `SAFE_DATABASE_MESSAGES`, and a unit test asserts the
+> allowlist contains it — but nothing in the database ever raised it, so the
+> test passed while the message was unreachable. The unit test asserted the
+> map, not that any caller fed it.
+
+#### Fixed
+
+- `request_appointment` now catches `unique_violation` on the insert and raises
+  the allowlisted message instead, so a lost race reads as an instruction rather
+  than a constraint name.
+
+#### Changed
+
+- `supabase/tests/50_service_flows.sql` gains `assert_raises_message`, and the
+  double-booking case uses it. `assert_raises` passes on *any* error, which is
+  exactly how the defect survived: it proved the slot could not be taken twice
+  without ever looking at what the visitor was told. The new assertion was run
+  against the old function first and failed with the raw constraint text, so the
+  test is known to be able to see the difference rather than assumed to.
+
 ### Phase 9 completed — the account portal's request, message and settings pages
 
 **Date:** 2026-11-19

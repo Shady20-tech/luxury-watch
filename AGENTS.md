@@ -357,6 +357,23 @@ it for no benefit.
 
 ### Things that will bite you
 
+- **An allowlist of friendly errors is not a guarantee that any caller produces
+  them.** `SAFE_DATABASE_MESSAGES` in `src/lib/service/validation.ts` decides
+  which database messages reach the visitor verbatim; everything else becomes a
+  generic failure. That makes the list a contract with the SQL, and nothing
+  enforces the SQL half. "That time has just been taken" sat in the list, with a
+  unit test asserting it was there, while `request_appointment` let the raw
+  `unique_violation` from `appointments_slot_start_key` escape — so the one case
+  the message existed for showed the customer a constraint name and the slot
+  time. When you add a friendly message, add the `raise` that produces it in the
+  same change, and assert the message text in a database test. `assert_raises`
+  is not enough: it passes on any error.
+- **A check-then-insert is not a constraint.** `request_appointment` validates
+  the slot against `appointment_availability` before inserting, and that check is
+  still worth having because it can explain _why_ a time is wrong. It cannot
+  prevent a double booking: two callers can both pass it before either inserts.
+  The partial unique index is the actual guarantee, so the insert must handle its
+  violation rather than assume the check caught everything.
 - **Never derive a customer-facing identifier from the clock.** The service
   reference was `extract(epoch from now()) % 1000000`, which looks unique and is
   not: two submissions in the same second get the same string, so a customer

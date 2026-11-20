@@ -1122,23 +1122,33 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  insert into public.appointments (
-    user_id, name, email, phone, purpose, requested_at, slot_start, status,
-    customer_note, workflow_status
-  )
-  values (
-    (select auth.uid()),
-    btrim(p_name),
-    lower(btrim(p_email)),
-    nullif(btrim(coalesce(p_phone, '')), ''),
-    nullif(btrim(coalesce(p_purpose, '')), ''),
-    now(),
-    p_slot_start,
-    'requested',
-    nullif(btrim(coalesce(p_customer_note, '')), ''),
-    'requested'
-  )
-  returning id into v_id;
+  -- The availability check above is the friendly early answer, but it is not the
+  -- guarantee: two requests can pass it in the same instant. The partial unique
+  -- index is what actually keeps one booking per live slot, so the loser of that
+  -- race must be told to pick another time rather than shown a constraint name.
+  begin
+    insert into public.appointments (
+      user_id, name, email, phone, purpose, requested_at, slot_start, status,
+      customer_note, workflow_status
+    )
+    values (
+      (select auth.uid()),
+      btrim(p_name),
+      lower(btrim(p_email)),
+      nullif(btrim(coalesce(p_phone, '')), ''),
+      nullif(btrim(coalesce(p_purpose, '')), ''),
+      now(),
+      p_slot_start,
+      'requested',
+      nullif(btrim(coalesce(p_customer_note, '')), ''),
+      'requested'
+    )
+    returning id into v_id;
+  exception
+    when unique_violation then
+      raise exception 'That time has just been taken. Please choose another.'
+        using errcode = 'check_violation';
+  end;
 
   insert into public.service_status_events (
     entity_type, entity_id, to_status, actor_id, actor_label, is_customer_visible

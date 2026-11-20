@@ -66,6 +66,33 @@ begin
 end;
 $$;
 
+-- A raise whose *message* is the contract, not merely the fact that it raised.
+--
+-- `assert_raises` passes on any error, including a raw constraint violation
+-- escaping to the caller. That is how a defect survived here: the friendly
+-- "that time has just been taken" message was allowlisted and unit-tested in
+-- TypeScript while nothing in the database ever produced it, so the browser got
+-- a 409 with `Key (slot_start)=... already exists` in it. Asserting the text is
+-- the only shape that can tell those two apart.
+create or replace function pg_temp.assert_raises_message(
+  p_label text, p_sql text, p_message text
+) returns void
+language plpgsql
+as $$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if sqlerrm = p_message then
+      raise notice 'pass [%] (raised: %)', p_label, sqlerrm;
+      return;
+    end if;
+    raise exception 'FAIL [%]: raised the wrong message: %', p_label, sqlerrm;
+  end;
+  raise exception 'FAIL [%]: expected an error, but it succeeded', p_label;
+end;
+$$;
+
 -- A hard privilege denial, as opposed to a policy filtering the rows to nothing.
 -- The difference matters: a filter can be defeated by a later policy mistake, a
 -- missing grant cannot.
@@ -514,10 +541,11 @@ select pg_temp.assert_count(
   'a guest can request an appointment in an available slot',
   $$select count(*) from refs where label = 'appointment' and reference like 'LW-A-%'$$, 1);
 
-select pg_temp.assert_raises(
-  'the same slot cannot be booked twice',
+select pg_temp.assert_raises_message(
+  'the same slot cannot be booked twice, and says so in words a visitor can act on',
   $$select public.request_appointment('Second Booker', 'second.booker@example.test', null, 'viewing',
-      (date_trunc('day', now() + interval '3 days') + interval '10 hours'), 'Same slot')$$);
+      (date_trunc('day', now() + interval '3 days') + interval '10 hours'), 'Same slot')$$,
+  'That time has just been taken. Please choose another.');
 
 reset role;
 
@@ -701,4 +729,5 @@ reset role;
 drop function pg_temp.assert_true(text, boolean);
 drop function pg_temp.assert_count(text, text, bigint);
 drop function pg_temp.assert_raises(text, text);
+drop function pg_temp.assert_raises_message(text, text, text);
 drop function pg_temp.assert_denied(text, text);
