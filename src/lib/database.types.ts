@@ -902,11 +902,111 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "admin_activity_feed": {
+                  Row: {
+                    "action": string,"actor_email": string | null,"actor_id": string | null,"changes": Json | null,"created_at": string,"entity_id": string | null,"entity_type": string,"id": string
+                  }
+                  Relationships: [
+
+                  ]
+                }
           }
           Functions: {
-            "cart_pricing":
+            "admin_adjust_stock":
+{ Args: { "p_delta": number,"p_product_id": string,"p_reason": string }; Returns: {
+              "id": string,
+"location": string | null,
+"low_stock_threshold": number,
+"product_id": string,
+"quantity": number,
+"reserved_quantity": number,
+"updated_at": string
+            }
+                           },
+"admin_set_product_status":
+{ Args: { "p_product_id": string,"p_status": Database["public"]['Enums']["product_status"] }; Returns: {
+              "bezel": string | null,
+"box_and_papers": boolean | null,
+"bracelet_material": string | null,
+"brand_id": string | null,
+"case_material": string | null,
+"case_size_mm": number | null,
+"compare_at_cents": number | null,
+"condition": Database["public"]['Enums']["product_condition"] | null,
+"cost_cents": number | null,
+"created_at": string,
+"currency": string,
+"description": string | null,
+"dial_color": string | null,
+"gender": string | null,
+"id": string,
+"is_featured": boolean,
+"model_id": string | null,
+"movement": string | null,
+"og_image_url": string | null,
+"price_cents": number | null,
+"price_on_request": boolean,
+"production_year": number | null,
+"published_at": string | null,
+"reference_number": string | null,
+"seo_description": string | null,
+"seo_title": string | null,
+"short_description": string | null,
+"sku": string,
+"slug": string,
+"sort_order": number,
+"status": Database["public"]['Enums']["product_status"],
+"title": string,
+"updated_at": string,
+"water_resistance_m": number | null
+            }
+                           },
+"admin_set_service_status":
+{ Args: { "p_customer_visible"?: boolean,"p_entity_id": string,"p_entity_type": Database["public"]['Enums']["service_entity_type"],"p_note"?: string,"p_to_status": string }; Returns: string
+                           },
+"admin_transition_order":
+{ Args: { "p_note"?: string,"p_order_id": string,"p_to_status": Database["public"]['Enums']["order_status"] }; Returns: {
+              "admin_note": string | null,
+"created_at": string,
+"currency": string,
+"customer_email": string,
+"customer_name": string,
+"customer_note": string | null,
+"customer_phone": string,
+"delivery_address": Json | null,
+"delivery_fee_cents": number,
+"discount_cents": number,
+"discount_code": string | null,
+"discount_redeemed_at": string | null,
+"discount_released_at": string | null,
+"fulfilment_type": Database["public"]['Enums']["fulfilment_type"],
+"id": string,
+"ip_hash": string | null,
+"payment_method_code": string,
+"pickup_location": string | null,
+"reference": string,
+"settled_offline_at": string | null,
+"settled_offline_by": string | null,
+"status": Database["public"]['Enums']["order_status"],
+"subtotal_cents": number,
+"terms_acknowledged_at": string | null,
+"total_cents": number,
+"updated_at": string,
+"user_agent": string | null,
+"user_id": string | null
+            }
+                           },
+"admin_write_audit_log":
+{ Args: { "p_action": string,"p_changes"?: Json,"p_entity_id": string,"p_entity_type": string }; Returns: string
+                           },
+"cart_pricing":
 { Args: { "p_currency"?: string,"p_discount_code"?: string,"p_items"?: Json }; Returns: Json
+                           },
+"current_admin_permissions":
+{ Args: never; Returns: {
+              "permission": string,
+"role": Database["public"]['Enums']["staff_role"]
+            }[]
                            },
 "catalogue_by_ids":
 { Args: { "p_product_ids": (string)[] }; Returns: {

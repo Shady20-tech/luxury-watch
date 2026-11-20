@@ -8,6 +8,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 10 — the admin platform, and two bugs that only a real caller would find
+
+**Date:** 2026-11-20
+
+The admin application now exists: a section at `/admin` with its own layout, its own session
+check, and navigation built from the permissions the signed-in person actually holds. Products
+can be created, edited, published and archived; stock can be adjusted; an order request can be
+moved through its lifecycle; every change writes an audit row. Inquiries, appointments,
+customers and settings are read-only but show their real rows, and say so, rather than offering
+inputs that do nothing.
+
+Two defects were found on the way, and they share a shape worth recording.
+
+**Every admin write would have failed in the browser.** The actions performed their writes with
+the service-role client. That client carries no user, so `auth.uid()` is null, so
+`admin_write_audit_log` refused the audit row — correctly, because an audit row with no actor
+reads as a system action. The database suites were green the whole time, because they call the
+functions directly as a simulated user and never exercise the client the application actually
+uses. Writes now go through the request-scoped session client, which is also the safer choice:
+the service-role client authenticates the call but not the caller, and would bypass the policies
+that scope what a staff member may write. `61_admin_write_paths.sql` section 1 now asserts that
+the service-role client cannot audit, so the mistake cannot be made again silently.
+
+**Every product save would have failed validation.** The form schema declared optional fields as
+`z.string()` and checkboxes as `z.coerce.boolean()`, both of which reject `undefined`. A browser
+does not submit an unchecked checkbox at all, and a blank optional input read through
+`Object.fromEntries` is absent rather than empty — so the schema rejected the very shape the
+browser produces, on fields the administrator never touched. The schema now treats an absent
+field as absent, and `tests/admin-validation.test.ts` parses the minimal payload a browser really
+sends rather than a tidy object assembled by hand.
+
+### Fixed — the inventory balance could be written directly, bypassing its own ledger
+
+**Date:** 2026-11-20
+
+`inventory` had a write policy and a ledger trigger, and the application never wrote the balance
+directly. Nothing *stopped* it, though: `inventory.write` could issue a plain `update` and change
+stock with no ledger row and no audit entry. The balance would then disagree with the history
+that produced it, permanently and invisibly, because every screen reads the balance and nothing
+recomputes it from the ledger to notice. `0021_inventory_write_lockdown.sql` revokes
+`INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`; every legitimate writer is
+`SECURITY DEFINER` and unaffected. The suite asserts the revoke, so a later `grant` that reopens
+the hole fails loudly instead of quietly.
+
+### Added — `supabase/tests/61_admin_write_paths.sql` and `tests/admin-validation.test.ts`
+
+The first proves the write path the actions actually use: the service-role client cannot audit, a
+signed-in administrator can, a customer cannot write a product despite holding the grant, support
+cannot publish, and the balance cannot be written directly. The second proves the form accepts
+the payload a browser actually produces.
+
 ### Fixed — the sell/trade form asked "sell or trade?", validated the answer, and threw it away
 
 **Date:** 2026-11-19

@@ -729,6 +729,8 @@ proves the isolation they rely on.
 
 **Goal:** every admin control performs a real database operation.
 
+**Status:** core delivered. Products CRUD, inventory, order requests with status transitions, audit trail, and the read-only service pages (inquiries, appointments, customers, settings) are live against the real schema. Brands/models/collections merchandising, media library and content editing remain open — recorded in `KNOWN_ISSUES.md`.
+
 **Scope**
 - Dashboard with **real** counts and recent activity (no fabricated statistics)
 - Products CRUD (create, edit, duplicate, publish, unpublish, archive, delete) with images,
@@ -748,6 +750,27 @@ proves the isolation they rely on.
 - Publishing/editing/unpublishing/archiving/deleting a product invalidates the sitemap cache
 - No dead buttons; unavailable features are disabled with an honest explanation
 - No hardcoded statistics anywhere
+
+**Delivered**
+- `src/app/admin/` — layout with its own session guard and permission-filtered navigation;
+  `products` (list, new, edit), `inventory`, `orders` (list, detail), `audit`, `inquiries`,
+  `appointments`, `customers`, `settings`.
+- `src/server/actions/admin-actions.ts` — every write is a server action that re-checks the
+  permission, validates with Zod, writes through the **session** client (never service-role),
+  and records an audit row.
+- `0020_admin_operations.sql` — `admin_adjust_stock`, `admin_set_product_status`,
+  `admin_transition_order`, `admin_write_audit_log`, `current_admin_permissions`. Each derives
+  the actor from `auth.uid()` and re-checks permission internally, so the function is a second
+  gate rather than a bypass.
+- `0021_inventory_write_lockdown.sql` — revokes direct `INSERT/UPDATE/DELETE` on `inventory`
+  from `anon` and `authenticated`, so the balance cannot be changed without a ledger row.
+- `supabase/tests/61_admin_write_paths.sql` — proves the service-role client *cannot* audit
+  (the bug that would have made every write fail in the browser), that a non-staff user cannot
+  write a product, and that the balance cannot be written directly.
+- `tests/admin-validation.test.ts` — proves the form accepts the shape a browser actually sends,
+  where blank optional inputs and unchecked checkboxes are *absent* rather than empty.
+
+**Open** — see `KNOWN_ISSUES.md` section H.
 
 ---
 

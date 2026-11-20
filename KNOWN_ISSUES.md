@@ -359,3 +359,58 @@ Recorded as D10, and it carries a lesson for every later phase: on a publicly-re
 column is exposed by default unless the grant list is updated with it. This is the second defect of
 this kind the project has found by testing against real infrastructure rather than trusting a
 reading of the policies, which is why that practice is kept.
+
+---
+
+## H. Admin platform items (raised in Phase 10)
+
+The admin application is delivered for the operations a store actually performs daily: editing
+products, adjusting stock, moving an order request through its lifecycle, and reading the audit
+trail. The rest is recorded here rather than left as a dead button, because a control that looks
+available and does nothing is worse than one that is absent.
+
+| # | Issue | Severity | Status | Next action |
+|---|---|---|---|---|
+| H1 | **No admin can sign in on a local preview.** `npm run preview` brings up PostgREST but not GoTrue, so there is no way to obtain a real session cookie locally. The admin routes are therefore verified as *redirecting an anonymous caller* (which is the security-critical direction) and the write paths are verified at the database, not through the browser. | medium | open | Verify end to end against a real Supabase project once A1 is done. The database suites already prove the write path the actions use. |
+| H2 | **Brand, model and collection merchandising is not editable.** Products can be assigned to an existing brand and model, but the taxonomy itself is seed-managed. Drag-order, create and rename are not built. | medium | open | Add CRUD for `brands`, `models` and `collections` when the owner needs it; the tables, policies and permission (`catalog.write`) already exist. |
+| H3 | **Media library is not built.** A product's image URL can be set as text; uploading to Supabase Storage is not wired. This is the same dependency as A4. | medium | open | Follows A4. The buckets exist in the migrations; the upload UI does not. |
+| H4 | **Content editing (pages, FAQs, testimonials, navigation, announcements) is not built.** `/admin/settings` lists what is stored and is explicit that it is read-only, rather than offering inputs that do nothing. | medium | open | Add editors per content type. `revalidatePath('/', 'layout')` is required for navigation and settings — see `AGENTS.md`. |
+| H5 | **Inquiries and appointments are read-only in the admin.** They are listed with their real rows, but replying and closing are not implemented. | low | open | Add reply/close actions; `inquiries.write` already exists and is held by the roles that need it. |
+| H6 | **The dashboard's "recent activity" reads the audit log, which is empty on a fresh install.** It renders an empty state rather than placeholder rows, deliberately. | low | accepted | Expected. Real activity appears as soon as an admin performs an action. |
+
+### Two defects found while building Phase 10, and what they have in common
+
+Both were invisible to the tests that existed at the time, and both would have made the admin
+application look broken while every unit test stayed green.
+
+**The service-role client cannot write an audit row.** The first version of the actions performed
+every write with the service-role client. That client carries no user, so `auth.uid()` is null, so
+`admin_write_audit_log` refuses with "must be attributable to a signed-in user" — correctly, since
+an audit row with no actor is indistinguishable from a system action. Every admin action would
+have failed in the browser. The fix was to perform writes through the request-scoped session
+client, which is also the safer choice: the service-role client authenticates the *call* but not
+the *caller*, and would bypass the very policies that scope a staff member's writes. This is now
+asserted in `61_admin_write_paths.sql` section 1, so the design cannot quietly regress.
+
+**The form schema rejected the shape a browser actually sends.** Optional fields were declared
+`z.string()` and checkboxes `z.coerce.boolean()`, both of which reject `undefined`. A browser does
+not submit an unchecked checkbox at all, and a blank optional input in a form read with
+`Object.fromEntries` is absent rather than empty. So *every* product save failed validation on a
+field the administrator never touched. `tests/admin-validation.test.ts` now parses the minimal
+payload a browser really produces, and would have caught this on the first run.
+
+The common thread is the one this project keeps rediscovering: a test that exercises the layer
+below the one that is broken passes. The database suites were green while the client that called
+them could not authenticate; the schema was green when handed a tidy object while the browser
+never sends one. Test the shape the caller actually produces, not the shape that is convenient to
+write.
+
+### The inventory balance is now unwritable directly
+
+`inventory` carried a write policy but the balance is derived from `inventory_transactions` by a
+trigger. Nothing in `src/` wrote it directly, but nothing stopped a staff member from doing so —
+and a direct write changes stock with no ledger row and no audit entry, leaving the balance
+permanently disagreeing with its own history, invisibly. `0021_inventory_write_lockdown.sql`
+revokes `INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`. Every legitimate
+writer is `SECURITY DEFINER` and therefore unaffected. `61_admin_write_paths.sql` asserts the
+revoke, so a later `grant` that reopens it fails the suite.

@@ -371,6 +371,49 @@ control until that is settled and the path can be exercised against real Storage
 (G77) — an upload form that has never stored a byte is exactly the green-test
 pattern this project keeps paying for.
 
+### The admin application
+
+`src/app/admin/` is a separate application inside the same Next.js project. It has its own
+layout, its own guard and its own navigation, and none of it is reachable without a staff role.
+
+**Every write goes through the session client, never the service-role client.**
+`src/server/actions/admin-actions.ts` uses `createSupabaseServerClientWritable` throughout. This
+is not a style preference. The service-role client carries no user, so `auth.uid()` is null, so
+`admin_write_audit_log` refuses with "must be attributable to a signed-in user" — every action
+would fail in the browser. It is also the wrong security posture: the service-role client
+authenticates the _call_ but not the _caller_, and bypasses the policies that scope what a staff
+member may write. The service-role client is used in the admin **only** for reads that need
+`cost_cents`, which is deliberately outside the staff-readable column grant. The failure mode is
+worth remembering because it is silent in testing: the database suites call the functions
+directly as a simulated user and stay green while the client the app uses cannot authenticate.
+
+**The RPCs are a second gate, not a bypass.** `0020_admin_operations.sql` defines
+`admin_adjust_stock`, `admin_set_product_status`, `admin_transition_order` and
+`admin_write_audit_log`. Each is `SECURITY DEFINER`, derives the actor from `auth.uid()` and
+re-checks the permission internally. The action checks permission too; that redundancy is
+deliberate, because the action's check can be bypassed by posting to it directly and the
+function's check cannot.
+
+**A form field the browser does not submit is _absent_, not empty.** `Object.fromEntries(formData)`
+omits an unchecked checkbox entirely and omits any input left blank. A Zod field for such an input
+must be `.optional()` (or preprocessed to `undefined`); `z.string()` and `z.coerce.boolean()` both
+reject `undefined` and will fail the save on a field the administrator never touched. This is why
+`tests/admin-validation.test.ts` parses the _minimal_ payload a browser produces rather than a
+tidy object assembled by hand. Every optional field in `src/lib/admin/validation.ts` is built on
+the `optionalInt`/`checkbox` helpers for this reason.
+
+**`inventory` is read-only to `anon` and `authenticated`.** `0021_inventory_write_lockdown.sql`
+revoked `INSERT/UPDATE/DELETE`; the balance is derived from `inventory_transactions` by a trigger
+and every legitimate writer is `SECURITY DEFINER`. Do not re-grant write to make something work:
+write a ledger row instead. `61_admin_write_paths.sql` fails if the grant is reopened.
+
+**Permissions are strings in `user_roles`, checked through functions.** The keys are
+`catalog.read/write`, `inventory.read/write`, `orders.read/write/settle`, `inquiries.read/write`,
+`content.read/write`, `customers.read`, `audit.read`. A role resolves them through
+`current_admin_permissions()`; `SUPER_ADMIN` holds `'*'` and the resolver expands it. A typo in a
+key fails closed — the page or action simply refuses — so a "permission denied" that should not
+be is almost always a misspelled key, not a policy problem.
+
 ### Things that will bite you
 
 - **A validated parameter is not a stored value.** `submit_sell_trade_request`
