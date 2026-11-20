@@ -9,16 +9,27 @@
 # PostgREST running, every public page falls back to the fixture or shows nothing,
 # so a preview of "the app" shows none of the catalogue, cart or wishlist work.
 #
-# This script brings up the three processes a real preview needs and leaves them
+# This script brings up the processes a real preview needs and leaves them
 # running:
 #
 #   1. PostgREST      :3001  against the verified local database
 #   2. prefix proxy   :3002  strips /rest/v1, exactly as Kong does in production
-#   3. Next.js        :12000 the production build
+#   3. auth stub      :3003  the handful of GoTrue endpoints the app calls
+#   4. Next.js        :12000 the production build
 #
 # It also mints an anon JWT signed with a secret it controls, because the seed
 # anon key is signed with a secret we do not hold. The key is only ever forwarded
 # to PostgREST, so a locally-generated one behaves identically.
+#
+# The auth stub exists because without it nothing can obtain a session cookie, so
+# the admin area could only be verified as redirecting an anonymous caller (H1).
+# It signs tokens with the same secret PostgREST was started with, so a signed-in
+# request is the real `supabase-js` -> PostgREST -> RLS path, not a bypass. Seed a
+# staff account with:
+#
+#   scripts/seed-preview-admin.sh            # prints the email and password
+#
+# then sign in at /login and the admin routes are reachable.
 #
 # This is a development and verification tool only. Vercel talks to the Supabase
 # project URL directly.
@@ -35,6 +46,7 @@ cd "$ROOT"
 CONTAINER="${LW_PG_CONTAINER:-lw-pg-test}"
 PGRST_PORT=3001
 PROXY_PORT=3002
+AUTH_PORT=3003
 APP_PORT="${LW_PREVIEW_PORT:-12000}"
 WORKDIR="${LW_PREVIEW_WORKDIR:-/tmp/lw-preview}"
 
@@ -78,6 +90,7 @@ stop_all() {
     [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$ROOT" ] && kill "$pid" 2>/dev/null
   done
   pkill -f "dev-postgrest-proxy.mjs --port $PROXY_PORT" 2>/dev/null
+  pkill -f "dev-auth-stub.mjs --port $AUTH_PORT" 2>/dev/null
   pkill -f "postgrest $WORKDIR/pgrst.conf" 2>/dev/null
   sleep 1
   echo "Preview stopped."
@@ -142,7 +155,22 @@ sleep 4
 # --- 3. /rest/v1 prefix-stripping proxy --------------------------------------
 nohup node scripts/dev-postgrest-proxy.mjs \
   --port "$PROXY_PORT" --target "http://127.0.0.1:$PGRST_PORT" \
+  --auth-target "http://127.0.0.1:$AUTH_PORT" \
   > "$WORKDIR/proxy.log" 2>&1 &
+sleep 2
+
+# --- 3b. Auth stub (GoTrue stand-in) -----------------------------------------
+# Serves /auth/v1/token and /auth/v1/user so a session cookie can be obtained
+# locally. It signs with the same secret PostgREST verifies, so the token it
+# issues is honoured by the database as the authenticated user. It reads
+# credentials as the database superuser because `auth` is denied to
+# `authenticator` on purpose; the stub is a local tool and never deployed.
+nohup node scripts/dev-auth-stub.mjs \
+  --port "$AUTH_PORT" \
+  --jwt-secret "$SECRET" \
+  --pg-url "postgres://postgres:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/postgres" \
+  --allow-insecure \
+  > "$WORKDIR/auth.log" 2>&1 &
 sleep 2
 
 # --- 4. Point the app at the proxy -------------------------------------------
@@ -191,7 +219,7 @@ if curl -sfo /dev/null "http://127.0.0.1:$APP_PORT/shop"; then
   echo "  Local:  http://127.0.0.1:$APP_PORT"
   echo "  Public: ${SITE_URL:-<set NEXT_PUBLIC_SITE_URL in .env.local>}"
   echo
-  echo "Logs: $WORKDIR/{pgrst,proxy,build,next}.log"
+  echo "Logs: $WORKDIR/{pgrst,proxy,auth,build,next}.log"
   echo "Stop: scripts/preview.sh stop"
 else
   echo "Preview did not come up; see $WORKDIR/next.log" >&2

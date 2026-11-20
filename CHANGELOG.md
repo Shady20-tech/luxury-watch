@@ -8,6 +8,79 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 5 re-audit — every acceptance criterion re-verified against the live stack
+
+**Date:** 2026-11-20
+
+> Phase 5 was built and audited in an earlier pass. This pass re-ran the whole
+> audit independently, against a real PostgreSQL + PostgREST + auth preview and
+> a fresh production build, rather than trusting the earlier record. **No
+> catalogue code changed**, because nothing failed. The value of the pass is the
+> evidence below and the two places where a first reading of the output looked
+> like a defect and was not — both worth recording so the next reader does not
+> spend the same time.
+
+#### Verified, with the command that proved it
+
+- **Routes.** `/shop`, `/collections`, `/collections/[slug]`, `/brands/[slug]`,
+  `/brands/[slug]/models/[model]` and `/search` all `200`. `/collections/all`
+  `308`s to `/shop` (G25). Unknown brand, collection and model slugs `404`.
+- **Only published rows.** The database holds 4110 products, **12 published and
+  4098 draft**. `/shop` reports "Showing 1 – 12 of 12" and a draft slug appears
+  in neither `/shop` nor `sitemap.xml` and `404`s at its own URL.
+- **Search covers all four entity types.** `milgauss`, `rolex`, `royal oak`,
+  `116400`, `new arrivals`, `price on request` and `featured` each return rows;
+  `zzzznothing` renders the filtered empty state rather than a blank grid.
+  `catalogue_suggest` returns `product`, `model`, `brand` and `collection`
+  kinds, each with a real href.
+- **Sorting is genuinely ordered.** `title_asc`/`title_desc` reverse,
+  `reference_asc` groups by reference, and `price_asc`/`price_desc` are
+  null-safe (`nulls last`) with `published_at`/`id` tie-breakers. No
+  "best selling" option exists.
+- **Filters are multi-select by design.** With `brand=rolex` applied, Audemars
+  Piguet and Patek Philippe still carry their own count of 4 rather than dropping
+  to zero — `p_exclude` (G27) working as intended. Richard Mille is absent
+  entirely because it holds no published piece, which is the same rule that
+  makes its brand page `noindex`.
+  `condition=new` yields an honest "No watches match these filters" with the
+  clear-all action present.
+- **Out-of-range pagination is handled.** `?page=2` against 12 results says
+  "Page 2 is past the end of 12 results", and the grid area reads "There is
+  nothing on this page … go back to the first page" with a working "Go to page 1"
+  link. Not an empty grid, and not the "Showing 25–23 of 23" arithmetic bug.
+- **Hostile query parameters are inert.** `sort=best_selling`, `sort=DROP TABLE`,
+  `page=-5`, `pageSize=5000`, `priceMin=abc`, `yearMin=99999` and an SQL-ish
+  `brand` value all fall back to the default listing with `200`.
+  Unknown-but-well-formed facet slugs produce the empty state, not an error.
+- **Query cost is bounded at both layers.** The browser may ask for 12/24/48;
+  `catalogue_search` independently clamps to 1–60 and offsets to ≥ 0.
+  `catalogue_filtered` with a brand filter runs in **4.8 ms**; `catalogue_facets`
+  (one pass per dimension) in **39.5 ms**; a full `/shop` request in **84 ms**.
+  Indexes exist for every filter dimension plus a GIN full-text index.
+- **SEO rules are consistent with the sitemap.** `/shop?brand=rolex` is
+  `noindex, follow` with a canonical to clean `/shop`; `/search` is `noindex`.
+  A sort-only or page-only URL stays indexable but canonicalises to the default
+  ordering. An empty brand (`richard-mille`) is `noindex` and says "No Richard
+  Mille pieces in stock". `sitemap.xml` lists 26 URLs — clean taxonomy, models
+  and products only, no filter permutations.
+- **Crawl paths exist.** `/search` and `/brands/[slug]` serve plain `<a>` links
+  to model pages, so an indexable model page is reachable from served HTML
+  (G71).
+- **Accessibility and layout.** `audit:a11y` passed 32 pages × 4 viewports with
+  no critical or serious issues and no horizontal overflow, including the
+  product and model templates discovered at runtime.
+- **`npm run verify` green**: payment guard, suite isolation, format, lint,
+  typecheck, **844 tests**, production build.
+
+#### Two false alarms, recorded so they are not re-investigated
+
+- **`?price_mode=priced` appeared to stay indexable.** It did — because the real
+  parameter is camelCase `priceMode`. The snake_case spelling is not read, so the
+  listing was correctly clean. Re-tested with `?priceMode=priced`: `noindex`.
+- **A grep for "No watches match" suggested an out-of-range page rendered
+  blank.** The page was fine; the message is "There is nothing on this page" and
+  the earlier grep pattern did not include it.
+
 ### Phase 12 — the CMS, the media library and a bucket that was never there
 
 **Date:** 2026-11-19

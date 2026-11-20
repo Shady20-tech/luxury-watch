@@ -96,6 +96,13 @@ begin
 end
 $$;
 
+-- Seed the offline method these orders reference. `on conflict do nothing` so the
+-- suite is self-sufficient whether or not another suite ran first — an implicit
+-- ordering dependency is a test that passes for the wrong reason.
+insert into public.payment_methods (code, label, is_enabled) values
+  ('bank_transfer', 'Bank transfer', true)
+on conflict (code) do nothing;
+
 insert into public.addresses (id, user_id, recipient_name, line1, city, country_code, is_default) values
   ('a1a1a1a1-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'Alice', '1 Alice St', 'London', 'GB', true),
   ('b1b1b1b1-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000002', 'Bob', '2 Bob St', 'Paris', 'FR', true);

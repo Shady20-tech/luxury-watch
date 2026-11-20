@@ -556,6 +556,18 @@ block that does not appear is worse than a refusal that explains itself.
   display data. Do not add a price parameter to it, and do not compute a subtotal,
   a discount or a total in TypeScript — `src/lib/cart/pricing.ts` maps the payload
   and does no arithmetic, deliberately.
+- **Catalogue query parameters are camelCase, and a snake_case spelling is
+  silently ignored.** `priceMode`, `boxAndPapers`, `yearMin`, `caseMax`,
+  `pageSize` are the real names; `?price_mode=priced` is not read at all, so the
+  listing stays clean, stays indexable, and looks like a broken filter or a
+  robots bug when it is neither. This cost a false alarm in the Phase 5
+  re-audit. When testing a filter through the URL, take the parameter name from
+  `buildCatalogueHref` in `src/lib/catalogue/params.ts`, not from the SQL
+  argument name — the RPC uses `p_price_mode` and neither of the other two
+  spellings works. `priceMin`/`priceMax` are the same trap in a different
+  dimension: the URL carries **major units** and `parseCatalogueParams` converts
+  them with `toMinorUnits` to the **cents** the RPC expects. A URL value and a
+  database value are not the same number, so do not compare them directly.
 - **`aria-pressed` is not allowed on a link.** It failed the browser audit on the
   catalogue filter rows (`aria-allowed-attr`), which are `<a>` elements that
   navigate. Use `aria-current` for "the current item in a set of links", and

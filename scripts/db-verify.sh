@@ -76,11 +76,32 @@ done
 
 echo
 echo "=== RLS and authorisation tests ==="
+# Each suite runs inside a transaction that is rolled back, so a suite leaves no
+# rows behind. That matters because the suites insert published products and
+# brands to have something real to leak, and those rows were reaching the public
+# catalogue and the sitemap of any preview built on the verified database (G66).
+#
+# Wrapping is per suite, not around the whole run, for two reasons. A failure
+# must stop at the suite that failed and leave the earlier suites' effects
+# available for inspection, which a single outer transaction would not do. And a
+# suite that aborts its own transaction (any uncaught `raise exception`) would
+# otherwise poison the connection for every suite after it; here each suite gets
+# its own.
+#
+# This is safe only while no suite contains its own transaction control or a
+# statement Postgres refuses inside a transaction (CREATE INDEX CONCURRENTLY,
+# VACUUM). `scripts/check-test-suite-isolation.mjs` asserts that, so a suite that
+# breaks the assumption fails in CI rather than at the next `db-verify.sh`.
 for f in supabase/tests/[0-9][0-9]_*.sql; do
   # The shim is applied above, not as a test.
   case "$(basename "$f")" in 00_*) continue ;; esac
   printf '    %-52s ' "$(basename "$f")"
-  if "${PSQL[@]}" -q < "$f" >"$LOGDIR/test.log" 2>&1; then
+  # ON_ERROR_STOP is already on `PSQL`, so a failing assertion stops the run. The
+  # explicit begin/rollback is used rather than `-1`, because `-1` opens its own
+  # transaction and then tries to COMMIT it — which would commit the very rows
+  # the rollback exists to discard.
+  if { echo 'begin;'; cat "$f"; echo 'rollback;'; } \
+       | "${PSQL[@]}" -q >"$LOGDIR/test.log" 2>&1; then
     echo "ok"
   else
     echo "FAILED"
@@ -137,8 +158,11 @@ CONTENT_COUNTS=$("${PSQL[@]}" -tA -c "
 # the seed is not the only writer; settings and announcements are exact.
 #
 # `pages` counts only non-system published rows, because migration 0006 creates
-# system pages as drafts and the seed publishes six of them; a `is_system = false`
-# filter isolates the ones the seed writes. The `faqs` filter is on the seed's
+# system pages as drafts and the seed publishes five of them (about, faq,
+# shipping, terms, warranty); a `is_system = false` filter isolates the ones the
+# seed writes. It was 6 until the suites were isolated: the sixth was a published
+# page an RLS suite inserted and never removed (G66), so this floor was calibrated
+# against leaked data. The `faqs` filter is on the seed's
 # fixed id namespace for the same reason: the RLS suite inserts its own FAQ rows
 # with generated ids, so filtering to the `…0000000004xx` block counts the seed's
 # rows and nothing else. (A `…045%` prefix would have missed `…0460`.)
@@ -146,7 +170,7 @@ HEADER_MIN=8
 FOOTER_MIN=12
 ANNOUNCEMENT_MIN=1
 SETTINGS_MIN=1
-PAGES_MIN=6
+PAGES_MIN=5
 FAQS_MIN=10
 IFS='/' read -r header_count footer_count announcement_count settings_count page_count faq_count <<<"$CONTENT_COUNTS"
 

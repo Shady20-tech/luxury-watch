@@ -137,6 +137,12 @@ insert into public.inventory (product_id, quantity, reserved_quantity)
 values ('c0000000-0000-0000-0000-0000000000c1', 5, 0)
 on conflict (product_id) do update set quantity = 5, reserved_quantity = 0;
 
+-- The offline method the fixture orders reference, seeded here so the suite does
+-- not depend on another suite having run first.
+insert into public.payment_methods (code, label, is_enabled) values
+  ('bank_transfer', 'Bank transfer', true)
+on conflict (code) do nothing;
+
 insert into public.order_requests (
   id, reference, customer_name, customer_email, fulfilment_type,
   pickup_location, payment_method_code, subtotal_cents, delivery_fee_cents,

@@ -14,10 +14,23 @@
 
 set role service_role;
 
-insert into public.products (sku, slug, title, status, published_at)
-values ('AVAIL-1', 'avail-in-stock',    'Available watch',   'published', now()),
-       ('AVAIL-2', 'avail-out-of-stock', 'Sold watch',        'published', now()),
-       ('AVAIL-3', 'avail-draft',        'Unreleased watch',  'draft',     null)
+-- A brand of this suite's own. Assertion 8 checks that
+-- `published_product_counts()` agrees with a direct count, and it needs a brand
+-- with published pieces to do that. Before this row existed the assertion passed
+-- only because an earlier suite's fixture brand was still in the database: the
+-- suite was green for a reason it did not control, and went red the moment the
+-- suites were isolated (G66).
+insert into public.brands (id, name, slug) values
+  ('a5151515-0000-0000-0000-000000000015', 'Availability Brand', 'availability-brand')
+on conflict (slug) do nothing;
+
+insert into public.products (id, sku, slug, title, brand_id, status, published_at)
+values ('a5151515-0000-0000-0000-0000000000a1', 'AVAIL-1', 'avail-in-stock',
+        'Available watch', 'a5151515-0000-0000-0000-000000000015', 'published', now()),
+       ('a5151515-0000-0000-0000-0000000000a2', 'AVAIL-2', 'avail-out-of-stock',
+        'Sold watch', 'a5151515-0000-0000-0000-000000000015', 'published', now()),
+       ('a5151515-0000-0000-0000-0000000000a3', 'AVAIL-3', 'avail-draft',
+        'Unreleased watch', 'a5151515-0000-0000-0000-000000000015', 'draft', null)
 on conflict (slug) do nothing;
 
 insert into public.inventory (product_id, quantity, reserved_quantity)
