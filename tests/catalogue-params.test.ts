@@ -205,6 +205,14 @@ describe('canonicalListingPath', () => {
     expect(canonicalListingPath(parseCatalogueParams({ sort: 'price_asc' }))).toBe('/shop');
   });
 
+  it('treats page size as presentation, not as a filter, and drops it from the canonical', () => {
+    // A visitor may show 12, 24 or 48 per page. The products are the same set,
+    // so the listing stays indexable — but three page sizes must not become
+    // three canonical addresses competing for them.
+    expect(isIndexableListing(parseCatalogueParams({ pageSize: '48' }))).toBe(true);
+    expect(canonicalListingPath(parseCatalogueParams({ pageSize: '48' }))).toBe('/shop');
+  });
+
   it('consolidates a filtered brand listing onto the clean brand listing', () => {
     const params = parseCatalogueParams({ brand: 'rolex', condition: 'new' }, 'brand', 'rolex');
     expect(canonicalListingPath(params)).toBe('/brands/rolex');

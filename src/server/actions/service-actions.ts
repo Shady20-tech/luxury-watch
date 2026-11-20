@@ -112,6 +112,9 @@ export async function submitSellTradeAction(
     hasPapers: formData.get('hasPapers') ?? false,
     askingPriceCents: formData.get('askingPriceCents') ?? undefined,
     transactionType: formData.get('transactionType'),
+    material: formData.get('material') ?? undefined,
+    movement: formData.get('movement') ?? undefined,
+    tradeInTarget: formData.get('tradeInTarget') ?? undefined,
     description: formData.get('description'),
   });
 
@@ -130,6 +133,9 @@ export async function submitSellTradeAction(
         'conditionNotes',
         'askingPriceCents',
         'transactionType',
+        'material',
+        'movement',
+        'tradeInTarget',
         'description',
       ] as const),
     };
@@ -165,6 +171,9 @@ export async function submitSellTradeAction(
             : 'Not stated',
         },
         { label: 'Transaction', value: input.transactionType },
+        { label: 'Material', value: input.material ?? '' },
+        { label: 'Movement', value: input.movement ?? '' },
+        { label: 'Trade-in target', value: input.tradeInTarget ?? '' },
       ],
       message: input.description,
     };
@@ -196,6 +205,10 @@ export async function submitSourcingAction(
     minYear: formData.get('minYear') ?? undefined,
     maxYear: formData.get('maxYear') ?? undefined,
     maxBudgetCents: formData.get('maxBudgetCents') ?? undefined,
+    conditionPreference: formData.get('conditionPreference') ?? undefined,
+    requiresBox: formData.get('requiresBox') ?? false,
+    requiresPapers: formData.get('requiresPapers') ?? false,
+    material: formData.get('material') ?? undefined,
     notes: formData.get('notes'),
   });
 
@@ -215,6 +228,8 @@ export async function submitSourcingAction(
         'minYear',
         'maxYear',
         'maxBudgetCents',
+        'conditionPreference',
+        'material',
         'notes',
       ] as const),
     };
@@ -252,6 +267,10 @@ export async function submitSourcingAction(
           label: 'Budget',
           value: input.maxBudgetCents ? `${(input.maxBudgetCents / 100).toFixed(2)}` : 'Not stated',
         },
+        { label: 'Condition preference', value: input.conditionPreference ?? '' },
+        { label: 'Material', value: input.material ?? '' },
+        { label: 'Box required', value: input.requiresBox ? 'Yes' : 'No' },
+        { label: 'Papers required', value: input.requiresPapers ? 'Yes' : 'No' },
       ],
       message: input.notes,
     };
@@ -280,6 +299,7 @@ export async function submitRepairAction(
     referenceNumber: formData.get('referenceNumber') ?? undefined,
     serviceType: formData.get('serviceType') ?? undefined,
     issueSummary: formData.get('issueSummary') ?? undefined,
+    budgetCents: formData.get('budgetCents') ?? undefined,
     isInsured: formData.get('isInsured') ?? false,
     preferredContact: formData.get('preferredContact') ?? undefined,
     description: formData.get('description'),
@@ -327,6 +347,10 @@ export async function submitRepairAction(
         { label: 'Summary', value: input.issueSummary ?? '' },
         { label: 'Insured', value: input.isInsured ? 'Yes' : 'No' },
         { label: 'Preferred contact', value: input.preferredContact ?? '' },
+        {
+          label: 'Budget',
+          value: input.budgetCents ? `${(input.budgetCents / 100).toFixed(2)}` : 'Not stated',
+        },
       ],
       message: input.description,
     };

@@ -303,6 +303,24 @@ product deletion does not destroy order history), `product_title_snapshot`,
 Each flow has a parent request table, an append-only update/reply table, and RLS
 that lets the submitter read their own thread and staff read all of it.
 
+**What each request table actually stores** (migration `0019_service_intake_fields.sql`):
+
+| Table                 | Intake columns                                                                                                                                                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sell_trade_requests` | `brand_name`, `model_name`, `reference_number`, `production_year`, `condition_notes`, `has_box`, `has_papers`, `asking_price_cents`, `currency`, **`transaction_type`** (`sell`/`trade`), **`material`**, **`movement`**, **`trade_in_target`** |
+| `sourcing_requests`   | `brand_name`, `model_name`, `reference_number`, `dial_color`, `case_size_mm`, `bracelet_type`, `min_year`, `max_year`, `max_budget_cents`, `currency`, **`condition_preference`**, **`requires_box`**, **`requires_papers`**, **`material`**    |
+| `repair_requests`     | `brand_name`, `model_name`, `reference_number`, `service_type`, `issue_summary`, `is_watch_insured`, `preferred_contact_method`, **`budget_cents`**                                                                                             |
+
+Columns in bold were added by `0019` to close a real defect: the submission
+functions accepted and validated these values, and the notification email quoted
+them, but the tables had nowhere to store them. A customer who chose "trade" was
+persisted as a sell request with no record of the choice anywhere except an email.
+The lesson is in `tests/50_service_flows.sql`: assert against the **row**, not the
+parameter, because the row is what staff and the portal read.
+
+`transaction_type` is constrained to `sell` or `trade` (nullable for rows written
+before `0019`). `budget_cents` and `asking_price_cents` are non-negative.
+
 ### 3.5 Content and configuration
 
 `pages`, `faqs`, `announcements`, `testimonials`, `navigation_items`

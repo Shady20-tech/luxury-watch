@@ -1,6 +1,6 @@
 # Known Issues
 
-Last updated: 2026-10-18 (Phase 8: transactional email and drawn product artwork)
+Last updated: 2026-11-19 (Phase 11: service flow intake fields)
 Owner-visible register of everything unresolved. Kept honest on purpose: an issue is removed only
 when it is genuinely fixed, and a phase is not marked complete while a critical item is open.
 
@@ -109,7 +109,7 @@ Recorded so no future phase claims to have verified something it did not.
 | G1 | **The RLS suites run against a shim, not Supabase itself.** `supabase/tests/00_supabase_shim.sql` emulates `auth.users`, `auth.uid()` and the API roles faithfully, but it is our reproduction of Supabase's behaviour, not Supabase. | high | open | Once A1 is done, run the same suites against the real project (or a Supabase local stack) and confirm the results match. This is the final confirmation of the authorisation model. |
 | G2 | **The concurrency proof widens the race window deliberately.** `--slow-window` inserts a delay between the read and the write so overlap is certain rather than machine-speed dependent. | low | accepted | This is the correct way to test a lock — the alternative is a test that passes or fails depending on load. The consequence is that the measured timings are not production timings, and the numbers should not be read as benchmarks. |
 | G3 | **`supabase db lint` has not been run.** It requires the Supabase CLI linked to a project (A1). | medium | open | Run after A1 and fix anything it reports. The migrations were authored with explicit `search_path` pinning and schema qualification to avoid the classes of issue the linter usually finds. |
-| G4 | **Nothing uploads to the Storage buckets yet.** The buckets and their insert policies are version-controlled (migration `0015_service_workflows.sql`), but no form accepts a file: `/services/sell-trade` and `/services/repair-restoration` say a photograph will be requested later rather than showing an upload control that does nothing. | medium | open | Phase 10 wires uploads. The signed-URL read path (staff-only, short-lived) is documented in `ARCHITECTURE.md` §12. |
+| G4 | **Nothing uploads to the Storage buckets yet.** The buckets and their insert policies are version-controlled (migration `0015_service_workflows.sql`), but no form accepts a file: `/services/sell-trade` and `/services/repair-restoration` say a photograph will be requested later rather than showing an upload control that does nothing. | medium | open | Phase 10 wires uploads. The signed-URL read path (staff-only, short-lived) is documented in `ARCHITECTURE.md` §12. Two blockers found in Phase 11 must be settled first: the policies assume a signed-in uploader (G76), and no upload can be exercised in this environment (G77). |
 | G5 | **The seed has no images, prose or prices.** All 4110 products are `price_on_request` with null descriptions and no `product_images` rows, because the reference site's photography and text are its own content. | medium | accepted | Deliberate. Real photography must be uploaded (A6) and prices set in the admin. Until then a seeded product page would render a specification table and no gallery. |
 | G6 | **`product_condition` uses `unworn` where the reference uses `pre-owned`/`unworn`.** The seed maps source tags onto the enum. | low | accepted | A naming difference, not a data difference. Documented in `DATABASE_SCHEMA.md` §4. |
 | G7 | **Full-text search relies on a single Postgres GIN index** over five text columns. It has no ranking beyond `ts_rank` defaults and no typo tolerance. | low | open | Sufficient for the current catalogue. If search quality proves inadequate in Phase 5, an external index will be needed; it is not planned for any current phase. |
@@ -259,6 +259,22 @@ its message, an optional-text helper that rejected whitespace, and a missing
 reading the code. The one design error found by running the server was G62's cause: the
 guard sent every protected route to `/account` until middleware forwarded the pathname.
 
+## N. Service workflow intake items (raised in Phase 11)
+
+| ID | Finding | Severity | Status | Resolution or next step |
+|---|---|---|---|---|
+| G73 | **The sell/trade form collected a sell-or-trade choice, validated it, quoted it in the email, and never stored it.** `submit_sell_trade_request` checked `p_transaction_type` against `('sell','trade')` and the insert omitted it; `sell_trade_requests` had no column for it. A customer who chose "trade" was persisted as a sell request. Four further fields the forms collect had the same fate: `material`, `movement` and `trade_in_target` (sell/trade), `condition_preference`, `requires_box`, `requires_papers` and `material` (sourcing), and `budget_cents` (repair). | high | **resolved** | Migration `0019_service_intake_fields.sql` adds the columns and writes them. `50_service_flows.sql` asserts the values reach the **row**, and the assertion was run against the pre-fix state first, where it returns 0 — so it is known to be able to see the difference. The unit schemas gained matching tests. The general lesson is recorded in `CHANGELOG.md`: a validated parameter is not a stored value, and a test that reads the parameter proves nothing about what staff will later read. |
+| G74 | **The repair budget is stored but not shown to staff anywhere yet.** `repair_requests.budget_cents` is persisted and quoted in the notification email, but no admin surface reads it, because the admin does not exist. | low | open | Phase 10's admin work, or whichever phase builds the staff request detail view. The email is the only reader today, which is the same shape of gap G73 was. |
+| G75 | **The intake fields are nullable, so a request submitted before `0019` has no `transaction_type`.** The constraint permits null for exactly this reason; new rows are always written with the value the customer chose. | low | accepted | Deliberate: a backfill would have to invent an intent for a row that never recorded one. The form now always supplies it, so the null window is closed going forward. |
+| G76 | **The bucket insert policies would refuse a guest upload even once a control exists.** `sell_trade_photos_insert_own` and `repair_photos_insert_own` are granted `to authenticated` and key the folder on `auth.uid()`, but both forms are guest-submittable and neither page requires sign-in. A guest would therefore be authenticated as `anon`, match no policy, and be refused — and the folder name a policy requires has no meaning for a visitor with no user id. This is not a bug in the policy, which is correct for a signed-in customer; it is a mismatch between the policy's assumption and the form's audience that would surface as a silent upload failure. | medium | open | Decide with the owner: require sign-in before a photograph is offered (simplest, and matches the policy as written), or accept guest uploads through the service-role client with a server-issued token, the way the guest cart already works. Do not widen the policy to `anon` — a public insert policy on a bucket holding customers' personal photographs is exactly what the private bucket exists to prevent. |
+| G77 | **Uploads cannot be exercised in this environment, so any wiring would be untested.** The local PostgreSQL has no `storage` schema and there is no Supabase CLI or running Storage API, so the bucket and its policies are skipped by `db-verify.sh` (by design — see the guard in `0015`). A file-upload path added here could not be run once end to end. | medium | accepted | Follows A4. Wire and verify uploads against a real Supabase project, where the buckets and policies exist. Writing an upload control that has never stored a byte would be the "green test that proves nothing" pattern this project keeps paying for. |
+
+**Phase 11 added section N and fixed G73**, the third instance of the same underlying
+mistake in this project: a control that *looks* like it decides something but is not the
+thing that does. Phase 6 had a row policy that did not restrict columns; Phase 11 had a
+function that validated a parameter it then discarded. The reliable test is the same
+each time — read back what the consumer will read, not what the producer was handed.
+
 ---
 
 ## Summary
@@ -266,12 +282,16 @@ guard sent every protected route to `/account` until middleware forwarded the pa
 | Severity | Count | Open |
 |---|---|---|
 | critical | 7 | 1 |
-| high | 24 | 13 |
-| medium | 29 | 17 |
-| low | 41 | 11 |
+| high | 26 | 13 |
+| medium | 34 | 17 |
+| low | 48 | 13 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
+
+Counts are generated from the tables above rather than maintained by hand. The previous
+table had drifted from its own rows by nine items, which is the usual fate of a
+hand-maintained total; recount with `grep` before trusting it.
 
 **Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository has a
 `.gitignore`, a committed lockfile, a documented `.env.example`, a `server-only` guard on every

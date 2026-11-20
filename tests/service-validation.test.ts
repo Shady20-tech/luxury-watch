@@ -73,6 +73,28 @@ describe('sellTradeSchema', () => {
     expect(parsed.brandName).toBeUndefined();
     expect(parsed.productionYear).toBeUndefined();
   });
+
+  it('carries the trade intent and its detail fields through to the parsed result', () => {
+    const parsed = sellTradeSchema.parse({
+      ...valid,
+      transactionType: 'trade',
+      material: 'steel',
+      movement: 'automatic',
+      tradeInTarget: 'Daytona 116500LN',
+    });
+    expect(parsed.transactionType).toBe('trade');
+    expect(parsed.material).toBe('steel');
+    expect(parsed.movement).toBe('automatic');
+    expect(parsed.tradeInTarget).toBe('Daytona 116500LN');
+  });
+
+  it.each([
+    ['an over-long material', { material: 'x'.repeat(121) }],
+    ['an over-long movement', { movement: 'x'.repeat(121) }],
+    ['an over-long trade-in target', { tradeInTarget: 'x'.repeat(201) }],
+  ])('rejects %s', (_label, override) => {
+    expect(sellTradeSchema.safeParse({ ...valid, ...override }).success).toBe(false);
+  });
 });
 
 describe('sourcingSchema', () => {
@@ -90,6 +112,32 @@ describe('sourcingSchema', () => {
     expect(sourcingSchema.parse({ ...valid, maxBudgetCents: '5000000' }).maxBudgetCents).toBe(
       5000000,
     );
+  });
+
+  it('carries the condition, box/papers requirement and material through', () => {
+    const parsed = sourcingSchema.parse({
+      ...valid,
+      conditionPreference: 'unworn or light wear',
+      requiresBox: 'on',
+      requiresPapers: 'on',
+      material: 'steel',
+    });
+    expect(parsed.conditionPreference).toBe('unworn or light wear');
+    expect(parsed.requiresBox).toBe(true);
+    expect(parsed.requiresPapers).toBe(true);
+    expect(parsed.material).toBe('steel');
+  });
+
+  it('defaults the box and papers requirement to false when unticked', () => {
+    const parsed = sourcingSchema.parse(valid);
+    expect(parsed.requiresBox).toBe(false);
+    expect(parsed.requiresPapers).toBe(false);
+  });
+
+  it('rejects an over-long condition preference', () => {
+    expect(
+      sourcingSchema.safeParse({ ...valid, conditionPreference: 'x'.repeat(201) }).success,
+    ).toBe(false);
   });
 });
 
@@ -110,6 +158,14 @@ describe('repairSchema', () => {
     expect(repairSchema.safeParse({ ...valid, preferredContact: 'carrier-pigeon' }).success).toBe(
       false,
     );
+  });
+
+  it('accepts a stated budget', () => {
+    expect(repairSchema.parse({ ...valid, budgetCents: '50000' }).budgetCents).toBe(50000);
+  });
+
+  it('rejects a negative budget', () => {
+    expect(repairSchema.safeParse({ ...valid, budgetCents: '-1' }).success).toBe(false);
   });
 });
 

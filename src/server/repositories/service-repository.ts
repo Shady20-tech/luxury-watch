@@ -45,6 +45,9 @@ export async function submitSellTradeRequest(input: {
   hasPapers: boolean;
   askingPriceCents?: number | null;
   transactionType: 'sell' | 'trade';
+  material?: string | null;
+  movement?: string | null;
+  tradeInTarget?: string | null;
   description: string;
 }): Promise<SubmittedReference> {
   const supabase = await createSupabaseServerClient();
@@ -63,6 +66,9 @@ export async function submitSellTradeRequest(input: {
     p_asking_price_cents: input.askingPriceCents ?? undefined,
     p_transaction_type: input.transactionType,
     p_description: input.description,
+    p_material: input.material ?? undefined,
+    p_movement: input.movement ?? undefined,
+    p_trade_in_target: input.tradeInTarget ?? undefined,
   });
 
   if (error) throw error;
@@ -81,6 +87,10 @@ export async function submitSourcingRequest(input: {
   minYear?: number | null;
   maxYear?: number | null;
   maxBudgetCents?: number | null;
+  conditionPreference?: string | null;
+  requiresBox: boolean;
+  requiresPapers: boolean;
+  material?: string | null;
   notes: string;
 }): Promise<SubmittedReference> {
   const supabase = await createSupabaseServerClient();
@@ -98,6 +108,10 @@ export async function submitSourcingRequest(input: {
     p_max_year: input.maxYear ?? undefined,
     p_max_budget_cents: input.maxBudgetCents ?? undefined,
     p_notes: input.notes,
+    p_condition_preference: input.conditionPreference ?? undefined,
+    p_requires_box: input.requiresBox,
+    p_requires_papers: input.requiresPapers,
+    p_material: input.material ?? undefined,
   });
 
   if (error) throw error;
@@ -113,6 +127,7 @@ export async function submitRepairRequest(input: {
   referenceNumber?: string | null;
   serviceType?: string | null;
   issueSummary?: string | null;
+  budgetCents?: number | null;
   isInsured: boolean;
   preferredContact?: string | null;
   description: string;
@@ -131,6 +146,7 @@ export async function submitRepairRequest(input: {
     p_is_insured: input.isInsured,
     p_preferred_contact: input.preferredContact ?? undefined,
     p_description: input.description,
+    p_budget_cents: input.budgetCents ?? undefined,
   });
 
   if (error) throw error;

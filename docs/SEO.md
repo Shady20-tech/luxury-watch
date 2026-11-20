@@ -83,6 +83,7 @@ contradict each other.
 | `/shop`, `/brands/x`, `/collections/x`        | yes                  | itself                                | yes, if it has published pieces                           |
 | `/shop?page=2` (any clean listing + page)     | yes                  | itself                                | no — a sitemap lists the head of a series, not every page |
 | `/shop?sort=price_asc`                        | yes                  | the clean listing                     | no                                                        |
+| `/shop?pageSize=48`                           | yes                  | the clean listing                     | no                                                        |
 | any listing with a filter or a `q` term       | no                   | the clean listing (`noindex, follow`) | no                                                        |
 | `/search` (blank or not)                      | no                   | `/search`                             | no                                                        |
 | a brand or collection with 0 published pieces | no                   | itself (`noindex, follow`)            | no                                                        |

@@ -128,6 +128,18 @@ export function RepairForm({ className }: { className?: string }) {
         </div>
 
         <div className="mt-4">
+          <Input
+            id="repair-budget"
+            name="budgetCents"
+            type="number"
+            inputMode="decimal"
+            label="Budget (optional)"
+            hint="An approximate figure, if you have one in mind."
+            error={fieldErrors.budgetCents}
+          />
+        </div>
+
+        <div className="mt-4">
           <CheckboxField
             id="repair-insured"
             name="isInsured"

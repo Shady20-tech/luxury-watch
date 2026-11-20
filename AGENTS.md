@@ -355,7 +355,44 @@ browser payload. The guest's access token goes in the customer's message and no
 other — it is a capability, and copying it into the admin mailbox widens who holds
 it for no benefit.
 
+### Storage policies assume a signed-in uploader; the forms do not
+
+The two photo buckets are private and their insert policies are `to authenticated`
+with the folder keyed on `auth.uid()`. Both service forms are guest-submittable and
+neither page requires sign-in, so a guest is `anon`, matches no policy, and would be
+refused — with no user id to name a folder with in the first place. That is G76.
+
+The policy is correct for a signed-in customer and should not be widened to `anon`:
+a public insert policy on a bucket of customers' personal photographs defeats the
+reason the bucket is private. The decision to make is whether a photograph requires
+sign-in, or whether a guest upload goes through the service-role client with a
+server-issued token the way the guest cart already does. Do not wire an upload
+control until that is settled and the path can be exercised against real Storage
+(G77) — an upload form that has never stored a byte is exactly the green-test
+pattern this project keeps paying for.
+
 ### Things that will bite you
+
+- **A validated parameter is not a stored value.** `submit_sell_trade_request`
+  checked `p_transaction_type` against `('sell','trade')` and then inserted
+  without it, and the table had no column for it either. A customer who chose
+  "trade" was persisted as a sell request; the only trace of their real intent
+  was the notification email. Five more fields the forms collected had the same
+  fate (material, movement, trade-in target; sourcing condition/box/material;
+  repair budget) until `0019_service_intake_fields.sql` added them.
+
+  This is the third instance of one mistake: a control that _looks_ like it
+  decides something but is not the thing that does. Phase 6 had a row policy
+  that did not restrict columns; Phase 11 had a function that validated a
+  parameter it discarded. The reliable assertion is the same every time — **read
+  back what the consumer will read, not what the producer was handed.** A test
+  that asserts the parsed object or the function argument proves nothing about
+  the row staff will later open.
+
+  When adding a field end to end, walk it in one direction and do not stop at
+  the first green step: form → schema → action → RPC argument → function
+  signature → **table column** → grant list → read path. Any of those can be
+  absent while every earlier one looks correct.
 
 - **An allowlist of friendly errors is not a guarantee that any caller produces
   them.** `SAFE_DATABASE_MESSAGES` in `src/lib/service/validation.ts` decides

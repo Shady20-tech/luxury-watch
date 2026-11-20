@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 
 import {
+  CheckboxField,
   FormError,
   FormSuccess,
   Honeypot,
@@ -130,6 +131,28 @@ export function SourcingForm({ className }: { className?: string }) {
             label="Latest year (optional)"
             error={fieldErrors.maxYear}
           />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Input
+            id="sourcing-material"
+            name="material"
+            label="Case material (optional)"
+            hint="For example: stainless steel, rose gold."
+            error={fieldErrors.material}
+          />
+          <Input
+            id="sourcing-condition"
+            name="conditionPreference"
+            label="Condition preference (optional)"
+            hint="For example: unworn only, or happy with light wear."
+            error={fieldErrors.conditionPreference}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <CheckboxField id="sourcing-box" name="requiresBox" label="Box is essential" />
+          <CheckboxField id="sourcing-papers" name="requiresPapers" label="Papers are essential" />
         </div>
       </fieldset>
 

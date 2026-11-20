@@ -110,6 +110,9 @@ export const sellTradeSchema = z.object({
   hasPapers: z.coerce.boolean().default(false),
   askingPriceCents: optionalMoney,
   transactionType: z.enum(['sell', 'trade'], { message: 'Choose sell or trade.' }),
+  material: optionalText(120, 'That material is too long.'),
+  movement: optionalText(120, 'That movement is too long.'),
+  tradeInTarget: optionalText(200, 'That description of the piece you want is too long.'),
   description: z
     .string()
     .trim()
@@ -130,6 +133,10 @@ export const sourcingSchema = z.object({
   minYear: optionalYear,
   maxYear: optionalYear,
   maxBudgetCents: optionalMoney,
+  conditionPreference: optionalText(200, 'That condition preference is too long.'),
+  requiresBox: z.coerce.boolean().default(false),
+  requiresPapers: z.coerce.boolean().default(false),
+  material: optionalText(120, 'That material is too long.'),
   notes: z
     .string()
     .trim()
@@ -147,6 +154,7 @@ export const repairSchema = z.object({
   referenceNumber: optionalText(80, 'That reference is too long.'),
   serviceType: optionalText(120, 'That service type is too long.'),
   issueSummary: optionalText(500, 'Please shorten the summary.'),
+  budgetCents: optionalMoney,
   isInsured: z.coerce.boolean().default(false),
   preferredContact: z
     .enum(['email', 'phone', 'either'])

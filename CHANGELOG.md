@@ -8,6 +8,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed — the sell/trade form asked "sell or trade?", validated the answer, and threw it away
+
+**Date:** 2026-11-19
+
+> `submit_sell_trade_request` checked `p_transaction_type` against
+> `('sell','trade')` and the action quoted it in the notification email, but the
+> insert never wrote it and `sell_trade_requests` had no column to write it to.
+> A customer who chose "trade" was stored as a sell request, and the only record
+> of their actual intent was an email nobody could query. The validation made the
+> parameter *look* handled, which is why the gap survived review: a rejected
+> value would have raised, so the code read as complete.
+>
+> The same shape of gap left several fields the forms collect with nowhere to
+> land — material, movement and the trade-in target on sell/trade; condition,
+> box/papers requirement and material on sourcing; a budget on repair. Each was
+> validated by the schema, so nothing failed loudly; the values simply stopped
+> at the insert.
+>
+> This is the Phase 6 column-grant lesson in a different place. There, a policy
+> restricted rows while the table grant exposed columns; here, a function
+> validated a parameter while the table had no column. In both cases the thing
+> that *looked* like the control was not the thing that decided the outcome. The
+> assertion that would have caught it reads the row back, not the parameter.
+
+#### Fixed
+
+- `sell_trade_requests.transaction_type` exists and is written. Constrained to
+  `sell` or `trade` at the table, so a direct write cannot store an unknown value
+  even if it bypasses the function.
+- The sell/trade, sourcing and repair forms now persist every field they ask for:
+  `material`, `movement` and `trade_in_target`; `condition_preference`,
+  `requires_box`, `requires_papers` and `material`; and `budget_cents`.
+
+#### Changed
+
+- Migration `0019_service_intake_fields.sql` appends the new parameters to the
+  three submission functions rather than changing existing ones, so the
+  positional calls already in `50_service_flows.sql` keep proving what they
+  proved. The old signatures are dropped first, because `create or replace`
+  cannot change a parameter list and a second overload would make the PostgREST
+  call ambiguous; the execute grants are re-issued for the same reason.
+- The three notification emails quote the new fields, so staff read the same
+  request the row holds rather than a shorter version of it.
+
+#### Added
+
+- `50_service_flows.sql` asserts the intake fields reach the row, that the table
+  refuses an unrecognised `transaction_type`, and that a negative repair budget is
+  refused. Verified against the pre-fix behaviour first: the row-level assertion
+  returns 0 with the defect reintroduced, so it is known to be able to see it.
+
 ### Fixed — a lost appointment race showed the customer a database constraint
 
 **Date:** 2026-11-19

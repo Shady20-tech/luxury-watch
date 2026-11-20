@@ -118,6 +118,23 @@ export function SellTradeForm({ className }: { className?: string }) {
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Input
+            id="sell-material"
+            name="material"
+            label="Case material (optional)"
+            hint="For example: stainless steel, yellow gold."
+            error={fieldErrors.material}
+          />
+          <Input
+            id="sell-movement"
+            name="movement"
+            label="Movement (optional)"
+            hint="For example: automatic, manual wind, quartz."
+            error={fieldErrors.movement}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <CheckboxField id="sell-box" name="hasBox" label="Box included" />
           <CheckboxField id="sell-papers" name="hasPapers" label="Papers included" />
         </div>
@@ -157,6 +174,16 @@ export function SellTradeForm({ className }: { className?: string }) {
             label="Asking price (optional)"
             hint="The figure you have in mind. This is not an offer and nothing is agreed until we confirm it."
             error={fieldErrors.askingPriceCents}
+          />
+        </div>
+
+        <div className="mt-4">
+          <Input
+            id="sell-trade-target"
+            name="tradeInTarget"
+            label="What you would like in exchange (optional)"
+            hint="If you are trading, tell us the piece you have in mind. Leave blank if you are selling outright."
+            error={fieldErrors.tradeInTarget}
           />
         </div>
       </fieldset>

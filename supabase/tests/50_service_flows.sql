@@ -726,8 +726,83 @@ select pg_temp.assert_count(
 
 reset role;
 
-drop function pg_temp.assert_true(text, boolean);
-drop function pg_temp.assert_count(text, text, bigint);
+-- -----------------------------------------------------------------------------
+-- Intake fields the forms collect must reach the row (migration 0019)
+--
+-- `submit_sell_trade_request` validated `p_transaction_type` and the action
+-- quoted it in the notification email, but the column did not exist and the
+-- insert never wrote it. A customer choosing "trade" was stored as a sell with
+-- no trace of the choice. These assertions read the row rather than the
+-- parameter, because the row is what staff and the portal actually see.
+-- -----------------------------------------------------------------------------
+
+set role anon;
+
+insert into refs values ('intake', public.submit_sell_trade_request(
+  'Intake Seller', 'intake.seller@example.test', null,
+  'Rolex', 'Submariner', '126610LN', 2021, 'Excellent', true, true, null,
+  'trade', 'I would like to trade up.',
+  'steel', 'automatic', 'Daytona 116500LN'));
+
+insert into refs values ('intake-sourcing', public.submit_sourcing_request(
+  'Intake Buyer', 'intake.buyer@example.test', null,
+  'Omega', 'Speedmaster', '310.30.42', 'black', 'steel', 2018, 2024, 800000,
+  'Looking for a Speedmaster.',
+  'unworn or light wear', true, true, 'steel'));
+
+insert into refs values ('intake-repair', public.submit_repair_request(
+  'Intake Owner', 'intake.owner@example.test', null,
+  'Cartier', 'Tank', 'WSTA0041', 'full_service', 'Running fast', true, 'email',
+  'My Tank is gaining a minute a day.', 50000));
+
+reset role;
+
+select pg_temp.assert_count(
+  'a sell/trade request keeps the trade intent and the trade-in target',
+  $$select count(*) from public.sell_trade_requests r
+      join public.inquiries i on i.id = r.inquiry_id
+     where i.reference = (select reference from refs where label = 'intake')
+       and r.transaction_type = 'trade'
+       and r.trade_in_target = 'Daytona 116500LN'
+       and r.material = 'steel'
+       and r.movement = 'automatic'$$, 1);
+
+select pg_temp.assert_count(
+  'a sourcing request keeps its condition, box/papers requirement and material',
+  $$select count(*) from public.sourcing_requests r
+      join public.inquiries i on i.id = r.inquiry_id
+     where i.reference = (select reference from refs where label = 'intake-sourcing')
+       and r.condition_preference = 'unworn or light wear'
+       and r.requires_box is true
+       and r.requires_papers is true
+       and r.material = 'steel'$$, 1);
+
+select pg_temp.assert_count(
+  'a repair request keeps its stated budget',
+  $$select count(*) from public.repair_requests r
+      join public.inquiries i on i.id = r.inquiry_id
+     where i.reference = (select reference from refs where label = 'intake-repair')
+       and r.budget_cents = 50000$$, 1);
+
+-- The constraint, not just the function, refuses an unknown intent. A direct
+-- write that bypasses the function must not be able to store one either.
+select pg_temp.assert_raises(
+  'the table refuses an unrecognised transaction type',
+  $$insert into public.sell_trade_requests (inquiry_id, transaction_type, workflow_status)
+    select id, 'barter', 'submitted' from public.inquiries
+     where reference = (select reference from refs where label = 'intake')$$);
+
+-- A negative repair budget is refused by the function, so the row cannot be
+-- created in the first place.
+select pg_temp.assert_raises(
+  'a repair request refuses a negative budget',
+  $$select public.submit_repair_request(
+      'Neg Budget', 'neg.budget@example.test', null, 'Rolex', 'Sub', '1', 'service',
+      'Issue', false, 'email', 'Description here.', -1)$$);
+
+
 drop function pg_temp.assert_raises(text, text);
 drop function pg_temp.assert_raises_message(text, text, text);
 drop function pg_temp.assert_denied(text, text);
+drop function pg_temp.assert_true(text, boolean);
+drop function pg_temp.assert_count(text, text, bigint);

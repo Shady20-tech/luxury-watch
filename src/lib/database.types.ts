@@ -637,14 +637,14 @@ isOneToOne: false
                   ]
                 },"repair_requests": {
                   Row: {
-                    "brand_name": string | null,"created_at": string,"id": string,"inquiry_id": string,"is_watch_insured": boolean | null,"issue_summary": string | null,"model_name": string | null,"preferred_contact_method": string | null,"reference_number": string | null,"service_type": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["repair_status"]
+                    "brand_name": string | null,"created_at": string,"id": string,"inquiry_id": string,"is_watch_insured": boolean | null,"issue_summary": string | null,"model_name": string | null,"preferred_contact_method": string | null,"reference_number": string | null,"service_type": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["repair_status"],"budget_cents": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id": string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["repair_status"]
+                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id": string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["repair_status"],"budget_cents"?: number | null
                   }
                   Update: {
-                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id"?: string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["repair_status"]
+                    "brand_name"?: string | null,"created_at"?: string,"id"?: string,"inquiry_id"?: string,"is_watch_insured"?: boolean | null,"issue_summary"?: string | null,"model_name"?: string | null,"preferred_contact_method"?: string | null,"reference_number"?: string | null,"service_type"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["repair_status"],"budget_cents"?: number | null
                   }
                   Relationships: [
                     {
@@ -717,14 +717,14 @@ isOneToOne: false
                   ]
                 },"sell_trade_requests": {
                   Row: {
-                    "asking_price_cents": number | null,"brand_name": string | null,"condition_notes": string | null,"created_at": string,"currency": string,"has_box": boolean | null,"has_papers": boolean | null,"id": string,"inquiry_id": string,"model_name": string | null,"production_year": number | null,"reference_number": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["sell_trade_status"]
+                    "asking_price_cents": number | null,"brand_name": string | null,"condition_notes": string | null,"created_at": string,"currency": string,"has_box": boolean | null,"has_papers": boolean | null,"id": string,"inquiry_id": string,"model_name": string | null,"movement": string | null,"material": string | null,"production_year": number | null,"reference_number": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["sell_trade_status"],"transaction_type": string | null,"trade_in_target": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id": string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["sell_trade_status"]
+                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id": string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["sell_trade_status"],"transaction_type"?: string | null,"trade_in_target"?: string | null,"material"?: string | null,"movement"?: string | null
                   }
                   Update: {
-                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id"?: string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["sell_trade_status"]
+                    "asking_price_cents"?: number | null,"brand_name"?: string | null,"condition_notes"?: string | null,"created_at"?: string,"currency"?: string,"has_box"?: boolean | null,"has_papers"?: boolean | null,"id"?: string,"inquiry_id"?: string,"model_name"?: string | null,"production_year"?: number | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["sell_trade_status"],"transaction_type"?: string | null,"trade_in_target"?: string | null,"material"?: string | null,"movement"?: string | null
                   }
                   Relationships: [
                     {
@@ -751,14 +751,14 @@ isOneToOne: false
                   ]
                 },"sourcing_requests": {
                   Row: {
-                    "bracelet_type": string | null,"brand_name": string | null,"case_size_mm": number | null,"created_at": string,"currency": string,"dial_color": string | null,"id": string,"inquiry_id": string,"max_budget_cents": number | null,"max_year": number | null,"min_year": number | null,"model_name": string | null,"reference_number": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["sourcing_status"]
+                    "bracelet_type": string | null,"brand_name": string | null,"case_size_mm": number | null,"created_at": string,"currency": string,"dial_color": string | null,"id": string,"inquiry_id": string,"max_budget_cents": number | null,"max_year": number | null,"min_year": number | null,"model_name": string | null,"reference_number": string | null,"updated_at": string,"workflow_status": Database["public"]['Enums']["sourcing_status"],"condition_preference": string | null,"requires_box": boolean | null,"requires_papers": boolean | null,"material": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id": string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["sourcing_status"]
+                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id": string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status"?: Database["public"]['Enums']["sourcing_status"],"condition_preference"?: string | null,"requires_box"?: boolean | null,"requires_papers"?: boolean | null,"material"?: string | null
                   }
                   Update: {
-                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id"?: string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["sourcing_status"]
+                    "bracelet_type"?: string | null,"brand_name"?: string | null,"case_size_mm"?: number | null,"created_at"?: string,"currency"?: string,"dial_color"?: string | null,"id"?: string,"inquiry_id"?: string,"max_budget_cents"?: number | null,"max_year"?: number | null,"min_year"?: number | null,"model_name"?: string | null,"reference_number"?: string | null,"updated_at"?: string,"workflow_status": Database["public"]['Enums']["sourcing_status"],"condition_preference"?: string | null,"requires_box"?: boolean | null,"requires_papers"?: boolean | null,"material"?: string | null
                   }
                   Relationships: [
                     {
@@ -1088,13 +1088,13 @@ isOneToOne: false
 { Args: { "r": Database["public"]['Enums']["staff_role"] }; Returns: (string)[]
                            },
 "submit_sell_trade_request":
-{ Args: { "p_asking_price_cents"?: number | null,"p_brand_name"?: string | null,"p_condition_notes"?: string | null,"p_description": string,"p_email": string,"p_has_box"?: boolean | null,"p_has_papers"?: boolean | null,"p_model_name"?: string | null,"p_name": string,"p_phone"?: string | null,"p_production_year"?: number | null,"p_reference_number"?: string | null,"p_transaction_type"?: string | null }; Returns: string
+{ Args: { "p_asking_price_cents"?: number | null,"p_brand_name"?: string | null,"p_condition_notes"?: string | null,"p_description": string,"p_email": string,"p_has_box"?: boolean | null,"p_has_papers"?: boolean | null,"p_material"?: string | null,"p_model_name"?: string | null,"p_movement"?: string | null,"p_name": string,"p_phone"?: string | null,"p_production_year"?: number | null,"p_reference_number"?: string | null,"p_trade_in_target"?: string | null,"p_transaction_type"?: string | null }; Returns: string
                            },
 "submit_sourcing_request":
-{ Args: { "p_bracelet_type"?: string | null,"p_brand_name"?: string | null,"p_dial_color"?: string | null,"p_email": string,"p_max_budget_cents"?: number | null,"p_max_year"?: number | null,"p_min_year"?: number | null,"p_model_name"?: string | null,"p_name": string,"p_notes": string,"p_phone"?: string | null,"p_reference_number"?: string | null }; Returns: string
+{ Args: { "p_bracelet_type"?: string | null,"p_brand_name"?: string | null,"p_condition_preference"?: string | null,"p_dial_color"?: string | null,"p_email": string,"p_material"?: string | null,"p_max_budget_cents"?: number | null,"p_max_year"?: number | null,"p_min_year"?: number | null,"p_model_name"?: string | null,"p_name": string,"p_notes": string,"p_phone"?: string | null,"p_reference_number"?: string | null,"p_requires_box"?: boolean | null,"p_requires_papers"?: boolean | null }; Returns: string
                            },
 "submit_repair_request":
-{ Args: { "p_brand_name"?: string | null,"p_description": string,"p_email": string,"p_is_insured"?: boolean | null,"p_issue_summary"?: string | null,"p_model_name"?: string | null,"p_name": string,"p_phone"?: string | null,"p_preferred_contact"?: string | null,"p_reference_number"?: string | null,"p_service_type"?: string | null }; Returns: string
+{ Args: { "p_brand_name"?: string | null,"p_budget_cents"?: number | null,"p_description": string,"p_email": string,"p_is_insured"?: boolean | null,"p_issue_summary"?: string | null,"p_model_name"?: string | null,"p_name": string,"p_phone"?: string | null,"p_preferred_contact"?: string | null,"p_reference_number"?: string | null,"p_service_type"?: string | null }; Returns: string
                            },
 "submit_contact_message":
 { Args: { "p_email": string,"p_message": string,"p_name": string,"p_phone"?: string | null,"p_subject"?: string | null }; Returns: string
