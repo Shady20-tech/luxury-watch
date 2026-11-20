@@ -8,6 +8,63 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Phase 12 — the CMS, the media library and a bucket that was never there
+
+**Date:** 2026-11-19
+
+The storefront's copy is now editable by the people who own it. Homepage sections,
+pages, questions, testimonials, navigation links, announcements, payment methods,
+delivery options and the business's own details all have editors at
+`/admin/settings`, and every save goes through a permission-gated, audited server
+action. A media library uploads images into a public bucket, records each asset,
+and refuses to delete one while a product, page, section or the logo still points
+at it.
+
+**The `media` table existed; the bucket did not.** `media` has been in the schema
+since Phase 2 and nothing ever wrote to it, because the storage bucket it
+references was never created. Every upload would have failed at the storage step
+with a message that reads like a permissions problem, and the table would have
+stayed empty forever. `0022_cms_media_library.sql` creates the bucket, matches its
+mime list exactly to the table's own image-only check, and adds the categories and
+checksum columns the library needs. This is the kind of gap a schema document
+cannot show: the table was correct and the thing beside it was missing.
+
+**A row-scoped policy is not a column-scoped one, again.** The `media` table is
+readable by staff through a `content.read` policy, which says nothing about which
+columns. The migration therefore does not add a column that must stay private —
+but the standing obligation from Phase 6 applies, and it is restated in
+`DATABASE_SCHEMA.md` so the next column added to a publicly-readable table is a
+deliberate decision rather than a default.
+
+**Three deliberate limits, recorded so they are not read as unfinished work.**
+The page editor takes JSON rather than offering a block builder, because a
+half-built builder that can produce a block the renderer silently drops is worse
+than an honest editor with a documented shape; the JSON is validated against the
+renderer's own parser, so an unknown block is rejected rather than saved and
+ignored. The homepage editor cannot invent a section key, because the renderer
+knows a fixed set and a new key would render nothing; it warns instead. And no
+testimonial is ever generated — a quote that a customer did not give is a false
+claim about a real person, so the site shows none until a real one is added.
+
+**Two defects the tests could not have caught, and did not.** The stale
+`database.types.ts` was the reason the new code would not typecheck: `media` was
+missing the columns the migration adds, so every query against them was a type
+error rather than a runtime one — the good failure mode. Separately, the shared
+form kit called a hook conditionally (`error ?? useFieldError(name)`), which
+`eslint-plugin-react-hooks` caught and a typecheck could not; the fix calls the
+hook unconditionally and chooses afterwards.
+
+**Verification**
+- `0022_cms_media_library.sql` applies cleanly on a fresh database and on re-run.
+- `supabase/tests/62_cms_media.sql` — 20 assertions covering the image-only
+  constraint, the `content.write` gate, the system-page deletion guard, and that
+  `content.write` cannot reach site settings. Repeatable across runs.
+- `scripts/db-verify.sh` green: 22 migrations, 19 RLS suites, 4 seeds idempotent.
+- `npm run verify` green: 824 unit tests (12 new editor render tests, 27 content
+  validation, 24 media reference), typecheck, lint, production build.
+- `scripts/a11y-audit.mjs` against the preview with real rows: 32 pages × 4
+  viewports, no critical or serious violations, no horizontal overflow.
+
 ### Phase 10 — the admin platform, and two bugs that only a real caller would find
 
 **Date:** 2026-11-20

@@ -200,6 +200,7 @@ describe('images', () => {
       images: [
         {
           id: 'b',
+          category: 'gallery',
           storage_path: 'b.jpg',
           external_url: null,
           alt_text: 'Second',
@@ -210,6 +211,7 @@ describe('images', () => {
         },
         {
           id: 'a',
+          category: 'gallery',
           storage_path: 'a.jpg',
           external_url: null,
           alt_text: 'Primary',
@@ -231,6 +233,7 @@ describe('images', () => {
       images: [
         {
           id: 'a',
+          category: 'gallery',
           storage_path: 'a.jpg',
           external_url: null,
           alt_text: '   ',

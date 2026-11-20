@@ -53,6 +53,30 @@ import { MediaFrame } from '@/components/ui/media-frame';
 
 const RATIO_CLASS = 'aspect-4/5';
 
+/**
+ * The views an editor can tag, named the way a person says them.
+ *
+ * A thumbnail's accessible name says *which* image it shows, not only its
+ * position: "Show the caseback (2 of 5)" tells a screen-reader user what they are
+ * choosing, where "Show image 2 of 5" only tells them where it is. A general
+ * gallery shot falls back to its position, because "Show the gallery (2 of 5)"
+ * would be noise when every image is a gallery shot.
+ */
+const VIEW_LABELS: Partial<Record<ProductImage['category'], string>> = {
+  dial: 'the dial',
+  caseback: 'the caseback',
+  movement: 'the movement',
+  bracelet: 'the bracelet or strap',
+  box_and_papers: 'the box and papers',
+  certificate: 'the certificate',
+  wrist: 'the watch on a wrist',
+};
+
+function thumbnailLabel(image: ProductImage, index: number, count: number): string {
+  const view = VIEW_LABELS[image.category];
+  return view ? `Show ${view} (${index + 1} of ${count})` : `Show image ${index + 1} of ${count}`;
+}
+
 /** A single image, sized by explicit dimensions when they are known. */
 function GalleryImage({
   image,
@@ -286,7 +310,7 @@ export function ProductGallery({
                 thumbnailRefs.current[index] = node;
               }}
               aria-selected={index === active}
-              aria-label={`Show image ${index + 1} of ${count}`}
+              aria-label={thumbnailLabel(image, index, count)}
               // Roving tabindex: only the selected thumbnail is in the tab order.
               tabIndex={index === active ? 0 : -1}
               onClick={() => setActive(index)}

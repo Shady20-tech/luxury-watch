@@ -40,6 +40,13 @@ done
 | `0013_order_request_submission.sql`          | `order_requests` guest token, idempotency, terms, discount and pickup columns; `evaluate_discount_code`, `redeem_discount_code`, `release_discount_code`, `enforce_rate_limit`, the redefined `submit_order_request` and `read_order_request` |
 | `0014_account_portal.sql`                    | Column-level `select` grants for the account area, so a self-editable profile row exposes no internal column                                                                                                                                  |
 | `0015_service_workflows.sql`                 | `service_status_events`, `product_offers`, `appointment_availability`, per-flow `workflow_status`, `service_reference_seq`, `generate_service_reference`, `service_form_guard`, `assert_submission_shape` and the six submission RPCs         |
+| `0016_catalogue_search_collections.sql`      | `catalogue_filtered` (the filtered, sorted, paginated catalogue query) and `catalogue_suggest` (type-ahead across products, brands, models and collections)                                                                                   |
+| `0017_published_collection_counts.sql`       | `published_collection_counts`, so a collection's product total is one aggregate rather than N counts                                                                                                                                          |
+| `0018_model_scope.sql`                       | Model scope for catalogue browsing: `published_model_counts` and redefined `catalogue_filtered` / `catalogue_suggest` that accept a model filter                                                                                              |
+| `0019_service_intake_fields.sql`             | The service intake columns the forms collected and the schema had dropped, and redefined `submit_repair_request`, `submit_sell_trade_request` and `submit_sourcing_request` to persist them                                                   |
+| `0020_admin_operations.sql`                  | The administrator's operations as `SECURITY DEFINER` functions: `admin_set_product_status`, `admin_adjust_stock`, `admin_transition_order`, `admin_set_service_status`, `admin_write_audit_log` and `current_admin_permissions`               |
+| `0021_inventory_write_lockdown.sql`          | Revokes `INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`; the balance is derived from its ledger                                                                                                                         |
+| `0022_cms_media_library.sql`                 | The public `media` storage bucket and its policy, `media_category` and `watch_image_category`, `media.title`, `media.checksum_sha256`, `media.last_referenced_at`, `product_images.category`, and the system-page deletion guard              |
 
 ### 1.2 Verify locally
 
@@ -189,7 +196,14 @@ attributes (`condition`, `production_year`, `reference_number`, `case_size_mm`,
 
 **`product_images`** — `id`, `product_id`, `storage_path` **or** `external_url`
 (exactly one, enforced by `product_images_source_exclusive`), `alt_text`,
-`width`, `height`, `sort_order`, `is_primary`, timestamps.
+`width`, `height`, `sort_order`, `is_primary`, `category`
+(`watch_image_category`, default `gallery`), timestamps.
+
+`category` is what lets a gallery say "the caseback" rather than "image 3". It is
+nullable-tolerant at the type level but defaulted, so an untagged image is a
+gallery shot rather than an unknown one. `gallery` is deliberately the fallback:
+the alternative — a `NULL` category — would make every consumer decide what a
+missing tag means.
 
 **`product_specs`** — `id`, `product_id`, `label`, `value`, `sort_order`. The
 flexible label/value table for attributes that do not warrant a column.
@@ -327,6 +341,19 @@ before `0019`). `budget_cents` and `asking_price_cents` are non-negative.
 (`location`: `header`, `footer`, `topbar`), `homepage_sections`, `media`,
 `site_settings` (22 columns; singleton enforced by a single-row constraint),
 `newsletter_subscribers`, `admin_audit_logs`, `rate_limit_counters`.
+
+**`media`** — `id`, `storage_bucket`, `storage_path`, `file_name`, `mime_type`,
+`size_bytes`, `width`, `height`, `alt_text`, `caption`, `category`
+(`media_category`, default `general`), `title`, `checksum_sha256`,
+`last_referenced_at`, `uploaded_by`, timestamps. A check constraint allows only
+image mime types, and `0022` pins the bucket's `allowed_mime_types` to the same
+list so the two cannot drift apart.
+
+**The bucket is part of the schema.** `media` has referenced a storage bucket
+since Phase 2, but the bucket itself was never created until `0022` — so every
+upload would have failed at the storage step while the table looked correct. When
+you add a table that stores objects, create the bucket in the same migration and
+document it beside the table.
 
 **`newsletter_subscribers`** carries a `token` column defaulted to
 `encode(extensions.gen_random_bytes(32), 'hex')` for confirmation and unsubscribe

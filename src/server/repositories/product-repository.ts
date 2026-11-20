@@ -112,7 +112,9 @@ export async function fetchProductImages(productId: string): Promise<ProductImag
 
   const { data, error } = await supabase
     .from('product_images')
-    .select('id, storage_path, external_url, alt_text, width, height, is_primary, sort_order')
+    .select(
+      'id, category, storage_path, external_url, alt_text, width, height, is_primary, sort_order',
+    )
     .eq('product_id', productId)
     .order('is_primary', { ascending: false })
     .order('sort_order')

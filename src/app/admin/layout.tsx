@@ -97,6 +97,9 @@ function buildNav(identity: AdminIdentity): AdminNavGroup[] {
     { href: '/admin/customers', label: 'Customers' },
   ].filter((i) => may(i.href));
 
+  // The content section is one entry rather than ten. Its own index decides
+  // which editors this account may use, so the sidebar stays short and a
+  // content manager still reaches every screen they hold.
   const system = [
     { href: '/admin/settings', label: 'Content & settings' },
     { href: '/admin/audit', label: 'Audit trail' },

@@ -283,15 +283,16 @@ each time — read back what the consumer will read, not what the producer was h
 |---|---|---|
 | critical | 7 | 1 |
 | high | 26 | 13 |
-| medium | 34 | 17 |
-| low | 48 | 13 |
+| medium | 40 | 21 |
+| low | 52 | 14 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
 
 Counts are generated from the tables above rather than maintained by hand. The previous
 table had drifted from its own rows by nine items, which is the usual fate of a
-hand-maintained total; recount with `grep` before trusting it.
+hand-maintained total; recount with `grep` before trusting it. Phase 12 recounted:
+125 rows, and the totals above are those counts, not an increment of the old ones.
 
 **Phase 1 resolved C1, C3, C4 and C6, and mitigated D3 and D8.** The repository has a
 `.gitignore`, a committed lockfile, a documented `.env.example`, a `server-only` guard on every
@@ -374,7 +375,7 @@ available and does nothing is worse than one that is absent.
 | H1 | **No admin can sign in on a local preview.** `npm run preview` brings up PostgREST but not GoTrue, so there is no way to obtain a real session cookie locally. The admin routes are therefore verified as *redirecting an anonymous caller* (which is the security-critical direction) and the write paths are verified at the database, not through the browser. | medium | open | Verify end to end against a real Supabase project once A1 is done. The database suites already prove the write path the actions use. |
 | H2 | **Brand, model and collection merchandising is not editable.** Products can be assigned to an existing brand and model, but the taxonomy itself is seed-managed. Drag-order, create and rename are not built. | medium | open | Add CRUD for `brands`, `models` and `collections` when the owner needs it; the tables, policies and permission (`catalog.write`) already exist. |
 | H3 | **Media library is not built.** A product's image URL can be set as text; uploading to Supabase Storage is not wired. This is the same dependency as A4. | medium | open | Follows A4. The buckets exist in the migrations; the upload UI does not. |
-| H4 | **Content editing (pages, FAQs, testimonials, navigation, announcements) is not built.** `/admin/settings` lists what is stored and is explicit that it is read-only, rather than offering inputs that do nothing. | medium | open | Add editors per content type. `revalidatePath('/', 'layout')` is required for navigation and settings — see `AGENTS.md`. |
+| H4 | **Content editing (pages, FAQs, testimonials, navigation, announcements).** Editors are built in Phase 12 and every save revalidates the root layout. | medium | resolved | Phase 12. See H7–H10 for the limits that remain. |
 | H5 | **Inquiries and appointments are read-only in the admin.** They are listed with their real rows, but replying and closing are not implemented. | low | open | Add reply/close actions; `inquiries.write` already exists and is held by the roles that need it. |
 | H6 | **The dashboard's "recent activity" reads the audit log, which is empty on a fresh install.** It renders an empty state rather than placeholder rows, deliberately. | low | accepted | Expected. Real activity appears as soon as an admin performs an action. |
 
@@ -414,3 +415,26 @@ permanently disagreeing with its own history, invisibly. `0021_inventory_write_l
 revokes `INSERT/UPDATE/DELETE` on `inventory` from `anon` and `authenticated`. Every legitimate
 writer is `SECURITY DEFINER` and therefore unaffected. `61_admin_write_paths.sql` asserts the
 revoke, so a later `grant` that reopens it fails the suite.
+
+## O. CMS, media and settings items (raised in Phase 12)
+
+| ID | Item | Severity | Status | Next action |
+|---|---|---|---|---|
+| H7 | **The page editor takes JSON, not a block builder.** `pages.content` is a JSON array of five block types; the editor accepts JSON and validates it against the renderer's own parser, so an unknown block is rejected rather than saved and silently dropped. | medium | accepted | A block builder is a larger piece of work than this phase. The JSON shape is documented in `DATABASE_SCHEMA.md` and the parser is the single source of truth for what is valid. |
+| H8 | **A media asset's usage check is a reference scan, not a foreign key.** `media-references.ts` matches a URL against `product_images`, `products`, pages, homepage sections and `site_settings.logo_url`. A URL stored in a column nobody listed would not be seen. | medium | open | Replace with real foreign keys from those columns to `media` once the schema can carry them. Until then, the scan is the guard, and a delete that slips through leaves a broken image rather than a broken page. |
+| H9 | **Storage object deletion happens before the row deletion, and the two are not in one transaction.** If the storage delete succeeds and the row delete fails, the row survives pointing at a missing object. | low | accepted | Storage and Postgres cannot share a transaction here. The order is deliberate: a dangling row is visible and repairable, an orphaned object is not. The row delete is attempted immediately after and its failure is logged. |
+| H10 | **Media uploads are not virus-scanned and not re-encoded.** The route checks the declared mime type, the file's own magic bytes and the size, and refuses SVG. A polyglot file that is a valid JPEG and something else is still stored as-is. | low | accepted | Supabase Storage serves the object with the recorded content type and `Content-Disposition`, which limits the impact. Re-encoding on upload is the real fix and needs an image pipeline this project does not have. |
+
+### The bucket was the missing half of a table that had existed since Phase 2
+
+`media` was created in Phase 2, given a policy in Phase 9 and read by the admin in Phase 10. Nothing
+ever inserted into it, because the `storage.objects` side was never set up: no bucket row, no policy
+on the bucket, no upload route. The first upload attempt in Phase 12 failed at the storage step with
+a message that reads like an authorisation problem, which is exactly how a missing bucket presents.
+
+A schema document lists tables. It does not list the *storage buckets* those tables assume, so the
+gap was invisible in every review of `DATABASE_SCHEMA.md`. `0022_cms_media_library.sql` now creates
+the bucket and pins its `allowed_mime_types` to the same list the table's own check constraint
+enforces, so the two cannot drift apart. When a table references an object store, the bucket belongs
+in the migration and in the schema document beside the table — not in a dashboard someone has to
+remember to visit.

@@ -414,6 +414,50 @@ write a ledger row instead. `61_admin_write_paths.sql` fails if the grant is reo
 key fails closed — the page or action simply refuses — so a "permission denied" that should not
 be is almost always a misspelled key, not a policy problem.
 
+### The CMS, the media library and the bucket that was missing
+
+`/admin/settings` edits the copy the storefront renders: homepage sections, pages, FAQs,
+testimonials, navigation, announcements, payment methods, delivery options and the business's own
+details. Every save is a server action in `src/server/actions/content-actions.ts` that calls
+`requirePermission('content.write')`, writes through the session client, writes an audit row, and
+then calls `revalidateContent()`.
+
+**A content save must revalidate the root layout, not the page it edited.** The chrome is
+prerendered with `revalidate = 300` (`src/app/(site)/layout.tsx`). Editing a navigation label and
+revalidating only `/admin/settings/navigation` leaves the public header showing the old label for
+up to five minutes, which reads as a failed save. `revalidateContent()` calls
+`revalidatePath('/', 'layout')` for exactly this reason; do not replace it with a narrower path.
+
+**`site_settings` is a singleton keyed by a boolean `id`.** There is one row and its primary key is
+`id = true`. So `writeAudit(..., 'site_settings', 'site_settings', ...)` passes a constant as the
+record id — there is no `data.id` to pass. An action that assumes an integer id writes `undefined`
+and the audit row fails.
+
+**`media` is a table beside a storage bucket, and the bucket is part of the schema.** `media` has
+existed since Phase 2, but the public `media` bucket was not created until
+`0022_cms_media_library.sql`, so every upload failed at the storage step with a message that reads
+like an authorisation error while the table looked perfectly correct. A schema document lists
+tables, not buckets, so this gap survived every review. When you add a table that stores objects,
+create the bucket in the same migration, pin its `allowed_mime_types` to the table's own check
+constraint, and document it beside the table.
+
+**Deleting an asset is guarded by a reference scan, not a foreign key.** `src/lib/admin/media-references.ts`
+matches the asset's URL against `product_images`, `products`, pages, homepage sections and
+`site_settings.logo_url` before allowing the delete, and the refusal names where it is used. It is
+a scan: a URL stored in a column nobody listed would not be seen. It is a better guard than
+nothing and a worse guard than a real foreign key (H8).
+
+**Uploads go through a route handler, not a server action.** `src/app/api/admin/media/upload/route.ts`
+is the only place a `File` is read; it checks the declared type, the file's magic bytes and the
+size, refuses SVG, computes a SHA-256 checksum and writes with the admin client. The checksum is
+what lets the library recognise the same image uploaded twice.
+
+**Two content editors are honest about what they cannot do.** The page editor takes JSON and
+validates it against the renderer's own parser, so an unknown block is rejected rather than saved
+and silently dropped. The homepage editor warns when a section key is not one the renderer knows,
+because such a section would render nothing. Do not "fix" either by accepting anything: a saved
+block that does not appear is worse than a refusal that explains itself.
+
 ### Things that will bite you
 
 - **A validated parameter is not a stored value.** `submit_sell_trade_request`
