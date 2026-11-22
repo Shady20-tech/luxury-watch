@@ -8,6 +8,69 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Sitemap: missing pages, and a cache nothing invalidated
+
+**Date:** 2026-11-19
+
+An audit of the live SEO behaviour against a production build — not against the
+unit tests — found the sitemap wrong in two ways and the FAQ page missing its
+structured data. All three were verified fixed against the running preview and
+the real database.
+
+#### Fixed
+
+- **The sitemap had no invalidation at all.** `src/app/sitemap.ts` is cached for
+  an hour, and no admin action called `revalidatePath('/sitemap.xml')`. A piece
+  published through the admin stayed absent from the sitemap for up to an hour;
+  an archived piece stayed advertised for the same hour, sending a crawler to a
+  404. Reproduced directly: publish a draft, re-fetch `/sitemap.xml`, still
+  absent; call `revalidatePath('/sitemap.xml')`, re-fetch, present. Both
+  directions confirmed.
+
+  `src/lib/seo/sitemap.ts` now exports `SITEMAP_PATH` and revalidation-path
+  helpers that include it, and `admin-actions.ts` / `content-actions.ts` import
+  them. `productRevalidationTags()` was removed: it was tested but never called
+  by anything, so its green tests asserted nothing about the running site.
+
+- **Eleven indexable pages were absent from the sitemap.** `/pages/about`,
+  `/pages/faq`, `/pages/privacy`, `/pages/terms`, `/pages/shipping`,
+  `/pages/warranty`, `/contact`, `/appointments` and the three `/services/*`
+  pages were all indexable with a self-canonical, but a crawler could only reach
+  them by following navigation. The sitemap now lists them, plus published CMS
+  pages from the `pages` table, de-duplicated against the static segments so a
+  published `about` row does not emit `/pages/about` twice. `/design-system`
+  stays out — it is `noindex`, and a sitemap entry for it would contradict the
+  page.
+
+- **`/pages/faq` emitted no `FAQPage` structured data.** `faqPageSchema()` had
+  been written and tested since the schema layer was built but was never called,
+  while ten real questions rendered unmarked. The page now emits it from the
+  same rows the accordion renders.
+
+#### Added
+
+- `tests/sitemap-revalidation.test.ts` — drives the real `setProductStatusAction`
+  with `next/cache` mocked and asserts `/sitemap.xml` is revalidated on publish
+  and on archive, that the product page is revalidated, and that a failed write
+  revalidates nothing. Mutation-tested: removing `SITEMAP_PATH` from the helper
+  fails three of the five cases.
+- `tests/sitemap-taxonomy.test.ts` — eleven cases pinning that each informational
+  route is listed, that `/design-system` is not, and that a CMS page shadowing a
+  static segment yields exactly one URL.
+
+#### Verified, not changed
+
+- Per-route metadata is correct: unique titles, a single `h1`, Open Graph and
+  Twitter cards, self-canonical on every public route.
+- `lastmod` is honest — it matches `products.updated_at` exactly rather than a
+  build time, and the fixed informational routes omit it because they have no row.
+- Product JSON-LD omits `offers` for enquiry-only pieces rather than inventing a
+  price, and `brand` is the real manufacturer.
+- `LocalBusiness` is not emitted, which is correct while the address columns are
+  empty; it is recorded in `docs/SEO.md` so it is not mistaken for an omission.
+- The filtered-page strategy (`noindex, follow` plus canonical to the clean
+  listing) matches `docs/SEO.md` and is unchanged.
+
 ### Brand pages stop sharing one placeholder sentence
 
 **Date:** 2026-11-19

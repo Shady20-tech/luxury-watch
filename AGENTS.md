@@ -152,6 +152,37 @@ editor sees their change immediately.
 in `source` (`database` or `fallback`). While Supabase is unconfigured (A1) the
 deployed site uses the fallback fixture; this is recorded as G10, not a bug.
 
+### A cached metadata route needs its own `revalidatePath`
+
+`src/app/sitemap.ts` sets `revalidate = 3600`. That window is not refreshed by
+`revalidatePath('/', 'layout')`, by `revalidatePath('/shop')` or by anything else
+you might reasonably assume: the sitemap is its own route with its own cache
+entry, and only `revalidatePath('/sitemap.xml')` clears it.
+
+Phase 14 found this the expensive way. No admin action invalidated the sitemap,
+so a piece published through the admin stayed absent from it for up to an hour
+and an archived piece stayed advertised for the same hour. Reproduced against a
+production build: publish a draft, re-fetch `/sitemap.xml`, still absent; call
+`revalidatePath('/sitemap.xml')`, re-fetch, present. The paths now live in
+`productRevalidationPaths()` in `src/lib/seo/sitemap.ts`, which every product
+mutation imports and which includes `SITEMAP_PATH`. Page saves call
+`revalidatePath(SITEMAP_PATH)` directly. If you add a brand or collection editor,
+give it the same treatment rather than trusting the hourly window.
+
+**The lesson is about the shape of the test, not the fix.** Nine hundred tests
+were green throughout, because every one of them asserted what an action
+_returned_ and none asserted what it _revalidated_. A cached document is
+invisible to a unit test unless something asserts the invalidation explicitly.
+`tests/sitemap-revalidation.test.ts` drives the real action with `next/cache`
+mocked and asserts the path is passed; it was mutation-tested, and removing
+`SITEMAP_PATH` fails three of its five cases. When you add a mutation that can
+change what a cached route serves, write that test, and check it fails without
+the fix.
+
+Related trap: a folder under `src/app` whose name starts with `_` is **private**
+and is not routed. A probe route named `src/app/api/__probe-revalidate` returned
+404 and quietly proved nothing.
+
 ### The dark cap, and why the header is glass
 
 Every page opens on a dark band, the way the reference does. Interior templates

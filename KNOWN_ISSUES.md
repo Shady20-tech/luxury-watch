@@ -283,9 +283,9 @@ each time — read back what the consumer will read, not what the producer was h
 | Severity | Count | Open |
 |---|---|---|
 | critical | 7 | 1 |
-| high | 26 | 13 |
-| medium | 42 | 18 |
-| low | 56 | 15 |
+| high | 27 | 13 |
+| medium | 44 | 18 |
+| low | 57 | 15 |
 
 "Open" counts only items with status `open` or `in progress`. `resolved`, `mitigated` and `accepted`
 items are excluded, which is why the open column is smaller than the count.
@@ -293,10 +293,10 @@ items are excluded, which is why the open column is smaller than the count.
 Counts are generated from the tables above rather than maintained by hand. The previous
 table had drifted from its own rows by nine items, which is the usual fate of a
 hand-maintained total; recount with `grep` before trusting it. Recounted again when
-G78 was added: 131 issue rows across sections A–H and P (the eight F rows are open
+section Q was added: 135 issue rows across sections A–Q (the eight F rows are open
 questions, not issues, and are excluded), and the totals above are that count. The
 tally must read the whole file, not just the part above this heading — section N, the
-admin section, O and P all sit after it, which is how the earlier figure came up short.
+admin section, O, P and Q all sit after it, which is how the earlier figure came up short.
 That admin section is also headed `## H`, duplicating the letter used at the top of the
 file; it is left as it is because renumbering it would invalidate every `H<n>` reference
 in the changelog, but a reader counting by heading will miscount until it is fixed.
@@ -457,3 +457,12 @@ remember to visit.
 | P3 | **A notification is not deleted when its subject is.** `link_url` points at `/account/orders/<id>`; if that order were ever removed the link would 404 rather than the notification disappearing. Orders are not deletable, so this is theoretical today. | low | accepted | Would need `on delete cascade` from each linked entity, which the schema cannot express because `link_url` is a string. Keep the 404 honest if it ever happens. |
 | P4 | **The unread badge counts on every account page render.** `countUnreadNotifications` is a `head` count on an indexed column, so it is cheap, but it is one more query in the account layout's critical path and it is not cached. | low | accepted | The layout is `force-dynamic` and per-customer, so caching it would need a cache key per user for a badge that is wrong for up to the TTL. A cheap count is the better trade. |
 | P5 | **`resolveMailIdentity` memoises for 60 seconds, per process.** An administrator who saves a change may wait up to a minute before the next message uses it, and in a multi-instance deployment each instance has its own cache. | low | accepted | Documented in `identity.ts`. The alternative is a read per message, which doubles the queries on a two-message submission for a value that changes a few times a year. |
+
+## Q. SEO items (raised in Phase 14)
+
+| ID | Finding | Severity | Status | Resolution or next step |
+|---|---|---|---|---|
+| G79 | **`sitemap.xml` was cached for an hour with no invalidation, so an admin publish or archive did not reach it.** No action called `revalidatePath('/sitemap.xml')`; the metadata route has its own cache entry that no other path clears. A piece published through the admin stayed absent from the sitemap for up to an hour, and an archived piece stayed advertised for the same hour, pointing a crawler at a 404. | high | **resolved** | Reproduced against a production build, both directions: publish a draft, re-fetch, still absent; call `revalidatePath('/sitemap.xml')`, re-fetch, present. `SITEMAP_PATH` and revalidation-path helpers now live in `src/lib/seo/sitemap.ts` and every product/page mutation imports them. `productRevalidationTags()` was deleted — it was tested but called by nothing, so its tests asserted nothing about the running site. `tests/sitemap-revalidation.test.ts` asserts the path is passed, and was mutation-tested. |
+| G80 | **Eleven indexable pages were absent from `sitemap.xml`.** `/pages/about`, `/pages/faq`, the four policy pages, `/contact`, `/appointments` and the three `/services/*` pages all render `index, follow` with a self-canonical, but the sitemap listed only the catalogue, so a crawler could reach them only by following navigation. Published CMS `pages` rows had no sitemap fetcher at all. | medium | **resolved** | The fixed routes are listed from a static list — several have no `pages` row, so a table query would miss them — and published CMS pages are listed from `fetchPageSitemapRows`, de-duplicated against the static segments so a published `about` row does not emit `/pages/about` twice. `/design-system` stays excluded because it is `noindex`. Verified live: 37 URLs, 0 duplicates. |
+| G81 | **`/pages/faq` emitted no `FAQPage` structured data.** `faqPageSchema()` existed and was unit-tested but was never called, so ten real questions rendered unmarked. | low | **resolved** | The page now emits the schema from the same rows the accordion renders, so the markup cannot describe a question the visitor cannot see. Verified live: `FAQPage` with 10 `mainEntity` entries. |
+| G82 | **A structured-data builder existing is not evidence that it is used.** Two builders were dead code: `faqPageSchema` (now wired) and `localBusinessSchema` (correctly unused, because the `site_settings` address columns are empty and a `LocalBusiness` with no address is a false claim). The sitemap tag helper was a third case — tested, never called. | medium | **accepted** | `localBusinessSchema` must stay unused until an address is entered; this is recorded in `docs/SEO.md` so it is not "fixed" by inventing one. The general lesson is in `AGENTS.md`: when auditing a builder, grep for its call sites outside `lib/seo/schema.ts`. |

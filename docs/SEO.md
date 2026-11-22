@@ -9,7 +9,7 @@ requirement from the foundation onward, not as a task added before launch.
 | -------------------------------- | ------------------------------------------------------------- |
 | `src/lib/seo/metadata.ts`        | Canonical URLs, Open Graph, Twitter cards, robots directives. |
 | `src/lib/seo/schema.ts`          | Schema.org JSON-LD builders.                                  |
-| `src/lib/seo/sitemap.ts`         | Sitemap entries, honest `lastmod`, cache tags.                |
+| `src/lib/seo/sitemap.ts`         | Sitemap entries, honest `lastmod`, revalidation paths.        |
 | `src/components/seo/json-ld.tsx` | Renders a JSON-LD graph with escaping.                        |
 | `src/app/robots.ts`              | `robots.txt`.                                                 |
 | `src/app/sitemap.ts`             | `sitemap.xml`.                                                |
@@ -52,12 +52,75 @@ content, clear semantic HTML, descriptive headings, and accessible markup.
   `buildSitemapEntry()` then omits the field entirely, rather than substituting
   the current time.
 - `latestLastModified()` returns `undefined` when no entry has a timestamp.
-- Brand and collection entries carry the row's real `updated_at`. Product and
-  page entries arrive with the database-driven sitemap in Phase 12.
+- Brand, collection, model, product and page entries all carry the row's real
+  `updated_at`. Verified against a production build: the emitted timestamps
+  match `select updated_at from products` exactly, and are not build times.
+- The fixed informational routes carry no `lastmod` at all. They have no row and
+  therefore no honest timestamp, so the field is omitted rather than faked.
 
-Publishing, editing, unpublishing, archiving or deleting a product invalidates
-the `sitemap`, `products` and `product:<slug>` cache tags through
-`productRevalidationTags()`.
+## The sitemap is cached, and what invalidates it
+
+`src/app/sitemap.ts` exports `revalidate = 3600`, so the document is served from
+cache for up to an hour. That cache is cleared by **`revalidatePath`**, not by a
+cache tag: the route reads through the repository rather than through
+`unstable_cache`, so there is no tagged data cache to flush.
+
+The paths live in `src/lib/seo/sitemap.ts` and are imported by the actions, so a
+path cannot be forgotten in one place and kept in another:
+
+| Helper                       | Called from                                                            |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `productRevalidationPaths()` | `createProductAction`, `updateProductAction`, `setProductStatusAction` |
+| `SITEMAP_PATH` (directly)    | `savePageAction`, `deletePageAction` in `content-actions.ts`           |
+
+`productRevalidationPaths()` includes `SITEMAP_PATH`. **A new mutation that can
+change what the catalogue contains must include it too.** Only these two helpers
+exist: an earlier draft of this change also added brand and collection helpers,
+which were removed because no brand or collection editor exists to call them —
+an unused helper is not preparation, it is a claim that something is wired when
+it is not.
+
+Page saves call `revalidatePath(SITEMAP_PATH)` directly rather than through a
+helper, because `revalidateContent()` already revalidates the page's own path and
+the sitemap is the only extra one. FAQ and testimonial edits deliberately do not
+call it: they cannot change sitemap membership.
+
+This was broken until Phase 14 and the breakage was invisible to the whole test
+suite. The sitemap had no invalidation at all, so a piece published through the
+admin stayed absent from the sitemap for up to an hour and an archived piece
+stayed advertised for the same hour. It was reproduced against a production
+build: publish a draft, re-fetch `/sitemap.xml`, still absent; call
+`revalidatePath('/sitemap.xml')`, re-fetch, present. The lesson is the shape of
+the test: no test asserted _what an action revalidates_, only what it returned,
+so 900 green tests said nothing about it. `tests/sitemap-revalidation.test.ts`
+now drives the real action with `next/cache` mocked and asserts the path is
+passed. It was mutation-tested — removing `SITEMAP_PATH` from the helper fails
+three of its five cases.
+
+## What the sitemap lists
+
+| Source                                  | Listed when                                            |
+| --------------------------------------- | ------------------------------------------------------ |
+| `/`, `/shop`, `/brands`, `/collections` | always                                                 |
+| 11 informational routes                 | always — they are static segments with their own copy  |
+| products                                | published, via RLS                                     |
+| brands / collections / models           | at least one published piece                           |
+| CMS pages                               | published, and not already covered by a static segment |
+
+`/design-system` is deliberately absent: it is `noindex, nofollow`, and a sitemap
+entry for a `noindex` page tells a crawler two contradictory things. A test pins
+the exclusion.
+
+The informational routes are a fixed list rather than a query because several of
+them — `/contact`, `/appointments`, the three `/services/*` pages — have no
+`pages` row at all. They are routes with their own copy. Listing only what the
+table holds would omit them. Each was checked against a production build for
+`noindex` before being added; all were indexable with a self-canonical.
+
+Because a published `pages` row can shadow a static segment (`about` renders at
+`/pages/about`), the CMS-page loop skips any slug already covered by the fixed
+list. Without that, the same canonical is emitted twice. A test asserts the
+count is exactly one.
 
 ## Honesty rules enforced by tests
 
@@ -71,6 +134,27 @@ the `sitemap`, `products` and `product:<slug>` cache tags through
    `brand` to its own store name. We emit the real manufacturer from the
    `brands` table, and omit `brand` entirely when it is unknown rather than
    substituting the site name.
+
+A third rule applies to the site-wide graph: **`LocalBusiness` is not emitted.**
+`localBusinessSchema()` exists, and the site has a `site_settings` table with
+address columns, but the seed leaves every address field empty. Emitting a
+`LocalBusiness` with no address would be a claim about a physical location that
+the data does not support, and Google's own guidance treats a missing address as
+a defect in that type. The builder stays unused until the columns are filled —
+which is the correct state, not an oversight. When an address is entered, wire it
+up rather than inventing one.
+
+## FAQ structured data
+
+`/pages/faq` emits `FAQPage` from the same rows `FaqAccordion` renders, so the
+markup cannot describe a question the visitor cannot see. `faqPageSchema()`
+returns `null` for an empty list rather than an empty `mainEntity`, because an
+empty list is a claim about nothing.
+
+This was dead code until Phase 14: `faqPageSchema()` was written and tested but
+never called, while ten real questions rendered unmarked. Worth knowing when
+auditing the schema layer — a builder existing is not evidence that it is used.
+`grep -rn '<builderName>(' src/` outside `lib/seo/schema.ts` is the check.
 
 ## Crawl-trap hygiene
 
