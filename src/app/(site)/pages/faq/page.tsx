@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 
 import { CmsPage } from '@/components/content/cms-page';
 import { FaqAccordion } from '@/components/content/faq-accordion';
+import { JsonLd } from '@/components/seo/json-ld';
 import { ErrorState } from '@/components/ui/states';
 import { buildMetadata } from '@/lib/seo/metadata';
+import { breadcrumbSchema, faqPageSchema } from '@/lib/seo/schema';
 import { getFaqs } from '@/server/services/content-service';
 
 /**
@@ -99,6 +101,22 @@ export default async function Page() {
           ))}
         </div>
       )}
+
+      {/*
+        `FAQPage` is built from the same rows the accordion renders, so the
+        markup cannot describe a question the visitor cannot see. `faqPageSchema`
+        returns null for an empty list, which is the honest answer when there are
+        no questions: an empty `mainEntity` would be a claim about nothing.
+      */}
+      <JsonLd
+        nodes={[
+          faqPageSchema(faqs.map((faq) => ({ question: faq.question, answer: faq.answer }))),
+          breadcrumbSchema([
+            { name: 'Home', path: '/' },
+            { name: 'Frequently Asked Questions', path: '/pages/faq' },
+          ]),
+        ]}
+      />
     </CmsPage>
   );
 }
