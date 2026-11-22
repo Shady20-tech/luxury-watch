@@ -29,6 +29,7 @@ import { resetPublicEnvCache } from '@/lib/env';
 const fetchBrandSitemapRows = vi.fn();
 const fetchCollectionSitemapRows = vi.fn();
 const fetchModelSitemapRows = vi.fn();
+const fetchPageSitemapRows = vi.fn();
 const fetchProductSitemapRows = vi.fn();
 
 vi.mock('server-only', () => ({}));
@@ -37,6 +38,7 @@ vi.mock('@/server/repositories/sitemap-repository', () => ({
   fetchBrandSitemapRows: (...args: unknown[]) => fetchBrandSitemapRows(...args),
   fetchCollectionSitemapRows: (...args: unknown[]) => fetchCollectionSitemapRows(...args),
   fetchModelSitemapRows: (...args: unknown[]) => fetchModelSitemapRows(...args),
+  fetchPageSitemapRows: (...args: unknown[]) => fetchPageSitemapRows(...args),
   fetchProductSitemapRows: (...args: unknown[]) => fetchProductSitemapRows(...args),
 }));
 
@@ -58,6 +60,10 @@ beforeEach(() => {
   fetchModelSitemapRows.mockResolvedValue([]);
   fetchProductSitemapRows.mockReset();
   fetchProductSitemapRows.mockResolvedValue([]);
+  // Default to no extra CMS pages; the informational routes are listed from a
+  // static list, and the page-specific cases below opt in.
+  fetchPageSitemapRows.mockReset();
+  fetchPageSitemapRows.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -203,5 +209,56 @@ describe('sitemap reachability', () => {
 
   it.each(['/brands', '/collections'])('seeds a navigation link to %s', (path) => {
     expect(seed).toContain(`'${path}'`);
+  });
+});
+
+/**
+ * The informational routes, and the two ways this list can go wrong.
+ *
+ * Before Phase 14 the sitemap listed only the catalogue. About, FAQ, the four
+ * policy pages, contact, appointments and the three service pages were all
+ * indexable — none carried `noindex`, which was checked against a production
+ * build — but none was listed, so a crawler could only find them by following
+ * navigation. Listing them is the fix; listing a `noindex` page or the same URL
+ * twice would be a new defect, so both are asserted.
+ */
+describe('informational routes in the sitemap', () => {
+  it.each([
+    '/pages/about',
+    '/pages/faq',
+    '/pages/privacy',
+    '/pages/terms',
+    '/pages/shipping',
+    '/pages/warranty',
+    '/contact',
+    '/appointments',
+    '/services/sourcing',
+    '/services/sell-trade',
+    '/services/repair-restoration',
+  ])('lists %s', async (path) => {
+    expect(await urls()).toContain(`https://example.com${path}`);
+  });
+
+  it('never lists the design-system page, which is noindex', async () => {
+    // A sitemap entry for a `noindex` page is a contradiction: the sitemap says
+    // "index this" and the page says "do not". The page must stay out.
+    expect(await urls()).not.toContain('https://example.com/design-system');
+  });
+
+  it('emits no duplicate URLs when a CMS page shadows a static route', async () => {
+    // The seed has a published `about` row, and `/pages/about` is also a static
+    // segment listed from the fixed list. Without the de-duplication the same
+    // canonical appears twice, which is a crawl signal that says nothing.
+    fetchPageSitemapRows.mockResolvedValue([
+      { slug: 'about', updated_at: '2026-10-01T00:00:00.000Z' },
+      { slug: 'gift-guide', updated_at: '2026-10-02T00:00:00.000Z' },
+    ]);
+
+    const result = await urls();
+    const aboutEntries = result.filter((url) => url === 'https://example.com/pages/about');
+
+    expect(aboutEntries).toHaveLength(1);
+    // A page with no static route of its own is still listed from the table.
+    expect(result).toContain('https://example.com/pages/gift-guide');
   });
 });

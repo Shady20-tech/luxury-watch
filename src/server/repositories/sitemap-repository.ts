@@ -174,3 +174,29 @@ export async function fetchProductSitemapRows(): Promise<ProductSitemapRow[]> {
     if (page.length < pageSize) return rows;
   }
 }
+
+export type PageSitemapRow = {
+  slug: string;
+  updated_at: string | null;
+};
+
+/**
+ * Published CMS pages for the sitemap.
+ *
+ * RLS restricts `pages` to `published` rows, so drafts — and the several
+ * `-policy`/`-of-use` drafts the seed leaves behind — cannot appear here even if
+ * this query forgot to filter. The page route applies the same restriction, so
+ * the sitemap and the page agree about which slugs exist.
+ *
+ * Read through the public client, like every other sitemap query: the sitemap is
+ * the same document for every visitor and must not become dynamic by reading a
+ * cookie it does not use.
+ */
+export async function fetchPageSitemapRows(): Promise<PageSitemapRow[]> {
+  const supabase = createSupabasePublicClient();
+
+  const { data, error } = await supabase.from('pages').select('slug, updated_at').order('slug');
+
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ slug: row.slug, updated_at: row.updated_at }));
+}

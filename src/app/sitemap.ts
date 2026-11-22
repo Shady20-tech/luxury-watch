@@ -7,6 +7,7 @@ import {
   fetchBrandSitemapRows,
   fetchCollectionSitemapRows,
   fetchModelSitemapRows,
+  fetchPageSitemapRows,
   fetchProductSitemapRows,
 } from '@/server/repositories/sitemap-repository';
 
@@ -56,6 +57,31 @@ import {
  */
 export const revalidate = 3600;
 
+/**
+ * The informational routes that exist as their own static segments.
+ *
+ * These are listed explicitly rather than read from `pages`, because several of
+ * them (`/contact`, `/appointments`, `/services/*`) have no `pages` row at all —
+ * they are routes with their own copy — and listing only what the table holds
+ * would omit them. Each is `index` by default and has a self-canonical; none is
+ * `noindex`, which was checked against a production build rather than assumed.
+ *
+ * `/design-system` is deliberately absent: it carries `noindex, nofollow`.
+ */
+const STATIC_INFORMATIONAL_PATHS = [
+  '/pages/about',
+  '/pages/faq',
+  '/pages/privacy',
+  '/pages/terms',
+  '/pages/shipping',
+  '/pages/warranty',
+  '/contact',
+  '/appointments',
+  '/services/sourcing',
+  '/services/sell-trade',
+  '/services/repair-restoration',
+] as const;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: SitemapEntry[] = [
     buildSitemapEntry({ path: '/', changeFrequency: 'weekly', priority: 1 }),
@@ -64,6 +90,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     buildSitemapEntry({ path: '/collections', changeFrequency: 'weekly', priority: 0.7 }),
   ];
 
+  for (const path of STATIC_INFORMATIONAL_PATHS) {
+    entries.push(buildSitemapEntry({ path, changeFrequency: 'monthly', priority: 0.5 }));
+  }
+
   if (!isSupabaseConfigured()) {
     // The documented A1 state. The static routes are still real, so they are
     // still listed; the database-driven ones simply do not exist yet.
@@ -71,12 +101,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const [products, brands, collections, models] = await Promise.all([
+    const [products, brands, collections, models, pages] = await Promise.all([
       fetchProductSitemapRows(),
       fetchBrandSitemapRows(),
       fetchCollectionSitemapRows(),
       fetchModelSitemapRows(),
+      fetchPageSitemapRows(),
     ]);
+
+    // Only pages the static routes above do not already cover. A published
+    // `about` row renders at `/pages/about`, which is listed once; re-listing it
+    // from the table would emit a duplicate `<url>` for the same canonical.
+    const staticPaths = new Set<string>(STATIC_INFORMATIONAL_PATHS);
+    for (const page of pages) {
+      const path = `/pages/${page.slug}`;
+      if (staticPaths.has(path)) continue;
+      entries.push(
+        buildSitemapEntry({
+          path,
+          lastModified: page.updated_at,
+          changeFrequency: 'monthly',
+          priority: 0.5,
+        }),
+      );
+    }
 
     for (const product of products) {
       entries.push(
