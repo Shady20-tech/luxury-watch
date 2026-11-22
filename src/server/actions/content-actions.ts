@@ -23,6 +23,7 @@ import {
 } from '@/lib/admin/media-references';
 import { adminFieldErrors, type AdminFormState } from '@/lib/admin/validation';
 import { logger } from '@/lib/logger';
+import { SITEMAP_PATH } from '@/lib/seo/sitemap';
 import { createSupabaseServerClientWritable } from '@/lib/supabase/server';
 import { AdminPermissionError, requirePermission } from '@/server/services/admin-authorization';
 
@@ -366,6 +367,10 @@ export async function savePageAction(
   }
 
   revalidateContent('/pages', `/pages/${values.slug}`, '/admin/settings/pages');
+  // A published page is a sitemap entry, so saving one can add, move or remove
+  // a URL there. FAQ and testimonial edits do not change sitemap membership and
+  // deliberately do not pay for this.
+  revalidatePath(SITEMAP_PATH);
   return { status: 'success', message: 'Page saved.' };
 }
 
@@ -408,6 +413,9 @@ export async function deletePageAction(
 
   await writeAudit('page.deleted', 'page', id);
   revalidateContent('/pages', '/admin/settings/pages');
+  // A deleted page must stop being advertised immediately, not at the next
+  // hourly window — otherwise the sitemap lists a URL that now 404s.
+  revalidatePath(SITEMAP_PATH);
   return { status: 'success', message: 'Page removed.' };
 }
 

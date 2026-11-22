@@ -75,27 +75,30 @@ export function latestLastModified(entries: SitemapEntry[]): Date | undefined {
 }
 
 /**
- * Cache tags that a sitemap depends on. Admin mutations revalidate these, which
- * is what keeps `lastmod` values from going stale after a product changes.
+ * The sitemap route's path.
+ *
+ * Revalidation is by path rather than by cache tag because that is what
+ * `src/app/sitemap.ts` honours: it reads straight through the repository, so
+ * there is no tagged data cache to flush and the route's own `revalidate` window
+ * is the only cache in play. `revalidatePath` is the only lever that clears it.
+ *
+ * Verified end to end against a production build in Phase 14, not assumed:
+ * publishing a draft left it absent from `/sitemap.xml` until this path was
+ * revalidated. `tests/sitemap-revalidation.test.ts` pins that.
  */
-export const SITEMAP_CACHE_TAG = 'sitemap';
-export const PRODUCTS_CACHE_TAG = 'products';
-export const COLLECTIONS_CACHE_TAG = 'collections';
-export const PAGES_CACHE_TAG = 'pages';
-
-export function productCacheTag(slug: string): string {
-  return `product:${slug}`;
-}
-
-export function collectionCacheTag(slug: string): string {
-  return `collection:${slug}`;
-}
+export const SITEMAP_PATH = '/sitemap.xml';
 
 /**
- * Every cache tag that must be invalidated when a product changes, whatever the
+ * Every path that must be invalidated when a product changes, whatever the
  * change was. Publishing, editing, unpublishing, archiving and deleting all
- * affect the sitemap and the catalogue listings.
+ * change both the sitemap and the catalogue listings.
+ *
+ * The sitemap is included rather than left to its hourly `revalidate` window: a
+ * window means a piece published now is absent from the sitemap for up to an
+ * hour, and an archived piece stays advertised for the same hour.
  */
-export function productRevalidationTags(slug: string): string[] {
-  return [SITEMAP_CACHE_TAG, PRODUCTS_CACHE_TAG, productCacheTag(slug)];
+export function productRevalidationPaths(slug?: string): string[] {
+  const paths = ['/', '/shop', '/collections', '/brands', SITEMAP_PATH];
+  if (slug) paths.push(`/products/${slug}`);
+  return paths;
 }

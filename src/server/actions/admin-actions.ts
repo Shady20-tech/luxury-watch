@@ -12,6 +12,7 @@ import {
 } from '@/lib/admin/validation';
 import { createSupabaseServerClientWritable } from '@/lib/supabase/server';
 import type { LifecycleStatus } from '@/lib/email/lifecycle';
+import { productRevalidationPaths } from '@/lib/seo/sitemap';
 import { getOrder } from '@/server/repositories/admin-order-repository';
 import { AdminPermissionError, requirePermission } from '@/server/services/admin-authorization';
 import { notifyOrderStatusChanged } from '@/server/services/order-lifecycle-notification-service';
@@ -160,14 +161,20 @@ function productRow(values: ReturnType<typeof productFormSchema.parse>) {
   };
 }
 
-/** Revalidate every surface a product change can affect. */
+/**
+ * Revalidate every surface a product change can affect.
+ *
+ * The list comes from `lib/seo/sitemap.ts` so the sitemap cannot be forgotten
+ * here. It was forgotten once: the paths below covered the catalogue pages and
+ * omitted `/sitemap.xml`, so a piece published through the admin was absent from
+ * the sitemap until its hourly `revalidate` window elapsed — and an archived
+ * piece stayed advertised for the same hour. A crawler asking "what is in the
+ * catalogue?" got the answer from an hour ago.
+ */
 function revalidateProduct(slug?: string) {
   revalidatePath('/admin/products');
   revalidatePath('/admin/inventory');
-  revalidatePath('/shop');
-  revalidatePath('/collections');
-  revalidatePath('/');
-  if (slug) revalidatePath(`/products/${slug}`);
+  for (const path of productRevalidationPaths(slug)) revalidatePath(path);
 }
 
 export async function createProductAction(

@@ -4,7 +4,8 @@ import { resetPublicEnvCache } from '@/lib/env';
 import {
   buildSitemapEntry,
   latestLastModified,
-  productRevalidationTags,
+  productRevalidationPaths,
+  SITEMAP_PATH,
   toLastModified,
 } from '@/lib/seo/sitemap';
 
@@ -114,14 +115,23 @@ describe('latestLastModified', () => {
   });
 });
 
-describe('productRevalidationTags', () => {
+describe('productRevalidationPaths', () => {
   it('invalidates the sitemap, the product listings and the product itself', () => {
     // Any product change — publish, edit, unpublish, archive or delete — must
-    // refresh all three, otherwise lastmod goes stale.
-    expect(productRevalidationTags('example-diver')).toEqual([
-      'sitemap',
-      'products',
-      'product:example-diver',
-    ]);
+    // refresh all of these, otherwise the sitemap advertises the catalogue from
+    // an hour ago and lastmod goes stale.
+    const paths = productRevalidationPaths('example-diver');
+
+    expect(paths).toContain(SITEMAP_PATH);
+    expect(paths).toContain('/shop');
+    expect(paths).toContain('/collections');
+    expect(paths).toContain('/products/example-diver');
+  });
+
+  it('still invalidates the sitemap when no slug is known', () => {
+    // A bulk or delete path may not carry a slug. The sitemap must refresh
+    // regardless, because a row disappeared from it.
+    expect(productRevalidationPaths()).toContain(SITEMAP_PATH);
+    expect(productRevalidationPaths()).not.toContain('/products/undefined');
   });
 });
