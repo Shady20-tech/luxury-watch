@@ -239,13 +239,120 @@ select pg_temp.assert_raises(
 reset role;
 
 -- -----------------------------------------------------------------------------
--- 4. Clean up the product this suite created; leave the append-only audit rows
+-- 4. The first stock count for a product that has no inventory row
+--
+-- Section 3 seeded its balance as `service_role`, which is exactly the gap this
+-- section closes: nothing in the application creates an `inventory` row. A
+-- product inserted through `createProductAction` has a `products` row and no
+-- balance, so `is_product_available` reports false and the card renders
+-- "Reserved" for a piece that has never been counted, and `cart_pricing`
+-- coalesces the missing row to zero so it cannot be added to a cart either.
+--
+-- The one action that could repair it, `admin_adjust_stock`, raised
+-- `no_data_found`. It now creates the row on the first positive adjustment. The
+-- balance is still written only by the ledger trigger, so these assertions check
+-- the balance and the ledger row together rather than either alone.
+-- -----------------------------------------------------------------------------
+
+set role authenticated;
+set request.jwt.claims = '{"sub":"f1000000-0000-0000-0000-0000000000f1","role":"authenticated"}';
+insert into public.products (id, sku, slug, title, brand_id, status, price_cents, price_on_request)
+values (
+  'f0000000-0000-0000-0000-0000000000f3', 'ADM61-FIRST', 'adm61-first-count',
+  'ADM61 First Count', 'f2000000-0000-0000-0000-0000000000f1', 'draft', 900000, false
+);
+
+select pg_temp.assert_eq(
+  'inventory: a newly created product has no balance row',
+  $q$select count(*)::text from public.inventory
+      where product_id = 'f0000000-0000-0000-0000-0000000000f3'$q$,
+  '0'
+);
+
+-- Publish through the supported function, which is what `createProductAction`
+-- does when the editor asks for a published product. Availability is only
+-- reported for a published piece, so the assertion below would be vacuous on a
+-- draft.
+select public.admin_set_product_status('f0000000-0000-0000-0000-0000000000f3', 'published');
+
+select pg_temp.assert_eq(
+  'inventory: the first positive adjustment succeeds instead of raising',
+  $q$select (public.admin_adjust_stock('f0000000-0000-0000-0000-0000000000f3', 4, 'adm61 first count')).quantity::text$q$,
+  '4'
+);
+
+select pg_temp.assert_eq(
+  'inventory: the ledger row is the one that moved the balance',
+  $q$select quantity_delta::text from public.inventory_transactions
+      where product_id = 'f0000000-0000-0000-0000-0000000000f3'$q$,
+  '4'
+);
+
+-- The defect was invisible in the function and visible on the card, so the
+-- assertion that matters is the one the catalogue reads.
+select pg_temp.assert_eq(
+  'inventory: availability flips to true after the first count',
+  $q$select public.is_product_available('f0000000-0000-0000-0000-0000000000f3')::text$q$,
+  'true'
+);
+
+-- A first adjustment that would leave a negative balance is not a correction,
+-- it is a mis-specified delta, and it is refused with a message naming the
+-- number rather than a constraint.
+insert into public.products (id, sku, slug, title, brand_id, status, price_cents, price_on_request)
+values (
+  'f0000000-0000-0000-0000-0000000000f4', 'ADM61-NEG', 'adm61-negative-first',
+  'ADM61 Negative First', 'f2000000-0000-0000-0000-0000000000f1', 'draft', 900000, false
+);
+
+select pg_temp.assert_raises(
+  'inventory: a negative first adjustment on an uncounted product is refused',
+  $q$select public.admin_adjust_stock('f0000000-0000-0000-0000-0000000000f4', -1, 'adm61 bogus')$q$,
+  '23514',
+  '%Stock cannot go below zero%'
+);
+
+select pg_temp.assert_eq(
+  'inventory: the refused adjustment left no balance row behind',
+  $q$select count(*)::text from public.inventory
+      where product_id = 'f0000000-0000-0000-0000-0000000000f4'$q$,
+  '0'
+);
+
+-- An id that names no product must still fail, so a stale admin form cannot look
+-- like a successful adjustment.
+select pg_temp.assert_raises(
+  'inventory: an unknown product id is refused',
+  $q$select public.admin_adjust_stock('00000000-0000-0000-0000-000000000000', 1, 'adm61 ghost')$q$,
+  'P0002',
+  '%No product%'
+);
+
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- 5. Clean up the products this suite created; leave the append-only audit rows
 -- -----------------------------------------------------------------------------
 
 set role service_role;
-delete from public.inventory_transactions where product_id = 'f0000000-0000-0000-0000-0000000000f1';
-delete from public.inventory where product_id = 'f0000000-0000-0000-0000-0000000000f1';
-delete from public.products where id = 'f0000000-0000-0000-0000-0000000000f1';
+delete from public.inventory_transactions
+ where product_id in (
+   'f0000000-0000-0000-0000-0000000000f1',
+   'f0000000-0000-0000-0000-0000000000f3',
+   'f0000000-0000-0000-0000-0000000000f4'
+ );
+delete from public.inventory
+ where product_id in (
+   'f0000000-0000-0000-0000-0000000000f1',
+   'f0000000-0000-0000-0000-0000000000f3',
+   'f0000000-0000-0000-0000-0000000000f4'
+ );
+delete from public.products
+ where id in (
+   'f0000000-0000-0000-0000-0000000000f1',
+   'f0000000-0000-0000-0000-0000000000f3',
+   'f0000000-0000-0000-0000-0000000000f4'
+ );
 reset role;
 
 \echo '61_admin_write_paths: all assertions passed'

@@ -8,6 +8,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Inventory: a product created through the admin could never be stocked
+
+**Date:** 2026-11-19
+
+`admin_adjust_stock` (0020) read the current balance and raised `no_data_found`
+when a product had no `inventory` row. Nothing in the application ever inserts
+one: `createProductAction` writes `products` and, when asked to publish, calls
+`admin_set_product_status`, and neither touches `inventory`. The row is created
+lazily by `apply_inventory_transaction` (0003) — but only when a *ledger* row is
+inserted for a product that has none, and the one action that inserts a ledger
+row refused first.
+
+The two halves deadlocked, and the failure was invisible in the admin UI:
+
+- `is_product_available` is `exists (inventory row with quantity -
+  reserved_quantity > 0)`, so a missing row reads as **not available** and the
+  catalogue card renders "Reserved" for a piece that has never been counted.
+- `cart_pricing` coalesces the same missing row to `0`, so the piece cannot be
+  added to a cart either.
+- A `SUPER_ADMIN` holding `inventory.write` could not set the first unit of
+  stock on a piece they had just created — the action raised.
+
+Reproduced against the real database through the exact path the admin takes:
+insert a product, publish it through `admin_set_product_status`, read
+`catalogue_search` (`is_available = false`, no inventory row), then call
+`admin_adjust_stock` and get `No inventory row for product …` as a SUPER_ADMIN
+whose `has_permission('inventory.write')` is true.
+
+#### Fixed
+
+- `0026_stock_adjust_creates_inventory.sql` redefines `admin_adjust_stock` so
+  the first **positive** adjustment on a product with no row seeds the row at
+  zero and lets the ledger move it. The balance is still written only by
+  `apply_inventory_transaction`, so the two cannot drift. A negative first
+  adjustment is refused explicitly — on an uncounted product it is a
+  mis-specified delta, not a correction — and an unknown product id still fails
+  with `no_data_found` so a stale form cannot look successful. Grants are
+  restated exactly as 0020 set them; no permission is widened.
+- `supabase/tests/61_admin_write_paths.sql` section 4 pins the behaviour. The
+  key assertion is the one the catalogue reads — `is_product_available` flips to
+  true after the first count — because the defect was invisible in the function
+  and visible only on the card. Mutation-tested: re-applying 0020 makes the suite
+  fail with the original error.
+
 ### Sitemap: missing pages, and a cache nothing invalidated
 
 **Date:** 2026-11-19

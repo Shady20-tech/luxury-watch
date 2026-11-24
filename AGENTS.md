@@ -590,6 +590,18 @@ block that does not appear is worse than a refusal that explains itself.
   prevent a double booking: two callers can both pass it before either inserts.
   The partial unique index is the actual guarantee, so the insert must handle its
   violation rather than assume the check caught everything.
+- **A product has no `inventory` row until its first count.** `products` and
+  `inventory` are 1:1 by intent, but nothing creates the row: `createProductAction`
+  writes `products` and publishes through `admin_set_product_status`, and neither
+  touches `inventory`. The row is created lazily by
+  `apply_inventory_transaction` when a ledger row is inserted for a product that
+  has none. `is_product_available` therefore reports a never-counted product as
+  unavailable, and the card badges it "Reserved" — the same word it uses for a
+  piece that is genuinely spoken for (G83, G84). `admin_adjust_stock` now creates
+  the row on the first positive adjustment (0026); it refuses a negative first
+  adjustment, because that is a mis-specified delta rather than a correction. If
+  you add a product-creation path, decide whether it should seed stock; do not
+  assume the row exists.
 - **Never derive a customer-facing identifier from the clock.** The service
   reference was `extract(epoch from now()) % 1000000`, which looks unique and is
   not: two submissions in the same second get the same string, so a customer
