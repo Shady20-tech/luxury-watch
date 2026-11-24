@@ -49,7 +49,7 @@ export default async function Page() {
   const viewer = await getViewerState();
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Account"
         title="Your wishlist"
@@ -65,7 +65,7 @@ export default async function Page() {
       ) : (
         <GuestWishlist />
       )}
-    </main>
+    </div>
   );
 }
 

@@ -68,7 +68,7 @@ export default async function Page() {
   const availability = await loadSlots();
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="The Boutique"
         title="Request an appointment"
@@ -97,6 +97,6 @@ export default async function Page() {
           )}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

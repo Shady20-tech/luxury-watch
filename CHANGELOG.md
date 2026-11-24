@@ -8,6 +8,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The sort test asserted a sort that does not exist
+
+**Date:** 2026-11-19
+
+`e2e/browse.spec.ts` claimed to prove that "filters and sort persist in the URL
+and survive a reload". It navigated to `/shop?sort=price-asc` and asserted the
+URL still contained that string. The enum value is `price_asc`; `price-asc` is
+not a value the parser accepts, so it fell back to `featured` and the page
+rendered the default ordering. The URL round-trips whatever it was given, so the
+assertion held — and the test proved nothing about sorting at all.
+
+The rewrite asserts the thing that was actually in doubt: it reads `#listing-sort`
+back, compares the rendered titles to a sorted copy of themselves, checks the
+descending sort is the exact reverse, confirms the state survives a reload, and
+pins the fallback for an invalid value. It was then run against a deliberately
+broken `parseSort` to confirm it fails — a test for a defect that has never been
+seen to fail is only a guess.
+
+Two unit tests were added for the same gap at a cheaper level: every value in
+`SORT_OPTIONS` must survive parsing, so a rename applied to the option list alone
+can no longer pass both suites. The lesson is in the spelling. A hyphen where an
+underscore belongs is enough to turn a real test into a vacuous one, because the
+parser's fallback is silent by design — an unknown sort must render the default
+listing rather than a 400.
+
+### Facet counting recorded as a measured cost, not a defect
+
+**Date:** 2026-11-19
+
+`catalogue_facets` calls `catalogue_filtered` once per dimension so each facet
+list can exclude its own filter (G27). With all 4110 rows published, one page
+fetch measured 93 ms and the facet document 1314 ms. That is the correct
+behaviour priced honestly rather than a bug, so it is recorded as G86 with the
+numbers and the single-pass alternative instead of being rewritten blind in an
+acceptance pass. With the seed's 12 published rows it is invisible, which is why
+it had not been noticed.
+
+### Payment guard now covers the E2E suite
+
+`e2e/commerce.spec.ts` counts the card selectors on `/checkout` and expects zero.
+The guard flagged the file because it names the fields to assert their absence;
+it is now in `ALLOWED_FILES` with that reasoning, the same treatment the email
+tests already had. Verified that the guard still fails on a card field planted in
+ordinary source.
+
+
 ### Accessibility: heading order skipped a level on mobile catalogue pages
 
 **Date:** 2026-11-19

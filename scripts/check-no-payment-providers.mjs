@@ -77,6 +77,10 @@ const ALLOWED_FILES = new Set([
   // the patterns it scans every rendered state for; a match fails the test, so
   // listing them here rules them out rather than adding them.
   'tests/email-lifecycle.test.ts',
+  // Asserts the rendered checkout carries no card form at all: it counts the
+  // selectors that would have to exist for one, and expects zero. The field
+  // names are the assertion, so a match fails the test rather than shipping.
+  'e2e/commerce.spec.ts',
   'IMPLEMENTATION_PLAN.md',
   'ARCHITECTURE.md',
   'CHANGELOG.md',

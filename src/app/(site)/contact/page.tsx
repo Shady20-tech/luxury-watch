@@ -44,7 +44,7 @@ export default async function Page() {
     identity.addressLines.length > 0 || identity.contactEmail || identity.contactPhone;
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="The Boutique"
         title="Contact"
@@ -155,6 +155,6 @@ export default async function Page() {
           </section>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }

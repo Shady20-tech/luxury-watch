@@ -13,6 +13,7 @@ import {
   modelScopeSlug,
   PAGE_SIZES,
   parseCatalogueParams,
+  SORT_OPTIONS,
 } from '@/lib/catalogue/params';
 
 /**
@@ -297,5 +298,35 @@ describe('the filter markup', () => {
   it('marks the selected row with aria-current', () => {
     const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(code).toMatch(/aria-current=/);
+  });
+});
+
+/**
+ * Every sort the UI offers must survive parsing.
+ *
+ * Raised by the Phase 5 acceptance audit: the E2E test that claimed to cover
+ * sorting asked for `sort=price-asc` — hyphenated, not a value in the enum. The
+ * parser rejected it, fell back to `featured`, and the assertion compared the
+ * default ordering with itself. Rejecting an unknown value is correct; the gap
+ * was that no test proved a *known* one was kept, so a rename applied to
+ * `SORT_OPTIONS` alone would have gone unnoticed by both suites.
+ */
+describe('sort parsing', () => {
+  it('keeps every value the UI offers', () => {
+    for (const option of SORT_OPTIONS) {
+      expect(parseCatalogueParams({ sort: option.value }).sort).toBe(option.value);
+    }
+  });
+
+  it('rejects the hyphenated spelling the old E2E test used', () => {
+    expect(parseCatalogueParams({ sort: 'price-asc' }).sort).toBe('featured');
+  });
+
+  it('treats a sort as an ordering, not a narrowing', () => {
+    const sorted = parseCatalogueParams({ sort: 'title_desc' });
+    expect(isIndexableListing(sorted)).toBe(true);
+    // The canonical drops the sort, so the permutation cannot compete with the
+    // clean listing for the same products.
+    expect(canonicalListingPath(sorted)).toBe(catalogueBasePath(sorted));
   });
 });

@@ -34,7 +34,7 @@ const STEPS = [
 
 export default function Page() {
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Services"
         title="Watch sourcing"
@@ -72,6 +72,6 @@ export default function Page() {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

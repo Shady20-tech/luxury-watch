@@ -43,7 +43,7 @@ const STEPS = [
 
 export default function Page() {
   return (
-    <main id="main-content">
+    <div>
       <PageHero eyebrow="Services" title="Sell or trade" />
 
       <div className="container-page py-10 lg:py-14">
@@ -77,6 +77,6 @@ export default function Page() {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

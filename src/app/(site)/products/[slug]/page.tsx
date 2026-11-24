@@ -212,12 +212,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
   if (result.status === 'unavailable') {
     return (
-      <main id="main-content" className="container-page py-16 lg:py-24">
+      <div className="container-page py-16 lg:py-24">
         <ErrorState
           title="The catalogue is temporarily unavailable"
           description="We could not reach the catalogue just now, so this watch cannot be shown. This is a problem at our end, not a missing page — please try again shortly."
         />
-      </main>
+      </div>
     );
   }
 
@@ -236,7 +236,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   ]);
 
   return (
-    <main id="main-content" className="container-page py-8 lg:py-12">
+    <div className="container-page py-8 lg:py-12">
       <Breadcrumbs entries={breadcrumbs} className="mb-6" />
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
@@ -388,6 +388,6 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           breadcrumbSchema(breadcrumbs),
         ]}
       />
-    </main>
+    </div>
   );
 }

@@ -64,7 +64,7 @@ export default async function Page({
 
   if (unavailable) {
     return (
-      <main id="main-content" className="container-page py-10 lg:py-14">
+      <div className="container-page py-10 lg:py-14">
         <ErrorState
           title="We could not load your order request"
           description="The request has not been lost. The store is briefly unavailable — please try this link again in a moment."
@@ -74,13 +74,13 @@ export default async function Page({
             </Button>
           }
         />
-      </main>
+      </div>
     );
   }
 
   if (!request) {
     return (
-      <main id="main-content" className="container-page py-10 lg:py-14">
+      <div className="container-page py-10 lg:py-14">
         <EmptyState
           icon={FileQuestion}
           title="We could not find that order request"
@@ -91,12 +91,12 @@ export default async function Page({
             </Button>
           }
         />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Order request"
         title={request.reference}
@@ -205,7 +205,7 @@ export default async function Page({
           </div>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 

@@ -41,7 +41,32 @@ CHROMIUM_PATH=/path/to/chrome npm run audit:a11y   # reuse a local Chromium
 # Serve a preview against the real local database (PostgREST + proxy + app):
 npm run preview          # public URL printed on success
 npm run preview:stop
+
+# End-to-end browser suite. Needs the preview listening on 12000.
+./scripts/e2e-seed-checkout-fixtures.sh   # required after db-reset.sh, see below
+npx playwright test
 ```
+
+### The E2E suite needs fixtures that `db-reset.sh` deletes
+
+`./scripts/db-reset.sh` returns the database to the seed, and the seed leaves
+`payment_methods` and `delivery_options` **empty** on purpose (F1: which manual
+methods the owner wants at launch is a business decision). With both empty,
+`/checkout` cannot reach its submit path, so
+`e2e/commerce.spec.ts › order request is saved as pending review` fails on a
+disabled button. That is a missing fixture, not a regression.
+
+Run `./scripts/e2e-seed-checkout-fixtures.sh` after any `db-reset.sh` and before
+`npx playwright test`. It is idempotent, and it also releases stock held by
+earlier runs — the suite places real order requests, and each reserves a piece,
+so without the release the twelve published seed pieces are exhausted after a
+dozen runs and the suite starts failing for a reason unrelated to the code.
+
+The suite itself runs against the preview on port 12000, not `next start`: the
+catalogue tests need real rows through PostgREST (see "A preview needs PostgREST,
+not just `next start`"), and several assert on the rendered order of real
+products. `playwright.config.ts` defaults `baseURL` to `http://127.0.0.1:12000`
+and honours `LW_BASE_URL` if the preview is somewhere else.
 
 `npm run verify` runs the same steps in the same order as CI. If you add a check
 to CI, add it to `verify` in the same commit — these diverging is exactly what
@@ -614,6 +639,19 @@ block that does not appear is worse than a refusal that explains itself.
   the defect above survived to the browser stage while `50_service_flows.sql` was
   green. When you assert that something is unique, produce several of them in the
   smallest interval the system can distinguish, not one.
+- **A test that asserts a URL round-trips is testing the router, not the
+  feature.** The catalogue's only sort test navigated to `?sort=price-asc` and
+  checked the URL still said `price-asc`. The enum value is `price_asc` (an
+  underscore), so the parser rejected it and fell back to `featured` — the page
+  rendered the default order and the assertion passed anyway, because a URL
+  echoes whatever it was given. Sorting had never been exercised at all, and the
+  phase's claim that it worked rested on that test. When you test a control that
+  changes what is rendered, assert the rendered consequence (the selected value
+  read back, the order of the rows), and confirm the test fails when the feature
+  is broken. A silent fallback is what makes this class of test vacuous, and
+  every parser here has one: an unknown sort, page or facet value must render
+  the default rather than error, which is right for a visitor and invisible to a
+  test that only looks at the URL.
 - **A migration that skips its own body is a migration nothing tests.** `0015`,
   `0022` and `0023` all guard their bucket and storage-policy blocks on
   `information_schema.schemata` containing `storage`, so the migrations still

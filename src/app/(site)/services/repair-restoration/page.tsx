@@ -35,7 +35,7 @@ const STEPS = [
 
 export default function Page() {
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Services"
         title="Repair &amp; restoration"
@@ -73,6 +73,6 @@ export default function Page() {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

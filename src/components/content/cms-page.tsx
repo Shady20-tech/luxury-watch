@@ -60,12 +60,12 @@ export async function CmsPage({
 
   if (result.status === 'unavailable') {
     return (
-      <main id="main-content" className="container-page py-16 lg:py-24">
+      <div className="container-page py-16 lg:py-24">
         <ErrorState
           title="This page is temporarily unavailable"
           description="We could not reach our content just now. This is a problem at our end, not a missing page — please try again shortly."
         />
-      </main>
+      </div>
     );
   }
 
@@ -84,7 +84,7 @@ export async function CmsPage({
   const page = result.page;
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
+    <div className="container-page py-10 lg:py-14">
       <header className="max-w-prose">
         <h1 className="text-3xl sm:text-4xl">{page.title}</h1>
         {page.excerpt ? (
@@ -100,6 +100,6 @@ export async function CmsPage({
         )}
         {children}
       </div>
-    </main>
+    </div>
   );
 }

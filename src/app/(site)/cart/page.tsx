@@ -40,7 +40,7 @@ export default async function Page() {
   const cart = await getCart();
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Shop"
         title="Your cart"
@@ -50,6 +50,6 @@ export default async function Page() {
       <div className="container-page py-10 lg:py-14">
         <CartContents cart={cart} />
       </div>
-    </main>
+    </div>
   );
 }

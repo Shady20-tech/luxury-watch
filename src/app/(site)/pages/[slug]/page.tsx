@@ -82,12 +82,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // Not a 404. The page may well exist; we could not reach the database to
     // find out, and a 404 would state otherwise to the visitor and to a crawler.
     return (
-      <main id="main-content" className="container-page py-16 lg:py-24">
+      <div className="container-page py-16 lg:py-24">
         <ErrorState
           title="This page is temporarily unavailable"
           description="We could not reach our content just now. This is a problem at our end, not a missing page — please try again shortly."
         />
-      </main>
+      </div>
     );
   }
 
@@ -96,7 +96,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const page = result.page;
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero title={page.title} intro={page.excerpt} />
 
       <div className="container-page max-w-3xl py-10 lg:py-14">
@@ -106,6 +106,6 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <p className="text-foreground-muted text-base">This page has no content yet.</p>
         )}
       </div>
-    </main>
+    </div>
   );
 }
