@@ -8,6 +8,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Accessibility: heading order skipped a level on mobile catalogue pages
+
+**Date:** 2026-11-19
+
+The browser audit failed `heading-order` on `/shop`, `/collections/[slug]`,
+`/brands/[slug]/models/[model]` and the homepage, but only at the mobile
+viewport. The cause was the same in both places: a level was skipped because the
+heading that carried it was hidden.
+
+On the catalogue, the cards are `h3` and the only `h2` above them was the filter
+sidebar's "Filter" heading. That sidebar is `hidden lg:block`, so on a wide
+screen the order was `h1 → h2 → h3` and the audit passed, while on a narrow
+screen the sidebar is `display:none` and absent from the accessibility tree —
+leaving the cards to follow the `h1` directly. On the homepage, `TrustRow`'s
+items were `h3` sitting immediately beneath the hero `h1` with no section heading
+between them.
+
+`CatalogueGrid` now renders its own `sr-only` `h2`, labelled from the scope
+("Rolex watches" on a brand page) and opt-out-able with `headingId={null}` where
+a caller already renders a heading above the grid, as the product page's related
+pieces do. `TrustRow`'s items are promoted to `h2`. The browser audit now reports
+`accessibility: 100` on all 24 viewport/route pairs with no contrast or
+target-size regression.
+
+`tests/catalogue-heading-order.test.tsx` asserts the heading level and its
+document position directly. axe cannot check `heading-order` under jsdom —
+the rule depends on which headings are actually in the accessibility tree — so
+this test covers the invariant in a place that runs on every commit.
+
 ### Inventory: a product created through the admin could never be stocked
 
 **Date:** 2026-11-19

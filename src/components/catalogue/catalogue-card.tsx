@@ -210,6 +210,8 @@ export function CatalogueGrid({
   signedIn = false,
   savedProductIds = [],
   className,
+  headingId,
+  label = 'Watches',
 }: {
   products: CatalogueProduct[];
   /** Whether the visitor is signed in, so a card's save toggle knows its store. */
@@ -217,22 +219,46 @@ export function CatalogueGrid({
   /** The ids the visitor has already saved, so a card's toggle starts correct. */
   savedProductIds?: string[];
   className?: string;
+  /**
+   * The id of the grid's own `h2`. Pass `null` when the caller already renders a
+   * heading directly above the grid — the product page's "Related timepieces"
+   * does — so a second heading is not stacked on top of it.
+   */
+  headingId?: string | null;
+  label?: string;
 }) {
+  const resolvedHeadingId = headingId === undefined ? 'catalogue-grid-heading' : headingId;
+
   return (
-    <ul className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
-      {products.map((product, index) => (
-        <li key={product.id} className="flex">
-          <CatalogueCard
-            product={product}
-            // Only the first row is prioritised; everything below the fold is
-            // lazy-loaded by default.
-            priority={index < 4}
-            signedIn={signedIn}
-            saved={savedProductIds.includes(product.id)}
-            className="w-full"
-          />
-        </li>
-      ))}
-    </ul>
+    <section aria-labelledby={resolvedHeadingId ?? undefined}>
+      {/*
+        The grid needs its own `h2`. Without it every card's `h3` follows the
+        page `h1` directly on a narrow screen, because the sidebar's "Filter"
+        `h2` is `hidden` below `lg` and a `display:none` heading is absent from
+        the accessibility tree. The browser audit flagged the jump as
+        `heading-order` on mobile only, which is exactly that mechanism: the
+        same markup passed on a wide screen where the sidebar is visible.
+      */}
+      {resolvedHeadingId ? (
+        <h2 id={resolvedHeadingId} className="sr-only">
+          {label}
+        </h2>
+      ) : null}
+      <ul className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
+        {products.map((product, index) => (
+          <li key={product.id} className="flex">
+            <CatalogueCard
+              product={product}
+              // Only the first row is prioritised; everything below the fold is
+              // lazy-loaded by default.
+              priority={index < 4}
+              signedIn={signedIn}
+              saved={savedProductIds.includes(product.id)}
+              className="w-full"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

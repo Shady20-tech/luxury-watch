@@ -260,6 +260,10 @@ const TRUST_ICON = {
  * The reference centres each item with the icon above the heading, on the light
  * ground directly beneath the dark hero. `tone` follows the section convention
  * so the row can also sit on a dark panel.
+ *
+ * Each item is an `h2`: the row sits directly beneath the page `h1` with no
+ * intervening section heading, so an `h3` skipped a level. axe only checks this
+ * in a browser, which is why jsdom stayed green while the audit failed.
  */
 export function TrustRow({ items, tone = 'light' }: { items: TrustItem[]; tone?: Tone }) {
   const t = TONE[tone];
@@ -272,7 +276,7 @@ export function TrustRow({ items, tone = 'light' }: { items: TrustItem[]; tone?:
         return (
           <li key={item.id} className="flex flex-col items-center text-center">
             <Icon aria-hidden="true" className="text-gold-700 h-7 w-7" />
-            <h3 className={cn('mt-5 text-base font-semibold', t.heading)}>{item.title}</h3>
+            <h2 className={cn('mt-5 text-base font-semibold', t.heading)}>{item.title}</h2>
             {item.body ? <p className={cn('mt-2.5 text-sm', t.body)}>{item.body}</p> : null}
           </li>
         );

@@ -86,6 +86,7 @@ export function CatalogueListingView({
                 products={products}
                 signedIn={signedIn}
                 savedProductIds={savedProductIds}
+                label={scopeName ? `${scopeName} watches` : 'Watches'}
               />
               <div className="pt-2">
                 <Pagination params={params} page={page} pageCount={pageCount} />

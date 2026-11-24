@@ -688,6 +688,19 @@ block that does not appear is worse than a refusal that explains itself.
   navigate. Use `aria-current` for "the current item in a set of links", and
   `aria-pressed` only on a real `<button>`. jsdom does not run this rule, so the
   audit is what catches it.
+- **A heading that is `display:none` is not in the accessibility tree, so it
+  cannot carry heading order.** The catalogue's cards are `h3`, and the only
+  `h2` above them was the filter sidebar's "Filter" — which is `hidden lg:block`.
+  On a wide screen the order was `h1 → h2 → h3` and the audit passed; on a
+  narrow screen the sidebar is gone, so the cards followed the `h1` directly and
+  `heading-order` failed **on mobile only**. The grid now owns its own `sr-only`
+  `h2` (`CatalogueGrid`, opt out with `headingId={null}` where a caller already
+  renders a heading above it, as the product page's related-products section
+  does). `TrustRow` had the same skip and its items are now `h2`.
+  `tests/catalogue-heading-order.test.tsx` asserts the level and the document
+  order directly, because jsdom can check _that_ even though it cannot check the
+  rule. When a heading passes on desktop and fails on mobile, look for a
+  responsive `hidden` on the heading itself or on an ancestor.
 - **A guest cart is server-side only.** `carts` and `cart_items` have no policy
   that can prove a guest owns a row, so an anonymous caller cannot touch them
   through the API. Guest carts go through the service-role client with the token
@@ -703,6 +716,18 @@ block that does not appear is worse than a refusal that explains itself.
 - **The browser audit needs a fresh build and a free port.** Rebuild before
   auditing, and never audit while a second server for this repo is still
   listening; the results are meaningless and inconsistent between runs.
+- **A running server and `npm run build` cannot share `.next`.** `npm run verify`
+  ends in `next build`, which rewrites `.next` while a preview is serving it. The
+  server keeps its in-memory route manifest, so it answers the _old_ hashed asset
+  URLs while the files on disk are the new ones — `/_next/static/css/<old>.css`
+  returns the HTML 404 page, the browser refuses it as a stylesheet, and the
+  audit reports a page with no CSS. The symptoms are convincing and wrong: every
+  page suddenly fails `target-size` and `errors-in-console`, accessibility drops
+  from 100 to 96, and it looks like a layout regression in the last commit. The
+  console entry `Refused to apply style … MIME type ('text/html')` is the tell.
+  Restart the preview (`npm run preview` rebuilds and rebinds) before trusting any
+  audit that follows a `verify`, and confirm one `/_next/static/css/*.css` request
+  returns `text/css` before reading the scores.
 
 - **A green audit of a `404` proves nothing, so a route is discovered, not
   hardcoded.** `axe` audits whatever document it is given, and the not-found

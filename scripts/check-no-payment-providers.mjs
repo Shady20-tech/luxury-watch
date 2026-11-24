@@ -28,6 +28,18 @@ const SKIP_DIRECTORIES = new Set([
   'playwright-report',
 ]);
 
+/**
+ * A directory is also skipped when its name begins with one of these.
+ *
+ * Lighthouse reports embed a base64 screenshot of the audited page, which the
+ * content scan below reads as a "card verification field" and fails the build
+ * on. The reports are generated artefacts with no source value — `npm run
+ * audit:a11y` and `scripts/lighthouse-audit.mjs` can both be told to write
+ * anywhere — so the whole family is skipped by prefix rather than enumerating
+ * every name a run might choose.
+ */
+const SKIP_DIRECTORY_PREFIXES = ['.lighthouse'];
+
 const SCANNED_EXTENSIONS = new Set([
   '.ts',
   '.tsx',
@@ -179,6 +191,7 @@ function walk(directory) {
   const entries = [];
   for (const entry of readdirSync(directory)) {
     if (SKIP_DIRECTORIES.has(entry)) continue;
+    if (SKIP_DIRECTORY_PREFIXES.some((prefix) => entry.startsWith(prefix))) continue;
     const fullPath = join(directory, entry);
     const stats = statSync(fullPath);
     if (stats.isDirectory()) {

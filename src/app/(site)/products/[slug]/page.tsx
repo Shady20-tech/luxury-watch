@@ -359,7 +359,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
             title="Related timepieces"
             description="Selected from our catalogue because they share a model, a maker or a specification with this piece."
           />
-          <CatalogueGrid products={related} className="mt-8" />
+          <CatalogueGrid products={related} className="mt-8" headingId={null} />
         </section>
       ) : null}
 
