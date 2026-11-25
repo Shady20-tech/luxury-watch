@@ -127,6 +127,48 @@ disabled controls and the lower contrast is the signal.
 `text-ink-400`, so the class cannot be reintroduced by copy-paste. If that test
 fails, change the class rather than the test.
 
+## The ground is a tint, and a field is a well
+
+Three surface roles, and they are not interchangeable:
+
+| Role               | Token          | Value     |
+| ------------------ | -------------- | --------- |
+| Page ground (body) | `surface-page` | `#faf9f5` |
+| Card / panel       | `surface-0`    | `#ffffff` |
+| Form field fill    | `field`        | `#f1eee6` |
+
+The page ground was pure white until the brightness pass, which made the whole
+viewport the brightest value a light theme can render. It is now a warm off-white
+while cards stay white, so a panel still reads as raised. **Do not set a page
+background to `surface-0`** — that collapses the hierarchy back to one value.
+
+`--color-border` is `line-200`, a decorative hairline (about 1.1:1). It is a
+divider, never a control outline: WCAG 1.4.11 requires 3:1 for the boundary of a
+UI component. Fields use `field-border` (`#8f8672`, 3.1:1 on the fill). A field
+was previously `border-line-300 bg-surface-0`, which is a 1.36:1 outline around a
+white box on a white page — that is why the forms looked washed out.
+
+Both field primitives carry this and everything else inherits it:
+`src/components/ui/input.tsx` for storefront forms and `inputClass` in
+`src/components/admin/form-kit.tsx` for the admin. A hand-written `<select>` or
+number input must copy the same pair. `tests/form-field-tokens.test.tsx` renders
+both primitives and asserts it. **Do not rebuild that guard as a source scan** —
+the first attempt did, and it passed vacuously, because a regex cannot tell a
+class on an `<input>` from the same class on a panel. Render the component.
+
+## Status text is measured against its own tint, not the page
+
+Every success, danger and warning banner is `bg-<status>-600/10 text-<status>-600`
+— the text sits on a 10% tint of itself, composited over whatever surface it is
+on. The contrast that matters is text-against-tint, and it is lower than
+text-against-page. `success-600` passed at 5.05:1 on the page and still failed at
+4.41:1 inside its own banner once the ground was tinted.
+
+`tests/design-tokens.test.ts` composites the real tint for success, danger and
+warning. When adding a status colour, assert it the same way; comparing the text
+colour with a solid background will pass while the banner fails. The browser
+audit catches what that misses, which is why a token change needs both.
+
 ## Product detail page
 
 `src/app/(site)/products/[slug]/page.tsx` is `force-dynamic` and its

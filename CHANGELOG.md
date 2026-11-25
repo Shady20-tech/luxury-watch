@@ -8,6 +8,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The page ground was pure white, and every form field was outlined in a hairline
+
+**Date:** 2026-11-19
+
+Two related defects in the light palette, both reported as "the theme is too
+bright".
+
+The page ground was `#ffffff`. A full-viewport pure white is the brightest thing
+a light theme can render, and at normal screen brightness it reads as glare
+rather than as space. Cards were also white, so there was no hierarchy: the whole
+viewport was one value. The ground is now `--color-surface-page: #faf9f5`, a warm
+off-white, while `surface-0` stays white for cards and panels — so a panel still
+sits visibly forward of the page. `--color-background` points at the new ground;
+nothing referenced it directly, so the change is contained to that one alias.
+The warm and cool section tints were deepened slightly at the same time, because
+against the new ground their old values were only 1.05:1 away and stopped reading
+as separate bands.
+
+Form fields were `border-line-300 bg-surface-0` — a 1.36:1 hairline around a white
+box, on a white page. That is below the 3:1 that WCAG 1.4.11 requires of a
+user-interface component boundary, and it is why the forms looked washed out. The
+two roles had been served by one token: a hairline is a divider, not a control
+outline. Fields now use `--color-field` (`#f1eee6`, a filled well) and
+`--color-field-border` (`#8f8672`, 3.1:1 against the fill), with
+`--color-field-disabled` for the disabled state. The change is applied at the two
+shared primitives — `ui/input.tsx` and `form-kit.tsx`'s `inputClass` — plus the
+hand-written selects and number inputs in the catalogue, cart, checkout and
+service forms.
+
+**One real contrast failure was exposed by the ground change.** `success-600`
+(`#1f7a4d`) is used as text on a 10% tint of itself, which is how every success
+banner in the app is built. Against a white page that banner composited to
+4.66:1 — passing, but with almost no margin. Over the tinted ground it composited
+to **4.41:1** and failed AA. The Chromium audit caught it at all four viewports;
+the token tests could not, because they compared a text colour with a solid
+background and never composited the tint. The token is now `#17603c`, and
+`tests/design-tokens.test.ts` composites the real banner tint for success, danger
+and warning rather than assuming a backdrop.
+
+`tests/form-field-tokens.test.tsx` renders the two field primitives and asserts
+the classes, and was mutation-tested against the old styling. An earlier attempt
+at the same guard as a source scan passed vacuously — it could not tell a class on
+an `input` from the same class on a panel — which is why the guard renders the
+component instead of reading it.
+
+Verified with `npm run verify` (1062 tests) and `npm run audit:a11y` against the
+preview: 33 pages × 4 viewports, no critical or serious issues, no horizontal
+overflow.
+
 ### "Newest first" sorted oldest first
 
 **Date:** 2026-11-19
