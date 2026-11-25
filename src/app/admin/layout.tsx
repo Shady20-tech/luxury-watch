@@ -6,14 +6,11 @@ import { LogOut, ShieldAlert } from 'lucide-react';
 
 import { AdminMobileNav, AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
 import { UserAvatar } from '@/components/account/user-avatar';
+import { heldBy, landingSectionFor, mayEnterSection, maySeeOverview } from '@/lib/admin/sections';
 import { logoutAction } from '@/server/actions/auth-actions';
 import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
-import {
-  getAdminIdentity,
-  type AdminIdentity,
-  type Permission,
-} from '@/server/services/admin-authorization';
+import { getAdminIdentity, type AdminIdentity } from '@/server/services/admin-authorization';
 
 /**
  * The administration shell, and the guard that protects every route inside it.
@@ -57,34 +54,27 @@ import {
  */
 export const dynamic = 'force-dynamic';
 
-/** Which permission each section requires. A section with no entry needs only staff. */
-const SECTION_PERMISSIONS: Record<string, Permission | undefined> = {
-  '/admin/orders': 'orders.read',
-  '/admin/products': 'catalog.read',
-  '/admin/inventory': 'inventory.read',
-  '/admin/inquiries': 'inquiries.read',
-  '/admin/appointments': 'inquiries.read',
-  '/admin/customers': 'customers.read',
-  '/admin/settings': 'content.read',
-  '/admin/audit': 'audit.read',
-};
-
-/**
- * Build the navigation from what the caller may actually use.
+/** Build the navigation from what the caller may actually use.
  *
  * Counts are deliberately not passed in: this layout renders for every admin
  * page, and running eight count queries on every one of them to put a number
  * beside a link would make every page pay for the dashboard's figures. The
  * dashboard shows the counts; the navigation shows the sections.
+ *
+ * The permission map is imported rather than duplicated, so a link and the guard
+ * that protects its target cannot disagree about who may follow it.
  */
 function buildNav(identity: AdminIdentity): AdminNavGroup[] {
-  const may = (href: string): boolean => {
-    const required = SECTION_PERMISSIONS[href];
-    return required ? identity.permissions.has(required) : true;
-  };
+  const held = heldBy(identity);
+  const may = (href: string): boolean => mayEnterSection(href, held);
 
   const groups: AdminNavGroup[] = [
-    { heading: 'Overview', items: [{ href: '/admin', label: 'Dashboard' }] },
+    // The overview reports across every section, which is an administrator's
+    // page. A single-section manager is offered their own section instead, so the
+    // link is shown only to an administrator — the same rule the page applies.
+    ...(maySeeOverview(identity.isAdmin)
+      ? [{ heading: 'Overview', items: [{ href: '/admin', label: 'Dashboard' }] }]
+      : []),
   ];
 
   const catalogue = [
@@ -105,12 +95,10 @@ function buildNav(identity: AdminIdentity): AdminNavGroup[] {
   const system = [
     { href: '/admin/settings', label: 'Content & settings' },
     { href: '/admin/audit', label: 'Audit trail' },
-    // Only a super administrator may change a role, so the entry is shown only
-    // to them. The page re-checks the role; this merely keeps a link nobody
-    // else can use out of their sidebar.
-    ...(identity.roles.includes('SUPER_ADMIN')
-      ? [{ href: '/admin/staff', label: 'Staff & roles' }]
-      : []),
+    // The staff screen is gated on the SUPER_ADMIN role, not on a permission,
+    // and `may` applies exactly that rule — so the entry appears only for a role
+    // that can use it, with no second copy of the rule here.
+    { href: '/admin/staff', label: 'Staff & roles' },
   ].filter((i) => may(i.href));
 
   if (catalogue.length > 0) groups.push({ heading: 'Catalogue', items: catalogue });
@@ -174,6 +162,38 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // an error here — the layout's job is to render the page, and an initial is a
   // correct fallback.
   const avatarUrl = await fetchAvatarUrl(identity.userId);
+
+  const headerList = await headers();
+  const requestedPath = headerList.get('x-pathname') ?? '';
+
+  // ---------------------------------------------------------------------------
+  // THE SECTION GUARD
+  // ---------------------------------------------------------------------------
+  //
+  // A staff member may hold a role that does not include this section — a
+  // CONTENT_MANAGER has no business in inventory, an INVENTORY_MANAGER none in
+  // the audit trail. Each page asserts its own permission, but that assertion
+  // *throws*, and an uncaught throw in a Server Component becomes the generic
+  // error page with a 500. That is the wrong answer twice over: it is a server
+  // error for a perfectly ordinary refusal, and it tells the caller their
+  // request failed rather than that it was never theirs to make.
+  //
+  // This branch is the *presentation* half of the refusal, not the security
+  // half. Next.js renders a layout and its page segment concurrently, so not
+  // placing `children` in the tree does not stop the page function running — the
+  // page's own `requirePermission` is what actually denies access, and every
+  // admin page checks it before reading any row. What this branch adds is a
+  // clean, in-shell "not available" panel instead of a 500, with the sidebar
+  // still offering the sections the caller can use. A bare error page would
+  // strand them on a dead end.
+  //
+  // The path comes from `x-pathname`, set by our middleware. It is attacker
+  // influenced in principle, so it is only used to *narrow* what is rendered:
+  // an unknown or malformed path matches no section and is treated as open, and
+  // the page's own check still stands behind this one.
+  const held = heldBy(identity);
+  const sectionRefused =
+    requestedPath.startsWith('/admin') && !mayEnterSection(requestedPath, held);
 
   return (
     <div className="bg-surface-50 min-h-dvh lg:flex">
@@ -249,7 +269,29 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               a wide table cannot force the page to scroll sideways on a narrow
               viewport. */}
           <main id="admin-content" className="min-w-0">
-            {children}
+            {sectionRefused ? (
+              <div className="border-line-300 mx-auto max-w-lg rounded-md border p-8 text-center">
+                <ShieldAlert aria-hidden="true" className="text-ink-300 mx-auto mb-4 h-8 w-8" />
+                <h1 className="text-xl">Not available</h1>
+                <p className="text-foreground-muted mt-3 text-sm">
+                  This section is not part of your role
+                  {identity.roles.length > 0
+                    ? ` (${identity.roles.join(', ').toLowerCase().replace(/_/g, ' ')})`
+                    : ''}
+                  . If you need access, ask a super administrator to review your role.
+                </p>
+                <p className="mt-6">
+                  <Link
+                    href={landingSectionFor(held)}
+                    className="text-accent-text text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    Go to a section you can use
+                  </Link>
+                </p>
+              </div>
+            ) : (
+              children
+            )}
           </main>
         </div>
       </div>

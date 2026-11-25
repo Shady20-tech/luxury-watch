@@ -133,7 +133,7 @@ export function AccountNav({
               className="text-foreground-muted hover:bg-surface-100 hover:text-foreground focus-visible:outline-gold-700 flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <Store aria-hidden="true" className="h-4 w-4 shrink-0" />
-              Admin dashboard
+              Administration
               <ArrowUpRight aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0" />
             </Link>
           </li>

@@ -879,6 +879,41 @@ classic way the guard is written wrongly), backslash variants browsers normalise
 to a slash, and non-http schemes. It always returns a usable path, never `null`, so
 a caller cannot mistake "rejected" for "no redirect".
 
+**One map decides who may enter a section, and it lives in `src/lib/admin/sections.ts`.**
+The admin layout (to refuse), the sidebar (to decide which links to render) and
+the overview (to choose where a role lands) all ask the same pure module. When
+each held its own copy the drift was invisible: a link that renders but refuses,
+or a route that opens with no link to it. Three things in that map are easy to
+get wrong:
+
+- **A section requirement is a permission _or_ a role, not always a permission.**
+  `/admin/staff` is the screen that _grants_ permissions, so gating it on
+  `customers.read` would let an `ADMIN` promote themselves by editing roles — the
+  check would be circular. It requires `SUPER_ADMIN`, exactly as its page does.
+  A permission-only map admitted a plain `ADMIN` to the layout and then let the
+  page throw behind it: a 500 for an ordinary refusal.
+- **Match on a path boundary, never a bare prefix.** `/admin/ordersomething` must
+  not be read as `/admin/orders`.
+- **The refusal is presentation, not the security boundary.** Next.js renders a
+  layout and its page segment _concurrently_, so returning a panel instead of
+  `children` does not stop the page function running — it still executed and threw
+  in the log even while the panel was shown. What actually denies access is each
+  page's own `requirePermission`, which every admin page calls **before reading a
+  row**. The layout's refusal exists so the caller gets a clean in-shell "not
+  available" panel with their own navigation, instead of the generic 500.
+
+**A single-section manager has no dashboard, and must not be sent to one.** The
+overview at `/admin` reports across every section — orders, enquiries, stock, the
+audit trail — which is an administrator's page. A manager is redirected from it
+to their own section by `landingSectionFor`, which prefers the section's _write_
+permission so an inventory manager lands on Inventory rather than on the order
+queue they may merely read. `maySeeOverview` is `identity.isAdmin`, not "holds
+any permission": holding a permission to read a figure is not the same as the
+overview being that person's page, and letting a manager sit on it is exactly the
+"another person's dashboard" the role split exists to prevent. The Dashboard nav
+entry and the dashboard's own counts are scoped by the same rule, so a manager
+never sees a figure from a section they do not run.
+
 **Roles are read through functions, never a column.** `authorization-service.ts`
 calls the `SECURITY DEFINER` helpers `is_staff()`/`is_admin()`/`has_permission()`,
 which derive the user from `auth.uid()` inside the database and take no user

@@ -73,9 +73,34 @@ async function countRows(
  * Every figure is a real query against a real table. Nothing is estimated,
  * extrapolated or carried over from a previous period, because a dashboard that
  * invents a number is worse than one that omits it: staff act on it.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THE SCOPE IS PASSED IN
+ * -----------------------------------------------------------------------------
+ *
+ * These queries run through the service-role client, so RLS does not narrow them
+ * to what the caller may see — this function is the only thing that can. A
+ * figure the caller has no permission for is not merely hidden from the page: it
+ * is not computed at all, because asking the database for it would be asking on
+ * behalf of somebody who may not have the answer. The scope is therefore derived
+ * from the caller's permissions, never defaulted to "everything".
  */
-export async function fetchDashboardCounts(): Promise<DashboardCounts> {
+export type DashboardScope = {
+  catalogue: boolean;
+  orders: boolean;
+  inquiries: boolean;
+  inventory: boolean;
+};
+
+export async function fetchDashboardCounts(scope: DashboardScope): Promise<DashboardCounts> {
   const supabase = createSupabaseAdminClient();
+
+  /** Run one count when the caller may see it; otherwise report zero without asking. */
+  const count = (
+    label: string,
+    enabled: boolean,
+    run: () => PromiseLike<{ count: number | null; error: { message: string } | null }>,
+  ): Promise<number> => (enabled ? countRows(label, run) : Promise.resolve(0));
 
   const [
     productsPublished,
@@ -87,22 +112,22 @@ export async function fetchDashboardCounts(): Promise<DashboardCounts> {
     pendingQuestions,
     pendingAppointments,
   ] = await Promise.all([
-    countRows('products_published', () =>
+    count('products_published', scope.catalogue, () =>
       supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'published'),
     ),
-    countRows('products_draft', () =>
+    count('products_draft', scope.catalogue, () =>
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
     ),
-    countRows('orders_awaiting_review', () =>
+    count('orders_awaiting_review', scope.orders, () =>
       supabase
         .from('order_requests')
         .select('*', { count: 'exact', head: true })
         .in('status', ['submitted', 'under_review']),
     ),
-    countRows('orders_confirmed', () =>
+    count('orders_confirmed', scope.orders, () =>
       supabase
         .from('order_requests')
         .select('*', { count: 'exact', head: true })
@@ -113,25 +138,25 @@ export async function fetchDashboardCounts(): Promise<DashboardCounts> {
     // `inventory_stock_state`; PostgREST filters compare against literals, so
     // the column-to-column form this used to send was rejected as 22P02 and
     // counted as zero.
-    countRows('inventory_low_stock', () =>
+    count('inventory_low_stock', scope.inventory, () =>
       supabase
         .from('inventory_stock_state')
         .select('*', { count: 'exact', head: true })
         .eq('is_low_stock', true),
     ),
-    countRows('inquiries_open', () =>
+    count('inquiries_open', scope.inquiries, () =>
       supabase
         .from('inquiries')
         .select('*', { count: 'exact', head: true })
         .in('status', ['new', 'in_review']),
     ),
-    countRows('questions_unanswered', () =>
+    count('questions_unanswered', scope.inquiries, () =>
       supabase
         .from('product_questions')
         .select('*', { count: 'exact', head: true })
         .is('answer', null),
     ),
-    countRows('appointments_requested', () =>
+    count('appointments_requested', scope.inquiries, () =>
       supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })

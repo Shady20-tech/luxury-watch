@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ArrowRight, Boxes, CalendarClock, MessageSquare, Package, Tag } from 'lucide-react';
 
+import { landingSectionFor, maySeeOverview } from '@/lib/admin/sections';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { formatAdminDateTime } from '@/lib/admin/format';
 import {
   fetchDashboardCounts,
   fetchRecentActivity,
 } from '@/server/repositories/admin-dashboard-repository';
-import { getAdminIdentity } from '@/server/services/admin-authorization';
+import { getAdminIdentity, type Permission } from '@/server/services/admin-authorization';
 
 /**
  * The administration dashboard.
@@ -68,17 +70,34 @@ export default async function AdminDashboardPage() {
   // type-narrowing guard. It renders nothing rather than throwing.
   if (!identity) return null;
 
-  const may = (permission: string) => identity.permissions.has(permission as never);
+  // The overview reports across every section, so it belongs to an administrator.
+  // A single-section manager is sent to their own section instead of being shown
+  // figures from areas they do not run.
+  if (!maySeeOverview(identity.isAdmin)) {
+    redirect(landingSectionFor(identity.permissions));
+  }
 
-  const [counts, activity] = await Promise.all([
-    fetchDashboardCounts(),
-    may('audit.read') ? fetchRecentActivity(15) : Promise.resolve([]),
-  ]);
+  const may = (permission: Permission) => identity.permissions.has(permission);
 
   const showCatalogue = may('catalog.read');
   const showOrders = may('orders.read');
   const showInquiries = may('inquiries.read');
   const showInventory = may('inventory.read');
+  const showAudit = may('audit.read');
+
+  // Only ask the database for the figures this caller may see. The counts run
+  // through the service-role client, so an unasked question is one the caller
+  // has no permission to have answered; running all eight regardless would
+  // compute and discard six of them on every visit.
+  const [counts, activity] = await Promise.all([
+    fetchDashboardCounts({
+      catalogue: showCatalogue,
+      orders: showOrders,
+      inquiries: showInquiries,
+      inventory: showInventory,
+    }),
+    showAudit ? fetchRecentActivity(15) : Promise.resolve([]),
+  ]);
 
   return (
     <div>

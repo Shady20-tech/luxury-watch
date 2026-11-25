@@ -8,6 +8,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### A manager could walk into another manager's dashboard
+
+**Date:** 2026-11-19
+
+A staff member holds one role, and each admin page asserts the permission that
+role grants. What no page asserted was the *section*: the layout admitted any
+staff member, so a `CONTENT_MANAGER` who typed `/admin/inventory` reached the
+inventory page's own `requirePermission('inventory.read')`, which **throws** —
+and an uncaught throw in a Server Component is the generic error page with a 500.
+A perfectly ordinary refusal was being reported as a server fault.
+
+Worse, the sidebar offered every staff member a "Dashboard" link, and `/admin`
+itself had no section requirement at all. The overview reports across the whole
+business — orders, enquiries, stock, catalogue, the audit trail — so a manager
+could sit on a page aggregating sections they do not run.
+
+`src/lib/admin/sections.ts` is now the single answer, used by the layout (to
+refuse), the sidebar (to filter) and the overview (to choose where a role lands).
+A refused section renders a clean in-shell "not available" panel with the
+caller's own navigation, not a 500. A manager is redirected from `/admin` to
+their own section, preferring the section's _write_ permission so an inventory
+manager lands on Inventory rather than the order queue they may merely read. The
+Dashboard nav entry and the dashboard's own count queries are scoped by the same
+rule.
+
+The map expresses a requirement as a permission **or** a role, because
+`/admin/staff` is gated on `SUPER_ADMIN` — it is the screen that grants
+permissions, so a `customers.read` check there would be circular and would let an
+`ADMIN` promote themselves. That distinction is pinned by a test that admits a
+`SUPER_ADMIN` and refuses an `ADMIN` holding `customers.read`.
+
+A note for the next person: the layout's refusal is **presentation, not the
+security boundary**. Next.js renders a layout and its page segment concurrently,
+so omitting `children` does not stop the page function running. Each page's own
+`requirePermission`, called before it reads a row, is what denies access; the
+layout only decides what the caller sees. Verified against the real build as
+`CONTENT_MANAGER`, `INVENTORY_MANAGER`, `ADMIN`, `SUPER_ADMIN` and a plain
+customer.
+
 ### Every card printed the brand twice
 
 **Date:** 2026-11-19
