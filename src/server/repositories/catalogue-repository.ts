@@ -144,6 +144,9 @@ export async function fetchActiveBrandSummary(slug: string): Promise<{
   description: string | null;
   /** Editorial hero image for this brand's page, or `null` when none is set. */
   heroImageUrl: string | null;
+  /** An editor's metadata overrides. `null` means "use the computed default". */
+  seoTitle: string | null;
+  seoDescription: string | null;
   productCount: number;
   models: { name: string; slug: string; productCount: number }[];
 } | null> {
@@ -154,7 +157,7 @@ export async function fetchActiveBrandSummary(slug: string): Promise<{
   const [brandResult, countsResult, modelsResult, modelCountsResult] = await Promise.all([
     supabase
       .from('brands')
-      .select('id, name, slug, description, hero_image_url')
+      .select('id, name, slug, description, hero_image_url, seo_title, seo_description')
       .eq('slug', slug)
       .maybeSingle(),
     supabase.rpc('published_product_counts'),
@@ -186,8 +189,15 @@ export async function fetchActiveBrandSummary(slug: string): Promise<{
     }))
     .filter((model) => model.productCount > 0);
 
-  const { hero_image_url: heroImageUrl, ...identity } = brand;
-  return { ...identity, heroImageUrl, productCount: row ? Number(row.product_count) : 0, models };
+  const { hero_image_url: heroImageUrl, seo_title, seo_description, ...identity } = brand;
+  return {
+    ...identity,
+    heroImageUrl,
+    seoTitle: seo_title,
+    seoDescription: seo_description,
+    productCount: row ? Number(row.product_count) : 0,
+    models,
+  };
 }
 
 /** An active collection's identity, or `null` when the slug is not active. */
@@ -197,6 +207,8 @@ export async function fetchActiveCollectionSummary(slug: string): Promise<{
   description: string | null;
   /** Editorial hero image for this collection's page, or `null` when none is set. */
   heroImageUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   productCount: number;
 } | null> {
   const supabase = await createSupabaseServerClient();
@@ -204,7 +216,7 @@ export async function fetchActiveCollectionSummary(slug: string): Promise<{
   const [collectionResult, countsResult] = await Promise.all([
     supabase
       .from('collections')
-      .select('id, title, description, hero_image_url')
+      .select('id, title, description, hero_image_url, seo_title, seo_description')
       .eq('slug', slug)
       .maybeSingle(),
     supabase.rpc('published_collection_counts'),
@@ -217,8 +229,14 @@ export async function fetchActiveCollectionSummary(slug: string): Promise<{
   if (!collection) return null;
 
   const row = (countsResult.data ?? []).find((entry) => entry.collection_id === collection.id);
-  const { hero_image_url: heroImageUrl, ...identity } = collection;
-  return { ...identity, heroImageUrl, productCount: row ? Number(row.product_count) : 0 };
+  const { hero_image_url: heroImageUrl, seo_title, seo_description, ...identity } = collection;
+  return {
+    ...identity,
+    heroImageUrl,
+    seoTitle: seo_title,
+    seoDescription: seo_description,
+    productCount: row ? Number(row.product_count) : 0,
+  };
 }
 
 /**
@@ -245,6 +263,8 @@ export async function fetchActiveModelSummary(
   brandSlug: string;
   /** Editorial hero image for this model's page, or `null` when none is set. */
   heroImageUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   productCount: number;
 } | null> {
   const supabase = await createSupabaseServerClient();
@@ -262,7 +282,7 @@ export async function fetchActiveModelSummary(
 
   const modelResult = await supabase
     .from('models')
-    .select('id, name, description, hero_image_url')
+    .select('id, name, description, hero_image_url, seo_title, seo_description')
     .eq('brand_id', brand.id)
     .eq('slug', modelSlug)
     .maybeSingle();
@@ -281,12 +301,15 @@ export async function fetchActiveModelSummary(
 
   const row = (countsResult.data ?? []).find((entry) => entry.model_id === model.id);
 
+  const { hero_image_url: heroImageUrl, seo_title, seo_description, ...identity } = model;
   return {
-    ...model,
+    ...identity,
     // A model has no picture of its own in the seed, so it borrows the brand's.
     // The model's own column wins when an administrator sets one, which keeps
     // the hierarchy honest: the more specific page is the one that can differ.
-    heroImageUrl: model.hero_image_url ?? brand.hero_image_url,
+    heroImageUrl: heroImageUrl ?? brand.hero_image_url,
+    seoTitle: seo_title,
+    seoDescription: seo_description,
     brandName: brand.name,
     brandSlug: brand.slug,
     productCount: row ? Number(row.product_count) : 0,

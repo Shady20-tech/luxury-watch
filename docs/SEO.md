@@ -302,6 +302,27 @@ footer, and WCAG 2.4.4 is about a sensible order. The licence requires the autho
 to be identified, not to be clickable. `KNOWN_ISSUES.md` G91 records the phase
 that found the listings missing this entirely.
 
+### The homepage was the other surface missing it
+
+The same obligation applies to the editorial photography on the homepage, and it
+was unmet there: the hero, the promo bands, the editorial splits and the brand
+grid all rendered licensed plates with no credit line at all. They now go through
+`src/components/layout/photograph-credit.tsx`, which takes the album rather than
+one photograph so a grid states its attribution once instead of once per tile.
+
+Two placement rules follow from the audit:
+
+- The credit sits on a solid ground or the band's own scrim, never straight onto
+  a photograph. Contrast over an arbitrary image cannot be asserted, and the
+  browser audit can only measure the pixels in front of it.
+- A tile whose plate is uncredited cannot be shown. `resolveSitePhotograph()`
+  returns `null` for a path that is not in the registry, and every consumer
+  degrades to the plain panel rather than rendering an unattributed picture.
+
+The registry is the enforcement point, which is why the media library is the only
+supported way to add one: a path that is not registered has no licence record, so
+it is not shippable.
+
 ## Targets
 
 The goal is 100/100 in Lighthouse Performance, Accessibility, Best Practices and

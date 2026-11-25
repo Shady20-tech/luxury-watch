@@ -24,17 +24,22 @@ import { resetPublicEnvCache } from '@/lib/env';
 
 const fetchActiveBrandSummary = vi.fn();
 const fetchActiveCollectionSummary = vi.fn();
+const fetchActiveModelSummary = vi.fn();
 
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/server/repositories/catalogue-repository', () => ({
   fetchActiveBrandSummary: (...args: unknown[]) => fetchActiveBrandSummary(...args),
   fetchActiveCollectionSummary: (...args: unknown[]) => fetchActiveCollectionSummary(...args),
+  fetchActiveModelSummary: (...args: unknown[]) => fetchActiveModelSummary(...args),
 }));
 
 const { generateMetadata: brandMetadata } = await import('@/app/(site)/brands/[slug]/page');
 const { generateMetadata: collectionMetadata } = await import(
   '@/app/(site)/collections/[slug]/page'
+);
+const { generateMetadata: modelMetadata } = await import(
+  '@/app/(site)/brands/[slug]/models/[model]/page'
 );
 
 beforeEach(() => {
@@ -42,6 +47,7 @@ beforeEach(() => {
   resetPublicEnvCache();
   fetchActiveBrandSummary.mockReset();
   fetchActiveCollectionSummary.mockReset();
+  fetchActiveModelSummary.mockReset();
 });
 
 afterEach(() => {
@@ -153,5 +159,138 @@ describe('collection page indexing', () => {
     });
 
     expect(robotsOf(metadata).index).toBe(false);
+  });
+});
+
+/**
+ * Editorial metadata overrides.
+ *
+ * `brands`, `collections` and `models` all carry `seo_title` and
+ * `seo_description`. Those columns were readable through PostgREST the whole
+ * time and no public route selected them, so an administrator could write a
+ * search title and watch the page serve a computed one instead. Nothing failed —
+ * the override simply never reached the `<head>` — which is the kind of silent
+ * fault a schema-aware test catches and a rendering test does not.
+ *
+ * These pin the precedence rule: the editor's copy wins when set, and the
+ * computed default is what a null falls back to.
+ */
+describe('editorial metadata overrides', () => {
+  it('prefers a brand SEO title and description over the computed pair', async () => {
+    fetchActiveBrandSummary.mockResolvedValue({
+      id: 'b1',
+      name: 'Rolex',
+      description: 'Our Rolex blurb.',
+      seoTitle: 'Rolex watches at Carbon',
+      seoDescription: 'The Rolex pieces we hold.',
+      productCount: 4,
+    });
+
+    const metadata = await brandMetadata({
+      params: Promise.resolve({ slug: 'rolex' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Rolex watches at Carbon');
+    expect(metadata.description).toBe('The Rolex pieces we hold.');
+  });
+
+  it('falls back to the computed brand title and the brand blurb when no override is set', async () => {
+    fetchActiveBrandSummary.mockResolvedValue({
+      id: 'b1',
+      name: 'Rolex',
+      description: 'Our Rolex blurb.',
+      seoTitle: null,
+      seoDescription: null,
+      productCount: 4,
+    });
+
+    const metadata = await brandMetadata({
+      params: Promise.resolve({ slug: 'rolex' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Rolex watches');
+    expect(metadata.description).toBe('Our Rolex blurb.');
+  });
+
+  it('prefers a collection SEO title and description over the collection copy', async () => {
+    fetchActiveCollectionSummary.mockResolvedValue({
+      id: 'c1',
+      title: 'Featured',
+      description: 'Hand-picked pieces.',
+      seoTitle: 'Featured watches',
+      seoDescription: 'A curated selection.',
+      productCount: 6,
+    });
+
+    const metadata = await collectionMetadata({
+      params: Promise.resolve({ slug: 'featured' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Featured watches');
+    expect(metadata.description).toBe('A curated selection.');
+  });
+
+  it('falls back to the collection title when no override is set', async () => {
+    fetchActiveCollectionSummary.mockResolvedValue({
+      id: 'c1',
+      title: 'Featured',
+      description: null,
+      seoTitle: null,
+      seoDescription: null,
+      productCount: 6,
+    });
+
+    const metadata = await collectionMetadata({
+      params: Promise.resolve({ slug: 'featured' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Featured');
+    expect(metadata.description).toContain('curated selection');
+  });
+
+  it('prefers a model SEO title and description over the computed pair', async () => {
+    fetchActiveModelSummary.mockResolvedValue({
+      id: 'm1',
+      name: 'Milgauss',
+      description: 'Our Milgauss blurb.',
+      brandName: 'Rolex',
+      brandSlug: 'rolex',
+      seoTitle: 'Rolex Milgauss at Carbon',
+      seoDescription: 'The Milgauss pieces we hold.',
+      productCount: 2,
+    });
+
+    const metadata = await modelMetadata({
+      params: Promise.resolve({ slug: 'rolex', model: 'milgauss' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Rolex Milgauss at Carbon');
+    expect(metadata.description).toBe('The Milgauss pieces we hold.');
+  });
+
+  it('falls back to the computed model title when no override is set', async () => {
+    fetchActiveModelSummary.mockResolvedValue({
+      id: 'm1',
+      name: 'Milgauss',
+      description: null,
+      brandName: 'Rolex',
+      brandSlug: 'rolex',
+      seoTitle: null,
+      seoDescription: null,
+      productCount: 2,
+    });
+
+    const metadata = await modelMetadata({
+      params: Promise.resolve({ slug: 'rolex', model: 'milgauss' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Rolex Milgauss');
+    expect(metadata.description).toContain('Milgauss');
   });
 });

@@ -255,6 +255,40 @@ describe('Wordmark', () => {
     // absence is asserted rather than merely implied by the name check.
     expect(screen.getByRole('link').getAttribute('aria-label')).toBeNull();
   });
+
+  it('draws the supplied crest when the database has no logo', () => {
+    const { container } = render(<Wordmark identity={identity} />);
+
+    // The crest is the fallback, not a text-only wordmark: a header with no mark
+    // reads as an unbranded storefront. `identity.logoUrl` is null here, which is
+    // the state a fresh database is in.
+    const img = container.querySelector('img');
+    expect(img?.getAttribute('src')).toBe('/brand/crest.png');
+
+    // The mark is decorative: the business name is rendered as live text beside
+    // it, so the image must not repeat it to a screen reader.
+    expect(img?.getAttribute('alt')).toBe('');
+  });
+
+  it('prefers an operator upload over the shipped crest', () => {
+    const { container } = render(
+      <Wordmark identity={{ ...identity, logoUrl: '/brand/operator.png' }} />,
+    );
+
+    // The admin's own logo is a database edit; it must win without a deploy.
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('/brand/operator.png');
+  });
+
+  it('keeps the business name as text rather than baking it into the image', () => {
+    const { container } = render(<Wordmark identity={identity} />);
+
+    // The supplied artwork includes a "CARBON WATCH COMPANY" lockup. Rendering
+    // that image in the header would put the name in the accessible name twice
+    // and could not follow `site_settings.business_name`, so the header composes
+    // crest + text and the lockup is reserved for the social card.
+    expect(container.querySelector('img')?.getAttribute('src')).not.toBe('/brand/lockup.png');
+    expect(screen.getByRole('link').textContent).toContain('Appleton & Co');
+  });
 });
 
 describe('AgeGateDialog', () => {

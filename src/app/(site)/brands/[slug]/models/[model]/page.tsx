@@ -64,8 +64,11 @@ export async function generateMetadata({
   const hero = resolveSitePhotograph(model.heroImageUrl);
 
   return buildMetadata({
-    title: `${model.brandName} ${model.name}`,
+    // An editor's override wins; the computed "Brand Model" title and the model
+    // blurb are the fallback. Nothing in the seed sets these.
+    title: model.seoTitle ?? `${model.brandName} ${model.name}`,
     description:
+      model.seoDescription ??
       model.description ??
       `${model.brandName} ${model.name} pieces we currently hold. Browse the range, and request pricing and availability on any watch.`,
     path: seo.path,

@@ -8,6 +8,119 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The hero became a cover, and the licensed plates finally got credited
+
+**Date:** 2026-11-19
+
+**Scope:** Homepage presentation only. No routing, data or pricing change.
+
+The brief was to lift the image treatment from the reference and leave the
+layout, navigation and footer alone. The hero carried the biggest gap: it was a
+left-aligned copy column over a softly scrimmed photograph, where the reference
+opens on a full-bleed plate with the copy centred on it.
+
+`HeroCarousel` is now that cover — a fixed height ladder (`500px` / `580px` /
+`640px`), the headline centred, a 6.5s autoplay cadence, arrows on the mid-line,
+and a dot bar along the bottom edge. Each incoming plate settles out of a 6%
+over-scale (`hero-settle` in `globals.css`) rather than hard-swapping, and each
+text block enters on a staggered `hero-in` delay.
+
+Four things deliberately did **not** follow the reference:
+
+- Autoplay is opt-in and still stops at the last slide. The reference loops; a
+  loop loses the visitor's place and makes "back" meaningless. The existing test
+  that pins the stop was kept.
+- The pause control is still rendered whenever autoplay is active. The reference
+  has no such control, and WCAG 2.2.2 requires one.
+- One slide is still in the DOM at a time, so off-screen links stay out of the
+  tab order.
+- The `h1` is still on the first slide only.
+
+The other half of this change is an obligation that had gone unmet. Every
+editorial plate on the homepage — hero, promo bands, editorial splits, brand
+grid — rendered CC BY / CC BY-SA photography with no credit line. They now go
+through `src/components/layout/photograph-credit.tsx`, which takes the album so a
+grid states its attribution once. `featured_collection.image_url` and
+`new_arrivals.image_url` had been seeded and never read; the rail now renders
+them as a scrimmed backdrop, which is what made the band look empty.
+
+Verified with `npm run verify` (1108 tests, 69 files, build clean) and
+`node scripts/a11y-audit.mjs http://127.0.0.1:12000` — no critical or serious
+issues and no horizontal overflow across 33 pages × 4 viewports plus the mobile
+filter drawer. The hero's contrast is the case that matters here, because its
+text sits on a photograph; it passes because of the two scrims, and it would be
+unverified without the browser run.
+
+**Not done, and why:** the supplied product photographs were carbonwatchcompany.com's
+own Shopify CDN assets, and the demo app's hero plates are behind a Google auth
+wall. Neither can be used: the reference's photography is copyrighted with terms
+forbidding reuse, and the repo's rule is that a plate must be openly licensed,
+attributed and served from our own origin. No image was hotlinked, downloaded
+into `public/`, or added to the registry.
+
+### Editorial search copy was being written into a column no page read
+
+**Date:** 2026-11-19
+
+**Scope:** Phase 5 (catalogue browsing) — metadata only. No change to routing,
+filtering, sorting, pagination or the canonical/robots policy.
+
+`brands`, `collections` and `models` each carry `seo_title` and
+`seo_description`, and the public routes for all three built their metadata from
+the entity's `description` and a computed title instead. An editor could write a
+search title, save it, reload the page and see the computed one — with no error
+anywhere, because the column was readable through PostgREST and the metadata was
+valid; it just never got selected. The three `fetchActive*Summary` queries asked
+for `description` and `hero_image_url` and stopped there.
+
+Both columns are now selected and returned from the repository, and the brand,
+collection and model routes prefer the override with the computed value as the
+fallback. Verified against the preview rather than in a mock: with `seo_title` set
+on `rolex` the page served `Rolex | Test Override | Carbon Watch Company`, the
+collection override replaced the featured title, and the model override replaced
+`Rolex Milgauss`; the descriptions followed on all three. The test values were
+then reverted, and all three serve their defaults again.
+
+Nothing in the seed populates these columns, so the served output is unchanged
+today. The point of the change is that the columns are now connected to the
+`<head>` at all. `tests/catalogue-scope-indexing.test.ts` pins the precedence for
+each scope — override wins, `null` falls back — for brand, collection and model
+alike; that is the part that would otherwise rot silently again. The suite now
+runs 1108 tests across 69 files.
+
+### The LCP hint was missing on the hero, and the catalogue cards were racing it
+
+**Date:** 2026-11-19
+
+**Scope:** Phase 5 (catalogue browsing) — presentation and loading only. No
+change to search, filters, sorting, pagination, canonical or robots behaviour;
+all of them were re-verified against the preview in the same pass.
+
+`PageHero`'s photograph is the LCP element on `/shop`, `/brands/*`,
+`/collections/*`, `/search` and every model page, and it was arriving in
+~150 ms while LCP still measured ~3.8 s. The network was not the problem; the
+hint was. Next 15.5.28's `priority` prop emits the `<link rel="preload">` as
+documented but **no longer writes `fetchpriority` onto the `<img>`**, so the
+element competed at the browser's default priority and Lighthouse reported
+`fetchpriority=high should be applied` against the LCP node. The image now
+passes `fetchPriority="high"` explicitly alongside `priority`. Measured after
+the change: `lcp-discovery-insight` is green on all three of its checks (hinted,
+discoverable, not lazy) and best-practices is 100.
+
+The catalogue grid was also asking for four card images at high priority, which
+put them in contention with the hero it cannot paint until they resolve. Only
+the first card is prioritised now, and the wishlist grids take no `priority` at
+all — they sit below the fold and every card there is lazy. Lighthouse after
+both changes: 86–89 performance on `/shop` with 100 accessibility, best
+practices and SEO; LCP 3.4–3.9 s, FCP 1.2 s, TBT 161–209 ms.
+
+**Docs corrected, not just code.** `AGENTS.md` and G92 still argued the opposite
+of what the component now does: both said the hero must stay lazy *because* it
+was hidden below `lg`. The band stopped hiding the photograph, which inverted
+the conclusion. Both now record the reversal and keep the general rule — never
+`priority` on an image a breakpoint can hide — which is the part that is still
+true and still worth knowing.
+
 ### The nav crest was drawn at a third of its available size, and its canvas was mostly empty
 
 **Date:** 2026-11-19

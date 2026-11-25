@@ -290,6 +290,20 @@
   }
 }
 
+/* The hero plate settles out of a slight over-scale as its slide fades in.
+   Kept separate from `hero-drift` rather than folded into it: this one runs
+   once per slide change and must not loop, while the drift loops forever. Both
+   are collapsed by the reduced-motion block, which is what makes the pair safe
+   to combine. */
+@keyframes hero-settle {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 @keyframes reveal-up {
   from {
     opacity: 0;

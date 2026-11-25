@@ -345,6 +345,41 @@ before believing the result.
 header with it is correct; adding it above one that already has an `h1` is not,
 and the audit will not catch that.
 
+### The hero is a fixed-height cover, and its autoplay does not loop
+
+`HeroCarousel` is the reference's opening slide — a full-bleed photograph with the
+copy centred on it, a fixed height ladder (`500px` / `580px` / `640px`) rather
+than a viewport fraction, a slow settle-out on each incoming plate, and a dot bar
+along the bottom edge. Autoplay runs at 6.5s, which is the reference's own cadence.
+
+Three decisions in it are deliberate and should not be "fixed":
+
+- **It stops at the last slide instead of wrapping.** The reference loops. A
+  looping carousel is the classic disorientation bug — the visitor loses their
+  place and the "back" control becomes meaningless. `tests/homepage-components.test.tsx`
+  asserts the stop, so changing it means changing a stated decision, not a typo.
+- **Autoplay is opt-in and earns its motion.** It starts only when
+  `autoPlaySeconds` is set, never under `prefers-reduced-motion`, and pauses on
+  hover, on focus-within and while the tab is hidden. The pause control is
+  rendered whenever autoplay is active, because WCAG 2.2.2 requires a mechanism
+  and a hover-only one is not a mechanism.
+- **One slide is in the DOM at a time.** Slides are switched, not slid. A
+  translated track would leave every off-screen slide's links in the tab order,
+  which is what makes most carousels unusable by keyboard.
+
+The hero's text sits over a photograph, so its contrast is a property of the two
+scrims (a top-to-bottom wash plus a centre-weighted vignette), not of the image an
+editor picks. That is only trustworthy because the browser audit measures the
+composed result at four viewports. Re-run it after any change to either gradient.
+
+**Supply photography through the registry, never by URL.** The reference site's
+product photography is its own, and its terms forbid reuse; the seed uses openly
+licensed plates whose licence record lives in `site-photography.ts`. A path that
+is not registered resolves to `null` and renders the plain band, so an
+unattributable image cannot reach a page by accident. This is also why the hero,
+the promo bands and the brand grid all degrade rather than break when a plate is
+missing.
+
 ### An image asset's padding is part of its size
 
 The header crest and the footer wordmark share one component, `Wordmark`, and it
@@ -474,6 +509,30 @@ a column to `products` or any publicly-readable table, decide explicitly whether
 it belongs in the public surface, then update the grant list **and**
 `supabase/tests/17_product_detail.sql`. Test it through the real client path, not
 only in SQL — a policy that reads correctly can still leak a column.
+
+### A column the schema offers and the code ignores is invisible, not broken
+
+`brands`, `collections` and `models` all carry `seo_title` and
+`seo_description`. The public routes for all three built their metadata from the
+entity's `description` plus a computed title, and never selected the SEO pair —
+so an editor could write a search title, save it, reload the page and see the
+computed one. Nothing failed: the columns were readable through PostgREST, the
+metadata was valid, the page rendered. The data simply never left the database,
+which is why no check caught it and why G112 survived until Phase 5's audit
+walked the "unique database-aware title and description" criterion column by
+column against the schema doc.
+
+**The standing obligation:** when the schema doc describes a column an editor is
+meant to control, confirm something reads it before calling the feature done.
+`grep` the column name across `src/`; if the only hits are the migration, the
+row type and the admin form, the column is write-only and the admin UI is lying
+about what it does. The same walk applies to repository `select` lists — a
+`select` is an allow-list, and a column missing from it fails silently rather
+than loudly, unlike the grant-level failure described above.
+
+Precedence, once wired: the editor's value wins and the computed value is the
+fallback. Pin it in `tests/catalogue-scope-indexing.test.ts`, which covers the
+brand, collection and model scopes for exactly this reason.
 
 ### An image credit belongs on every surface that shows the image
 
@@ -966,19 +1025,30 @@ the standing check for the hero columns.
   asserts a guarantee no layer makes is worse than no test: it fails when the
   code is correct, and if it ever passed it would be passing on some other
   property. Assert the contract the layer under test actually owns.
-- **`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency
-  harness insert their own rows. A database that has run `db-verify.sh` shows
-  **4126 products and 6 brands**, not the seed's 4110 and 4. This is expected, not
-  a seed bug. Counts on a clean database: 4110 products, 4 brands, 41 models,
-  8785 specs.
-  **The leftovers are publicly visible.** `10_public_boundary.sql` and
-  `50_service_flows.sql` insert a _published_ product under their own brand
-  (`Test Brand` / `test-brand`, `Service Brand` / `service-brand`) and never
-  remove it, so `/brands`, the brand facet and `/sitemap.xml` all offer them as
-  stock. Run `./scripts/db-reset.sh` before `npm run preview` if the catalogue is
-  going to be looked at or audited. This is G66, and the naive fix — deleting the
-  fixtures at the end of each suite — breaks suites `21` and `40`, which depend on
-  the `bank_transfer` payment method that suite `10` inserts.
+- **`db-reset.sh` removes the checkout fixtures, and the e2e suite depends on them.**
+  `payment_methods` and `delivery_options` are seeded by
+  `scripts/e2e-seed-checkout-fixtures.sh`, not by the catalogue seed, so a reset
+  leaves both empty and the two `order request is saved as pending review` specs
+  fail on a checkout page with no payment method to choose. This is documented
+  state (F1), not a regression: re-run the seed script and both pass. Note that
+  `npm run verify` does **not** touch the database — `db-reset.sh` and
+  `db-verify.sh` are separate scripts — so the failure only appears after you run
+  one of those, not after a plain verify.
+
+**`db-verify.sh` leaves fixtures behind.** The RLS suites and the concurrency
+harness insert their own rows. A database that has run `db-verify.sh` shows
+**4126 products and 6 brands**, not the seed's 4110 and 4. This is expected, not
+a seed bug. Counts on a clean database: 4110 products, 4 brands, 41 models,
+8785 specs.
+**The leftovers are publicly visible.** `10_public_boundary.sql` and
+`50_service_flows.sql` insert a _published_ product under their own brand
+(`Test Brand` / `test-brand`, `Service Brand` / `service-brand`) and never
+remove it, so `/brands`, the brand facet and `/sitemap.xml` all offer them as
+stock. Run `./scripts/db-reset.sh` before `npm run preview` if the catalogue is
+going to be looked at or audited. This is G66, and the naive fix — deleting the
+fixtures at the end of each suite — breaks suites `21` and `40`, which depend on
+the `bank_transfer` payment method that suite `10` inserts.
+
 - **`supabase/tests/00_supabase_shim.sql` is a test fixture, not a deployment
   artifact.** It fakes `auth.users`, `auth.uid()` and the API roles so the
   policies can be tested outside Supabase. Never apply it to a real project.
@@ -1321,14 +1391,23 @@ practice; one picture was dropped rather than the pattern widened. When a new
 picture is rejected, pick another — do not loosen the test to make it pass.
 
 **A `priority` image is downloaded even when CSS hides it.** `priority` emits
-`<link rel="preload">`, and a preload ignores `display: none`. `PageHero` hides
-its photograph below `lg`, so marking that image `priority` made every interior
-page download a hero it never painted — 14.7 KB per pageview at 320px, competing
-with the `h1`, which is the real LCP element. The image is `loading="lazy"` with
-no preload instead: a hidden lazy image is never fetched, and on desktop it is in
-the initial viewport so the loader fetches it immediately. `tests/page-hero.test.tsx`
-pins this. The general rule: **never put `priority` on an image a breakpoint can
-hide.**
+`<link rel="preload">`, and a preload ignores `display: none`. `PageHero` used
+to hide its photograph below `lg`, so marking that image `priority` made every
+interior page download a hero it never painted — 14.7 KB per pageview at 320px,
+competing with the `h1`. The general rule still holds: **never put `priority` on
+an image a breakpoint can hide.**
+
+The resolution has since changed shape. The band no longer hides its photograph
+at all — it is the wallpaper at every viewport — so the preload is never wasted
+and the image is now the LCP element on every route that uses it. It therefore
+carries `priority` **and an explicit `fetchPriority="high"`**. Both are needed:
+`priority` emits the preload link, but Next 15.5.28 no longer puts
+`fetchpriority` on the `<img>` itself, so without the explicit prop the element
+competes at default priority and Lighthouse reports "fetchpriority=high should
+be applied" on the LCP node. `tests/page-hero.test.tsx` pins `fetchpriority`,
+the absence of `loading="lazy"`, and the absence of a responsive hide. If you
+ever reintroduce a breakpoint hide, both the priority and the preload have to go
+with it.
 
 **`MediaFrame` is for products, not for atmosphere.** It letterboxes on a white
 panel with `object-contain`, because a watch is tall and `cover` would crop the

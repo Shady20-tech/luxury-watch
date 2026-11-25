@@ -264,13 +264,16 @@ export function CatalogueGrid({
         className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}
         data-reveal-stagger
       >
-        {products.map((product, index) => (
+        {products.map((product) => (
           <li key={product.id} className="flex" data-reveal>
             <CatalogueCard
               product={product}
-              // Only the first row is prioritised; everything below the fold is
-              // lazy-loaded by default.
-              priority={index < 4}
+              // Nothing here is prioritised. Every listing that renders this
+              // grid opens with a `PageHero`, and the band's photograph is the
+              // largest thing in the first viewport, so it is the LCP element.
+              // Eager-loading the first row made four card images compete with
+              // it for the same connection: Lighthouse reported the hero's
+              // request at "Low" priority while the cards were in flight.
               signedIn={signedIn}
               saved={savedProductIds.includes(product.id)}
               className="w-full"

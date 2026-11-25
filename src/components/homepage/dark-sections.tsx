@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
+import { PhotographCredit } from '@/components/layout/photograph-credit';
 import { resolveSitePhotograph } from '@/lib/images/site-photography';
 import type { CopySection } from '@/lib/homepage/types';
 
@@ -103,6 +104,13 @@ export function PromoBanner({ section }: { section: CopySection }) {
                 </Link>
               </Button>
             </div>
+          ) : null}
+
+          {/* Inside the scrimmed column rather than over the photograph, so the
+              line sits on a known ground. The licence requires the author to be
+              named wherever the work is shown, and this band shows it. */}
+          {photograph ? (
+            <PhotographCredit photographs={[photograph]} tone="night" className="mt-2" />
           ) : null}
         </div>
       </div>

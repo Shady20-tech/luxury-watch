@@ -145,9 +145,9 @@ export function GuestWishlist() {
             Saved pieces
           </h2>
           <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {products.map((product, index) => (
+            {products.map((product) => (
               <li key={product.id} className="flex flex-col gap-3">
-                <CatalogueCard product={product} priority={index < 4} className="w-full" />
+                <CatalogueCard product={product} className="w-full" />
                 <div className="flex flex-wrap items-center gap-2">
                   {product.available ? (
                     <MoveToCartButton

@@ -11,6 +11,8 @@
  * shapes.
  */
 
+import type { SitePhotograph } from '@/lib/images/site-photography';
+
 /** A call to action. `href` is always a site-relative path or an https URL. */
 export type HomeCta = {
   label: string;
@@ -73,6 +75,8 @@ export type BrandTile = {
   productCount: number | null;
   /** A few model family names, for a quiet secondary line. */
   modelNames: string[];
+  /** The brand's own editorial plate from the registry, or `null` when we hold none. */
+  photograph: SitePhotograph | null;
 };
 
 /** A testimonial. Only ever built from a published `testimonials` row. */
@@ -116,6 +120,15 @@ export type ProductRail = {
   body: string | null;
   cta: HomeCta | null;
   collectionSlug: string | null;
+  /**
+   * A plate from the section row, used as the band's backdrop.
+   *
+   * The column was always there and always seeded; nothing read it, so the row
+   * carried a photograph that never appeared. Kept as the raw path rather than a
+   * resolved photograph because resolution is a rendering concern and this type
+   * is the database contract.
+   */
+  imageUrl: string | null;
   products: ProductCard[];
 };
 

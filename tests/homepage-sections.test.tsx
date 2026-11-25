@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { CommunityPanel, PromoBanner, SocialPanel } from '@/components/homepage/dark-sections';
 import { BrandShowcase, ProductRailSection, TrustRow } from '@/components/homepage/sections';
+import { brandPhotograph } from '@/lib/images/site-photography';
 import type { BrandTile, CopySection, ProductRail, TrustItem } from '@/lib/homepage/types';
 
 /**
@@ -153,6 +154,7 @@ describe('ProductRailSection', () => {
     body: null,
     cta: { label: 'View all', href: '/watches' },
     collectionSlug: 'new-arrivals',
+    imageUrl: null,
     products: [
       {
         id: 'p1',
@@ -235,6 +237,7 @@ describe('BrandShowcase', () => {
       href: '/brands/omega',
       productCount: 1,
       modelNames: ['Seamaster'],
+      photograph: null,
     },
     {
       id: 'b2',
@@ -243,6 +246,7 @@ describe('BrandShowcase', () => {
       href: '/brands/rolex',
       productCount: 2048,
       modelNames: [],
+      photograph: brandPhotograph('rolex'),
     },
   ];
 

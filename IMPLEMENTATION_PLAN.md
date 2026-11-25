@@ -581,6 +581,44 @@ re-checked against the live preview and all held:
 `npm run audit:a11y` green across 33 pages × 4 viewports; `npm run verify` green
 at 1099 tests.
 
+**Eighth pass (2026-11-19) re-ran the full audit on the live preview and found no
+catalogue defect; the only defects it found were stale documentation about the
+hero image.** Every acceptance criterion was re-checked against the running
+preview rather than a fixture:
+
+| Criterion | Evidence this pass |
+| --- | --- |
+| Only real published data | 20 published rows; 4098 drafts excluded from both grid and SQL search |
+| Search/filter/sort/page/URL work together | 11 filter dimensions each narrow correctly (`brand=rolex` 6, `condition=pre_owned` 13, `caseMaterial=Stainless Steel` 12, `movement=Automatic` 10, `gender=Men's` 12, `boxAndPapers=true` 9, `availability=reserved` 2, `priceMode=priced` 4, `yearMin/Max` 3, `caseMin/Max` 15); `pageSize=12` pages 1–2 hold 12 + 8 unique with 0 overlap; all seven sorts give distinct first rows |
+| URL state survives reload/share | Sort form carries every active filter as a hidden input; facet links carry sort and page size; pagination keeps `sort` and `pageSize` |
+| Query cost bounded | `pageSize=1000` → 24, `pageSize=abc` → 24, `page=99999` → honest past-the-end, `sort=hacked` → featured, `caseMin=999999` → empty; every hostile value returns `200` with no 500 |
+| Metadata/canonical consistent with sitemap | `/shop` and `?sort=*` `index`; `?brand=*` and `/search` `noindex, follow` onto the clean listing; page 2 indexable, page past the end `noindex`; `richard-mille` `noindex` because it holds no published pieces; sitemap = 57 URLs, 0 query strings, 20 products against 20 published rows |
+| Broken slugs 404 | `/brands/nope`, `/collections/nope`, `/products/nope`, `/brands/omega/models/milgauss` all `404` |
+| Mobile controls usable | audit green at 320 and 390, filter drawer asserted open |
+
+One real code defect surfaced while checking the "unique database-aware title and
+description" criterion: `brands`, `collections` and `models` all carry
+`seo_title`/`seo_description` and **no public route selected either column**, so
+an editorial override could be saved and would never reach the `<head>`. Fixed
+in the repository and all three routes, proved against the preview by setting a
+value on each scope and reading the rendered `<title>`, then reverted; recorded
+as G112 and pinned by four new cases in `tests/catalogue-scope-indexing.test.ts`.
+
+The remaining defects found were in the documentation, not the code. `AGENTS.md` and G92
+both still asserted the hero photograph must stay lazy *because* the band hid it
+below `lg` — a premise the band no longer has. The image is now the wallpaper at
+every viewport, is the measured LCP element, and a lazy one is the defect. Both
+documents now record the reversal, and `tests/page-hero.test.tsx` already pinned
+the new behaviour, so only the prose was wrong.
+
+`npm run verify` green at 1108 tests across 69 files (1102 before the four new
+scope-indexing cases plus two model cases added in this pass); `db-verify.sh` green on a
+reset database (all migrations, 13 suites, idempotent seeds); `npm run audit:a11y`
+green across 33 pages × 4 viewports; Playwright 20/20 after
+`./scripts/e2e-seed-checkout-fixtures.sh` restored the intentionally-empty
+`payment_methods` and `delivery_options` fixtures (F1) — the two failures before
+seeding were that documented state, not a regression.
+
 ---
 
 ## Phase 6 — Product detail page

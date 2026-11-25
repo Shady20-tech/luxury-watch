@@ -47,8 +47,11 @@ export async function generateMetadata({
   const hero = resolveSitePhotograph(collection.heroImageUrl);
 
   return buildMetadata({
-    title: collection.title,
+    // An editor's override wins; the collection's own title and blurb are the
+    // fallback. Nothing in the seed sets these.
+    title: collection.seoTitle ?? collection.title,
     description:
+      collection.seoDescription ??
       collection.description ??
       `${collection.title} — a curated selection from our catalogue. Request pricing and availability on any piece.`,
     path: seo.path,

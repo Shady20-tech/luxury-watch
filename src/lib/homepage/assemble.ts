@@ -10,6 +10,7 @@ import type {
   TrustItem,
 } from './types';
 
+import { brandPhotograph } from '@/lib/images/site-photography';
 import { titleWithoutBrand } from '@/lib/product/title';
 
 /**
@@ -285,6 +286,7 @@ function toRail(row: HomepageSectionRow, products: ProductRow[], now: string): P
     body: row.body,
     cta: readCta(row),
     collectionSlug: readSettingString(row.settings, 'collection_slug'),
+    imageUrl: row.image_url,
     // The repository already bounded the query; slicing again keeps the
     // guarantee local to the assembly so a caller cannot bypass it.
     products: products.slice(0, limit).map((product) => toProductCard(product, now)),
@@ -340,6 +342,10 @@ export function assembleHomepage(input: AssembleHomepageInput): HomepageContent 
       .filter((model) => model.brand_id === brand.id)
       .slice(0, 3)
       .map((model) => model.name),
+    // A brand tile is dressed only with that brand's own plate. Resolving here
+    // rather than in the component keeps the "which photograph is this brand"
+    // decision next to the other row-to-view-model mapping.
+    photograph: brandPhotograph(brand.slug),
   }));
 
   const testimonialModels: Testimonial[] = testimonials.map((row) => ({

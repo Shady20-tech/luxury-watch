@@ -461,3 +461,35 @@ export function resolveSitePhotograph(path: string | null | undefined): SitePhot
   const match = Object.values(SITE_PHOTOGRAPHY).find((entry) => entry.src === path);
   return match ?? null;
 }
+
+/**
+ * The per-brand plates, keyed by the brand slug the database uses.
+ *
+ * A brand tile that shows a photograph has to show a watch that brand made, or
+ * it is introducing Rolex with a Breitling and the storefront is misdescribing
+ * its own stock. Each plate below is already the brand's own piece, which is why
+ * the mapping is explicit rather than derived from the brand name.
+ */
+const BRAND_PLATE = {
+  rolex: 'brandRolex',
+  'patek-philippe': 'brandPatekPhilippe',
+  'audemars-piguet': 'brandAudemarsPiguet',
+  'richard-mille': 'richardMilleRm030',
+  omega: 'brandOmega',
+  cartier: 'brandCartier',
+  'grand-seiko': 'brandGrandSeiko',
+  'jaeger-lecoultre': 'brandJaegerLeCoultre',
+  breitling: 'brandBreitling',
+} as const satisfies Record<string, SitePhotographKey>;
+
+/**
+ * The plate for a brand slug, or `null` for a brand we hold no plate of.
+ *
+ * `null` is deliberate and is the honest answer: a brand added to the catalogue
+ * tomorrow has no photograph here, so its tile renders the wordmark it already
+ * carries rather than borrowing another maker's watch.
+ */
+export function brandPhotograph(slug: string): SitePhotograph | null {
+  const key = BRAND_PLATE[slug as keyof typeof BRAND_PLATE];
+  return key ? SITE_PHOTOGRAPHY[key] : null;
+}

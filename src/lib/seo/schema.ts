@@ -113,7 +113,11 @@ export function organizationSchema(): JsonLdNode {
     url: absoluteUrl('/'),
     logo: {
       '@type': 'ImageObject',
-      url: absoluteUrl('/icon.svg'),
+      // Google asks for a raster logo it can crop; an SVG is not accepted for
+      // the Organisation logo in search results, so this points at the PNG.
+      url: absoluteUrl('/brand/logo-512.png'),
+      width: 512,
+      height: 512,
     },
   };
 }

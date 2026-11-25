@@ -92,20 +92,25 @@ describe('PageHero', () => {
     expect(img?.closest('[aria-hidden="true"]')).not.toBeNull();
   });
 
-  it('never preloads the photograph, which is hidden below lg', () => {
-    // The regression this guards: `priority` emits `<link rel="preload">`, and a
-    // preload is fetched even when CSS hides the element. At 320px the hero is
-    // `hidden`, so a preload downloaded an image that was never painted and
-    // competed with the real LCP element. Measured at 14.7 KB per pageview.
+  it('prioritises the photograph, because it is the LCP element', () => {
+    // This test used to assert the opposite — that the image was lazy and never
+    // preloaded — on the reasoning that a `hidden lg:block` hero meant a preload
+    // at 320px downloaded an image that was never painted. That hid, and the
+    // photograph became the band's wallpaper at every viewport, so the premise
+    // no longer holds.
+    //
+    // Lighthouse then measured the photograph as LCP on `/shop`: 0.57 on the LCP
+    // audit, with `lcp-discovery-insight` failing both "lazy load not applied"
+    // and "fetchpriority=high should be applied". `priority` is what emits the
+    // preload and the hint, so its absence is now the regression to guard.
     const { container } = render(
       <PageHero title="Contact" photograph={SITE_PHOTOGRAPHY.rolexGmtBatgirl} />,
     );
 
     const img = container.querySelector('section img');
 
-    expect(img?.getAttribute('loading')).toBe('lazy');
-    // `fetchpriority="high"` is the other half of what `priority` sets.
-    expect(img?.getAttribute('fetchpriority')).not.toBe('high');
+    expect(img?.getAttribute('fetchpriority')).toBe('high');
+    expect(img?.getAttribute('loading')).not.toBe('lazy');
   });
 
   it('renders no image at all when no photograph is given', () => {

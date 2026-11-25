@@ -132,7 +132,10 @@ export default async function HomePage() {
 
   return (
     <>
-      {home.hero.length > 0 ? <HeroCarousel slides={home.hero} /> : null}
+      {/* 6.5s between advances, which is the reference's own cadence. Autoplay
+          is opt-in on this component and stops at the last slide rather than
+          looping, so the visitor is never caught by a slide that jumps back. */}
+      {home.hero.length > 0 ? <HeroCarousel slides={home.hero} autoPlaySeconds={6.5} /> : null}
 
       {/* The trust row sits on the light ground directly beneath the dark hero,
           which is where the reference puts it. It is the first thing after the
@@ -157,7 +160,7 @@ export default async function HomePage() {
       {home.featured ? (
         <section className="border-line-200 bg-surface-0 border-b">
           <div className="container-page py-16 lg:py-20">
-            <ProductRailSection rail={home.featured} />
+            <ProductRailSection rail={home.featured} backdropImageUrl={home.featured.imageUrl} />
           </div>
         </section>
       ) : null}
@@ -189,7 +192,10 @@ export default async function HomePage() {
       {home.newArrivals ? (
         <section className="border-line-200 bg-surface-0 border-b">
           <div className="container-page py-16 lg:py-20">
-            <ProductRailSection rail={home.newArrivals} />
+            <ProductRailSection
+              rail={home.newArrivals}
+              backdropImageUrl={home.newArrivals.imageUrl}
+            />
           </div>
         </section>
       ) : null}

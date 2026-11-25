@@ -40,10 +40,14 @@ import { cn } from '@/lib/utils';
  *    under the supporting copy. Text contrast is then a property of the
  *    gradients, not of whichever photograph is passed. The browser audit
  *    measures the composed result instead of trusting that claim.
- *  - It is **not** `priority`. The band is the first thing on the page, but the
- *    LCP element is the `h1` text, and a preloaded 2000px plate competes with
- *    it. Native lazy loading still fetches it immediately because it is inside
- *    the initial viewport.
+ *  - It is prioritised, because it **is** the LCP element. An earlier revision
+ *    left it lazy on the assumption that the `h1` text would win LCP; Lighthouse
+ *    measured the photograph instead, on mobile and on desktop, and reported a
+ *    0.57 LCP score with `lcp-discovery-insight` failing on "lazy load not
+ *    applied" and "fetchpriority=high should be applied". `priority` makes
+ *    next/image emit a preload link with `fetchpriority="high"`, which is the
+ *    signal the browser needed. The band is above the fold on every route that
+ *    uses it, so there is no route where preloading it is wasteful.
  *
  * -----------------------------------------------------------------------------
  * SECTION COLOUR
@@ -136,7 +140,13 @@ export function PageHero({
               src={photograph.src}
               alt=""
               fill
-              loading="lazy"
+              priority
+              // Next 15.5's `priority` emits the preload link but no longer sets
+              // `fetchpriority` on the `<img>` itself, so the element still
+              // competed at the browser's default priority and Lighthouse
+              // reported "fetchpriority=high should be applied" on the LCP node.
+              // Passing it explicitly is what actually raises the hint.
+              fetchPriority="high"
               sizes="100vw"
               className="object-cover object-center brightness-110 saturate-105"
             />

@@ -6,7 +6,6 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import type { HeroSlide } from '@/lib/homepage/types';
 import { cn } from '@/lib/utils';
 
@@ -158,7 +157,13 @@ export function HeroCarousel({
       ref={regionRef}
       aria-roledescription="carousel"
       aria-labelledby={headingId}
-      className={cn('relative isolate overflow-hidden bg-night-950', className)}
+      className={cn(
+        // A fixed height ladder rather than a viewport fraction: the band should
+        // read as a deliberate opening panel at every size, and `h-dvh` made it
+        // a different shape on every phone.
+        'bg-night-950 relative isolate h-[500px] w-full overflow-hidden select-none sm:h-[580px] lg:h-[640px]',
+        className,
+      )}
       onKeyDown={onKeyDown}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -176,59 +181,53 @@ export function HeroCarousel({
           slide states its own subject in the heading, and announcing "a steel
           Rolex GMT-Master II" before every headline is noise.
 
-          Two scrims, not one, and this is the load-bearing part:
+          The plate crossfades: each slide's photograph is a layer that fades
+          rather than swapping, and the incoming layer settles out of a 6%
+          over-scale. Two scrims sit over all of them, and their weights are the
+          legibility argument:
 
-          - a left-to-right `night-950` → transparent gradient, so the column the
-            copy occupies is measured against near-black whatever the picture is;
-          - a bottom-up fade, so the body copy and the controls never sit on a
-            bright dial.
+          - a top-to-bottom wash, heaviest at the bottom where the copy and the
+            dot bar sit;
+          - a radial vignette, darkest at the centre where the headline sits and
+            lighter at the edges, so the band closes in on the type rather than
+            flattening the picture.
 
           Between them the contrast of every text node is a property of the
           gradients, not of the photograph an administrator happens to pick. The
-          browser audit measures the composed result at four viewports rather than
-          trusting that claim. */}
+          browser audit measures the composed result at four viewports rather
+          than trusting that claim. */}
       {slide.imageUrl ? (
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          {/* `scale-105` with a slow Ken Burns drift: the photograph is a wall,
-              and a still wall behind moving copy reads as a background image
-              rather than as a photograph someone chose. The scale is applied to
-              the wrapper, not the `<img>`, so `object-cover` still does its
-              cropping work. It is disabled under `prefers-reduced-motion` by the
-              global rule in `globals.css`. */}
-          <div className="absolute inset-0 scale-105 motion-safe:animate-[hero-drift_28s_ease-in-out_infinite_alternate]">
-            <Image
-              src={slide.imageUrl}
-              alt=""
-              fill
-              sizes="100vw"
-              priority={isFirst}
-              loading={isFirst ? undefined : 'lazy'}
-              className="object-cover object-center"
-            />
-          </div>
-          {/* Two scrims, and their weights are the whole legibility argument.
-
-              The photograph has to be *visible* — a hero nobody can see is the
-              defect this replaced — so the middle of the band is left close to
-              clear and the darkness is pushed to the left edge, under the copy
-              column, and to the bottom edge, under the body text and controls.
-              `from-night-950` at the left is opaque where the headline starts and
-              falls to 10% by 70% across, which keeps the dials readable on the
-              right of a wide viewport.
-
-              Contrast is a property of these gradients at the widths the copy
-              occupies, not of whichever picture an administrator picks, and the
-              browser audit measures the composed result at four viewports. */}
-          <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/70 to-night-950/10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/25 to-transparent" />
+          <Image
+            key={slide.id}
+            src={slide.imageUrl}
+            alt=""
+            fill
+            sizes="100vw"
+            priority={isFirst}
+            loading={isFirst ? undefined : 'lazy'}
+            fetchPriority={isFirst ? 'high' : 'low'}
+            className={cn(
+              'object-cover object-center motion-safe:animate-[hero-settle_6000ms_ease-out_forwards]',
+            )}
+          />
+          <div className="via-night-950/45 to-night-950/75 absolute inset-0 bg-gradient-to-b from-night-950/50" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.22)_65%)]" />
         </div>
       ) : null}
 
-      <div className="container-page relative grid gap-12 py-20 lg:grid-cols-[minmax(0,34rem)_1fr] lg:items-center lg:py-32">
-        <div>
+      {/* The copy column, centred.
+
+          A hero that opens on the middle of the band reads as a cover; the
+          left-aligned column that was here read as a page header with a picture
+          behind it. The measure is capped so the headline never runs the full
+          width of a wide viewport, which is what makes a centred block hold
+          together. */}
+      <div className="relative z-10 mx-auto flex h-full max-w-4xl flex-col items-center justify-center px-8 text-center sm:px-16">
+        <div key={slide.id} className="flex flex-col items-center">
           {slide.eyebrow ? (
             <p
-              className="text-gold-300 hero-in text-[0.75rem] font-semibold tracking-[0.28em] uppercase"
+              className="hero-in text-sm tracking-wide text-white/90 sm:text-base"
               style={{ '--hero-delay': '0ms' } as CSSProperties}
             >
               {slide.eyebrow}
@@ -240,7 +239,7 @@ export function HeroCarousel({
           {isFirst ? (
             <h1
               id={headingId}
-              className="text-on-night hero-in mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+              className="hero-in font-display mt-3 text-4xl leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl"
               style={{ '--hero-delay': '70ms' } as CSSProperties}
             >
               {slide.title}
@@ -248,7 +247,7 @@ export function HeroCarousel({
           ) : (
             <p
               id={headingId}
-              className="text-on-night hero-in mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+              className="hero-in font-display mt-3 text-4xl leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl"
               style={{ '--hero-delay': '70ms' } as CSSProperties}
             >
               {slide.title}
@@ -257,7 +256,7 @@ export function HeroCarousel({
 
           {slide.body ? (
             <p
-              className="text-on-night-muted hero-in mt-6 max-w-prose text-lg"
+              className="hero-in mt-4 max-w-xl text-sm leading-relaxed text-white/90 sm:text-base"
               style={{ '--hero-delay': '150ms' } as CSSProperties}
             >
               {slide.body}
@@ -265,85 +264,102 @@ export function HeroCarousel({
           ) : null}
 
           {slide.cta ? (
-            <div className="hero-in mt-9" style={{ '--hero-delay': '230ms' } as CSSProperties}>
-              <Button asChild size="lg" className="bg-gold-300 text-night-950 hover:bg-gold-bright">
-                <Link href={slide.cta.href}>{slide.cta.label}</Link>
-              </Button>
-            </div>
-          ) : null}
-
-          {count > 1 ? (
-            <div className="mt-10 flex flex-wrap items-center gap-3">
-              <Button
-                variant="onNight"
-                size="icon"
-                onClick={() => goTo(index - 1)}
-                disabled={index === 0}
+            <div className="hero-in mt-8" style={{ '--hero-delay': '230ms' } as CSSProperties}>
+              {/* An outlined button rather than the gold fill used lower on the
+                  page: the hero's photograph supplies the only colour in the
+                  band, and a solid accent block beside a photograph competes
+                  with it. White-on-near-black clears AA comfortably, and the
+                  inversion on hover is the affordance. */}
+              <Link
+                href={slide.cta.href}
+                className="focus-visible:outline-gold-300 inline-flex items-center justify-center rounded-sm border border-white/80 px-7 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 hover:bg-white hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2"
               >
-                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-                <span className="sr-only">Previous slide</span>
-              </Button>
-              <Button
-                variant="onNight"
-                size="icon"
-                onClick={() => goTo(index + 1)}
-                disabled={index === count - 1}
-              >
-                <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                <span className="sr-only">Next slide</span>
-              </Button>
-
-              {autoplayActive ? (
-                <Button
-                  variant="onNight"
-                  size="sm"
-                  onClick={() => setIsPaused((paused) => !paused)}
-                  aria-pressed={isPaused}
-                >
-                  {isPaused ? (
-                    <Play aria-hidden="true" className="h-4 w-4" />
-                  ) : (
-                    <Pause aria-hidden="true" className="h-4 w-4" />
-                  )}
-                  {isPaused ? 'Play' : 'Pause'}
-                </Button>
-              ) : null}
-
-              {/* Dot controls. Each is a real button with an accessible name
-                  naming the slide it goes to, not just a number. */}
-              <ul className="ml-1 flex items-center gap-1">
-                {slides.map((item, slideIndex) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => goTo(slideIndex)}
-                      aria-current={slideIndex === index ? 'true' : undefined}
-                      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300 group flex h-11 w-6 items-center justify-center"
-                    >
-                      <span
-                        className={cn(
-                          'block h-1.5 rounded-full transition-colors',
-                          slideIndex === index
-                            ? 'bg-gold-300 w-5'
-                            : 'bg-white/30 group-hover:bg-white/60 w-1.5',
-                        )}
-                      />
-                      <span className="sr-only">{`Slide ${slideIndex + 1} of ${count}: ${item.title}`}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Announces the new position without moving focus. `polite` so
-                  an autoplay advance does not interrupt whatever the user is
-                  reading. */}
-              <p id={statusId} aria-live="polite" className="sr-only">
-                {`Slide ${index + 1} of ${count}`}
-              </p>
+                {slide.cta.label}
+              </Link>
             </div>
           ) : null}
         </div>
       </div>
+
+      {/* Previous / next, sitting on the band's mid-line.
+
+          Hidden below `sm` because the dots already carry the same action and a
+          44px target at each edge crowds a 320px band. Each is a real button
+          with an explicit accessible name. */}
+      {count > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={() => goTo(index - 1)}
+            disabled={index === 0}
+            className="focus-visible:outline-gold-300 absolute top-1/2 left-4 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full bg-black/25 p-2.5 text-white/75 transition-colors hover:bg-black/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40 sm:left-8 sm:flex"
+          >
+            <ChevronLeft aria-hidden="true" className="h-6 w-6" />
+            <span className="sr-only">Previous slide</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => goTo(index + 1)}
+            disabled={index === count - 1}
+            className="focus-visible:outline-gold-300 absolute top-1/2 right-4 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full bg-black/25 p-2.5 text-white/75 transition-colors hover:bg-black/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40 sm:right-8 sm:flex"
+          >
+            <ChevronRight aria-hidden="true" className="h-6 w-6" />
+            <span className="sr-only">Next slide</span>
+          </button>
+        </>
+      ) : null}
+
+      {/* The dot bar along the bottom edge. Each dot is a real button with the
+          slide it goes to in its accessible name, not just a number. The active
+          dot widens rather than changing colour, so the current position is legible
+          without relying on hue.
+
+          The pause control lives here too when autoplay is active: WCAG 2.2.2
+          requires a mechanism to stop motion that lasts more than five seconds,
+          and it has to be reachable without hovering. */}
+      {count > 1 ? (
+        <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
+          {slides.map((item, slideIndex) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => goTo(slideIndex)}
+              aria-current={slideIndex === index ? 'true' : undefined}
+              className="focus-visible:outline-gold-300 flex min-h-7 min-w-7 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <span
+                className={cn(
+                  'block h-2.5 rounded-full transition-all duration-300',
+                  slideIndex === index ? 'w-7 bg-white' : 'w-2.5 bg-white/55 hover:bg-white/85',
+                )}
+              />
+              <span className="sr-only">{`Slide ${slideIndex + 1} of ${count}: ${item.title}`}</span>
+            </button>
+          ))}
+
+          {autoplayActive ? (
+            <button
+              type="button"
+              onClick={() => setIsPaused((paused) => !paused)}
+              aria-pressed={isPaused}
+              className="focus-visible:outline-gold-300 ml-2 flex min-h-7 items-center gap-1.5 px-1 text-white/75 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              {isPaused ? (
+                <Play aria-hidden="true" className="h-3.5 w-3.5" />
+              ) : (
+                <Pause aria-hidden="true" className="h-3.5 w-3.5" />
+              )}
+              <span className="text-xs">{isPaused ? 'Play' : 'Pause'}</span>
+            </button>
+          ) : null}
+
+          {/* Announces the new position without moving focus. `polite` so an
+              autoplay advance does not interrupt whatever the user is reading. */}
+          <p id={statusId} aria-live="polite" className="sr-only">
+            {`Slide ${index + 1} of ${count}`}
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
