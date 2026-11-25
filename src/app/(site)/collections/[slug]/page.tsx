@@ -3,12 +3,8 @@ import { notFound } from 'next/navigation';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
 import { PageHero } from '@/components/layout/page-hero';
-import {
-  canonicalListingPath,
-  isIndexableListing,
-  parseCatalogueParams,
-  type RawSearchParams,
-} from '@/lib/catalogue/params';
+import { resolveSitePhotograph } from '@/lib/images/site-photography';
+import { listingSeo, parseCatalogueParams, type RawSearchParams } from '@/lib/catalogue/params';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { fetchActiveCollectionSummary } from '@/server/repositories/catalogue-repository';
 import { getListing } from '@/server/services/catalogue-service';
@@ -41,20 +37,20 @@ export async function generateMetadata({
   }
 
   const listingParams = parseCatalogueParams(await searchParams, 'collection', slug);
+  const listing = await getListing(listingParams);
+  const seo = listingSeo(listingParams, listing.total, collection.productCount > 0);
 
   return buildMetadata({
     title: collection.title,
     description:
       collection.description ??
       `${collection.title} — a curated selection from our catalogue. Request pricing and availability on any piece.`,
-    path: canonicalListingPath(listingParams),
+    path: seo.path,
     // A filtered permutation duplicates the clean collection page; an empty
-    // collection is thin content. Both are `noindex`, and the sitemap uses the
-    // same published count to leave the empty ones out.
-    robots: {
-      index: isIndexableListing(listingParams) && collection.productCount > 0,
-      follow: true,
-    },
+    // collection is thin content; a page past the end of the results is a soft
+    // 404. All three are `noindex`, and the sitemap uses the same published
+    // count to leave the empty ones out.
+    robots: { index: seo.index, follow: true },
   });
 }
 
@@ -77,7 +73,13 @@ export default async function Page({
 
   return (
     <>
-      <PageHero eyebrow="Collection" title={collection.title} intro={collection.description} />
+      <PageHero
+        eyebrow="Collection"
+        title={collection.title}
+        intro={collection.description}
+        photograph={resolveSitePhotograph(collection.heroImageUrl) ?? undefined}
+        eyebrowTone="burgundy"
+      />
 
       <div className="container-page py-10 sm:py-14">
         <CatalogueListingView

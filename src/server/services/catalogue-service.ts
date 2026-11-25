@@ -124,6 +124,11 @@ function catalogueCacheKey(params: CatalogueParams): string {
   return JSON.stringify({
     scope: params.scope,
     scopeSlug: params.scopeSlug,
+    // Part of the identity because it changes every link the listing renders,
+    // even though it cannot change a row. Without it a `/search` listing and a
+    // `/shop` listing with the same filters would share one cached object and
+    // one of the two would render the other's URLs.
+    basePath: params.basePath,
     query: params.query,
     facets: params.facets,
     priceMode: params.priceMode,

@@ -88,7 +88,7 @@ export function TextField({
   error?: string;
   required?: boolean;
   maxLength?: number;
-  type?: 'text' | 'email' | 'url' | 'datetime-local' | 'number';
+  type?: 'text' | 'email' | 'url' | 'datetime-local' | 'number' | 'date';
   placeholder?: string;
 }) {
   // Always call the hook, then choose: `error ?? useFieldError(name)` would call

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { CmsPage } from '@/components/content/cms-page';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { FaqAccordion } from '@/components/content/faq-accordion';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ErrorState } from '@/components/ui/states';
@@ -45,6 +46,8 @@ export default async function Page() {
     return (
       <CmsPage
         slug="faq"
+        photograph={SITE_PHOTOGRAPHY.pocketWatch}
+        eyebrowTone="emerald"
         fallback={{
           eyebrow: 'Help',
           title: 'Frequently Asked Questions',
@@ -71,6 +74,8 @@ export default async function Page() {
   return (
     <CmsPage
       slug="faq"
+      photograph={SITE_PHOTOGRAPHY.pocketWatch}
+      eyebrowTone="emerald"
       fallback={{
         eyebrow: 'Help',
         title: 'Frequently Asked Questions',

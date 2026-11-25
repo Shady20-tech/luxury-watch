@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -70,6 +71,8 @@ export default async function CollectionsIndexPage() {
         eyebrow="Shop"
         title="Collections"
         intro="Curated selections from the catalogue, put together by our specialists."
+        photograph={SITE_PHOTOGRAPHY.rolexStellaDials}
+        eyebrowTone="burgundy"
       />
 
       <div className="container-page py-10 sm:py-14">

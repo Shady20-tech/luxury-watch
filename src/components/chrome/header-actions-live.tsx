@@ -46,6 +46,7 @@ export function HeaderActionsLive({ className }: { className?: string }) {
   // know yet, and "Sign in" is the safer thing to show a visitor whose state is
   // unknown. The counts resolve on mount and correct it within one request.
   const [signedIn, setSignedIn] = useState(false);
+  const [staff, setStaff] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +54,7 @@ export function HeaderActionsLive({ className }: { className?: string }) {
       setCartCount(counts.cartCount);
       setWishlistCount(counts.signedIn ? counts.wishlistCount : readGuestWishlist().length);
       setSignedIn(counts.signedIn);
+      setStaff(counts.staff);
     } catch {
       // A failed count leaves the badges as they were. The links still work, and
       // no invented number is shown.
@@ -75,6 +77,7 @@ export function HeaderActionsLive({ className }: { className?: string }) {
       cartCount={cartCount}
       wishlistCount={wishlistCount}
       signedIn={signedIn}
+      staff={staff}
       className={className}
     />
   );

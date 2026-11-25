@@ -1,9 +1,11 @@
 'use client';
 
 import {
+  ArrowUpRight,
   Bell,
   CalendarClock,
   Heart,
+  Home,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -12,6 +14,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Store,
   UserRound,
   Wrench,
 } from 'lucide-react';
@@ -85,11 +88,58 @@ type NavLink = {
   exact?: boolean;
 };
 
-export function AccountNav({ unreadNotifications = 0 }: { unreadNotifications?: number }) {
+export function AccountNav({
+  unreadNotifications = 0,
+  staff = false,
+}: {
+  unreadNotifications?: number;
+  /**
+   * Whether to offer the route back to the admin dashboard.
+   *
+   * A customer has no dashboard to return to, and an "Admin" link on their
+   * sidebar would be a door that opens onto a refusal. The `/admin` guard checks
+   * the role again, so this is an affordance and never a grant.
+   */
+  staff?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
     <nav aria-label="Account" className="lg:sticky lg:top-24 lg:self-start">
+      {/*
+        The way out. Every account screen is inside a sidebar that only ever
+        points further inward, so without this block the only route back to the
+        shop is the wordmark — which does not say it goes home, and is easy to
+        miss when the page content is what the visitor is looking at.
+
+        It is deliberately outside the groups and above the sign-out control:
+        these two are "leave this area", and everything between them is "stay in
+        this area".
+      */}
+      <ul className="mb-4 flex flex-wrap gap-1 border-b border-line-300 pb-3 lg:flex-col lg:gap-0.5">
+        <li>
+          <Link
+            href="/"
+            className="text-foreground-muted hover:bg-surface-100 hover:text-foreground focus-visible:outline-gold-700 flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <Home aria-hidden="true" className="h-4 w-4 shrink-0" />
+            Back to the shop
+          </Link>
+        </li>
+        {staff ? (
+          <li>
+            <Link
+              href="/admin"
+              className="text-foreground-muted hover:bg-surface-100 hover:text-foreground focus-visible:outline-gold-700 flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <Store aria-hidden="true" className="h-4 w-4 shrink-0" />
+              Admin dashboard
+              <ArrowUpRight aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0" />
+            </Link>
+          </li>
+        ) : null}
+      </ul>
+
       {GROUPS.map((group, index) => (
         <div key={group.label} className={index > 0 ? 'mt-4' : undefined}>
           <p className="text-foreground-muted px-3 pb-1 text-xs font-semibold tracking-wide uppercase">

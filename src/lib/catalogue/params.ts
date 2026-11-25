@@ -146,6 +146,17 @@ export type CatalogueParams = {
    * share a model slug such as `other`. See `modelScopeSlug`.
    */
   scopeSlug: string | null;
+  /**
+   * The listing's own path when the scope does not imply it.
+   *
+   * `/search` is a listing with scope `all` — it queries the same RPC with no
+   * scope restriction — but its links must stay on `/search`. Without this,
+   * every facet link, sort submission, page link and the canonical itself
+   * pointed at `/shop`, so a visitor who filtered a search silently left the
+   * search page, and the search page's canonical contradicted the documented
+   * rule that it points at itself. It is `null` for every scope-derived route.
+   */
+  basePath: string | null;
   query: string;
   facets: Record<FacetKey, string[]>;
   priceMode: PriceMode;
@@ -176,15 +187,24 @@ function toStringList(value: string | string[] | undefined): string[] {
 /**
  * A facet value: a human-readable token.
  *
- * The pattern is anchored and negated, so a value cannot contain a control
- * character or a quote. A comma is excluded on purpose: facet lists are joined
- * with a comma in the URL, so a value containing one would split into two.
+ * The pattern is an allowlist: letters, digits, space and a handful of
+ * separators. A comma is excluded on purpose — facet lists are joined with a
+ * comma in the URL, so a value containing one would split into two.
+ *
+ * Apostrophes and underscores are allowed because the database stores them and
+ * the catalogue emits them as filter values: `gender` holds `Men's`, and
+ * `condition` is an enum whose values are `pre_owned` / `unworn`. Leaving them
+ * out did not make those filters safe, it made them *silently ignored* — a
+ * visitor clicking "Men's" got the unfiltered catalogue, which looks like a
+ * filter returning 12 of 12 rather than a filter doing nothing at all. The
+ * allowlist must contain everything the database can legitimately produce, or
+ * it rejects the application's own links.
  */
 const facetValueSchema = z
   .string()
   .min(1)
   .max(120)
-  .regex(/^[\p{L}\p{N}][\p{L}\p{N} .&/+()-]*$/u, 'unsupported characters');
+  .regex(/^[\p{L}\p{N}][\p{L}\p{N} .&/+()'’_-]*$/u, 'unsupported characters');
 
 /**
  * Parse a facet list.
@@ -300,6 +320,7 @@ export function parseCatalogueParams(
   searchParams: RawSearchParams,
   scope: CatalogueParams['scope'] = 'all',
   scopeSlug: string | null = null,
+  basePath: string | null = null,
 ): CatalogueParams {
   const facets = Object.fromEntries(
     FACET_KEYS.map((facet) => [facet.key, parseFacetList(searchParams[facet.key])]),
@@ -308,6 +329,7 @@ export function parseCatalogueParams(
   return {
     scope,
     scopeSlug,
+    basePath,
     query: parseQuery(searchParams.q),
     facets,
     priceMode: parsePriceMode(searchParams.priceMode),
@@ -369,7 +391,13 @@ export function countActiveFilterGroups(params: CatalogueParams): number {
  * `/collections/all` is deliberately absent: it permanently redirects to
  * `/shop`, so `/shop` is the one address for "everything".
  */
-export function catalogueBasePath(params: Pick<CatalogueParams, 'scope' | 'scopeSlug'>): string {
+export function catalogueBasePath(
+  params: Pick<CatalogueParams, 'scope' | 'scopeSlug'> & { basePath?: string | null },
+): string {
+  // An explicit path wins: `/search` queries with scope `all` but is its own
+  // listing, so its links and canonical must not become `/shop`.
+  if (params.basePath) return params.basePath;
+
   switch (params.scope) {
     case 'collection':
       return params.scopeSlug ? `/collections/${params.scopeSlug}` : '/collections';
@@ -500,6 +528,86 @@ export function isIndexableListing(params: CatalogueParams): boolean {
 }
 
 /**
+ * Whether `params` asks for a page past the end of the result set.
+ *
+ * This is a soft 404 and must not be treated as a real page of the series.
+ * `?page=999` on a one-page listing renders `200` with an honest empty state —
+ * that part is right, it tells the visitor the page is past the end and offers
+ * page one — but left indexable it is an unbounded set of 200s: the parser
+ * accepts pages up to 10 000, so a crawler that follows a page link with a
+ * typo, or invents one, is invited to index ten thousand empty duplicates of
+ * the catalogue. The canonical pointed at itself, so the empty pages competed
+ * with the real ones instead of consolidating onto them.
+ *
+ * A genuinely empty catalogue (`total === 0`) is excluded: page 1 of nothing is
+ * an empty state, not an out-of-range request, and `hasActiveFilters` is what
+ * decides whether an empty result should be indexed.
+ */
+function isPageOutOfRange(params: CatalogueParams, total: number): boolean {
+  if (total <= 0) return false;
+  const pages = Math.max(1, Math.ceil(total / params.pageSize));
+  return params.page > pages;
+}
+
+/** How a listing should present itself to a crawler. */
+export type ListingSeo = {
+  /** The canonical path. Always the page's own address, or the address it belongs at. */
+  path: string;
+  /** Whether the page may be indexed. */
+  index: boolean;
+};
+
+/**
+ * The single decision about a listing's canonical and indexability.
+ *
+ * Every catalogue route — the shop, a brand, a collection, a model — asks this
+ * one function, so the four cannot drift apart. The inputs are deliberately the
+ * three facts that actually change the answer:
+ *
+ *   * `params` — filters, a search term, a sort or a page number may make the
+ *     URL a duplicate of the clean listing;
+ *   * `total` — a page past the end of a non-empty result set is a soft 404;
+ *   * `scopeIsEligible` — a brand, collection or model with no published pieces
+ *     is thin content, and saying so needs a database count that only the route
+ *     has.
+ *
+ * A soft-404 page is `noindex` and canonicalises onto the clean listing (page
+ * one), so any number of invented page numbers consolidate onto one address
+ * instead of competing with it.
+ */
+export function listingSeo(
+  params: CatalogueParams,
+  total: number,
+  scopeIsEligible = true,
+): ListingSeo {
+  if (isPageOutOfRange(params, total)) {
+    return { path: canonicalListingPath({ ...params, page: 1 }), index: false };
+  }
+  return {
+    path: canonicalListingPath(params),
+    index: isIndexableListing(params) && scopeIsEligible,
+  };
+}
+
+/**
+ * The page number in the default page-size series that holds the same first
+ * row as `params`.
+ *
+ * Page size is presentation, not content: `?pageSize=48&page=2` and
+ * `?pageSize=24&page=3` both start at the 49th product of the same listing.
+ * Canonicalising by *offset* rather than by page number is what makes that true
+ * on the page and in the canonical at once. Resetting the page size while
+ * keeping the page number — which is what this function replaces — mapped both
+ * to `/shop?page=2`, so two genuinely different result sets claimed one
+ * address, and the canonical named a page that showed different watches.
+ */
+function defaultSeriesPage(params: CatalogueParams): number {
+  if (params.pageSize === DEFAULT_PAGE_SIZE) return params.page;
+  const offset = (params.page - 1) * params.pageSize;
+  return Math.floor(offset / DEFAULT_PAGE_SIZE) + 1;
+}
+
+/**
  * The canonical path for a listing.
  *
  * For a clean listing this is the listing plus its page number, so deeper pages
@@ -532,7 +640,7 @@ export function canonicalListingPath(params: CatalogueParams): string {
       boxAndPapers: null,
       availability: 'any',
     },
-    { page: params.page },
+    { page: defaultSeriesPage(params) },
   );
 }
 

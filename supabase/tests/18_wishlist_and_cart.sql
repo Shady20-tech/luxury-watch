@@ -41,7 +41,7 @@ values
   -- Priced, two units: the only product model that permits a quantity above one.
   ('e0000000-0000-4000-8000-000000000101', 'WC-1', 'wc-priced-two', 'Wc Priced Two',
    'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '10 days',
-   100000, false, 60000, 120000, 'USD', 'Blue', 'Stainless steel'),
+   100000, false, 60000, 120000, 'USD', 'Blue', 'Stainless Steel'),
   -- Priced, one unit: a unique piece.
   ('e0000000-0000-4000-8000-000000000102', 'WC-2', 'wc-priced-one', 'Wc Priced One',
    'e0000000-0000-4000-8000-000000000001', 'published', now() - interval '9 days',
@@ -137,8 +137,8 @@ begin
   if v_line ->> 'case_material' is null then
     raise exception 'FAIL: the line omitted case_material';
   end if;
-  if (v_line ->> 'dial_color') <> 'Blue' or (v_line ->> 'case_material') <> 'Stainless steel' then
-    raise exception 'FAIL: the line carried dial_color %, case_material %, expected Blue/Stainless steel',
+  if (v_line ->> 'dial_color') <> 'Blue' or (v_line ->> 'case_material') <> 'Stainless Steel' then
+    raise exception 'FAIL: the line carried dial_color %, case_material %, expected Blue/Stainless Steel',
       v_line ->> 'dial_color', v_line ->> 'case_material';
   end if;
   raise notice 'pass [cart_pricing: carries the drawn-thumbnail inputs from the product row]';

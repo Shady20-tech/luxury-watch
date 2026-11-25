@@ -126,6 +126,51 @@ describe('text contrast on the light surface', () => {
   });
 });
 
+describe('secondary accents are usable at both ends', () => {
+  /**
+   * The extended palette follows gold's rule: a `-700` is a text colour on a
+   * light ground, a `-300` is a text colour on the dark ground, and the mid
+   * tones are decoration only. Both directions are asserted because using a
+   * `-300` for body text on white (about 2:1) and a `-700` on `night-900`
+   * (about 2:1 as well) are the two mistakes this palette invites.
+   */
+  const white = token('color-surface-0');
+  const muted = token('color-surface-100');
+  const night = token('color-night-900');
+
+  const ACCENTS = ['emerald', 'burgundy', 'sapphire'] as const;
+
+  for (const accent of ACCENTS) {
+    it(`${accent}-700 meets AA for body text on white`, () => {
+      expect(contrastRatio(token(`color-${accent}-700`), white)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${accent}-700 meets AA for body text on the muted surface`, () => {
+      expect(contrastRatio(token(`color-${accent}-700`), muted)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${accent}-300 meets AA on the night ground`, () => {
+      expect(contrastRatio(token(`color-${accent}-300`), night)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it('the ground tints keep body text well above AA', () => {
+    expect(
+      contrastRatio(token('color-ink-900'), token('color-surface-warm')),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(token('color-ink-900'), token('color-surface-cool')),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the ground tints stay light enough to read as a tint, not a colour', () => {
+    // If one darkened past this, it would start competing with the night panels
+    // and the page would lose its light/dark alternation.
+    expect(contrastRatio(token('color-surface-warm'), white)).toBeLessThan(1.3);
+    expect(contrastRatio(token('color-surface-cool'), white)).toBeLessThan(1.3);
+  });
+});
+
 describe('glass surfaces keep text readable', () => {
   /**
    * The glass tokens carry alpha, so their effective colour depends on what is

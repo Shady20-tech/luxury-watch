@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { LogOut, ShieldAlert } from 'lucide-react';
 
-import { AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
+import { AdminMobileNav, AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
 import { UserAvatar } from '@/components/account/user-avatar';
 import { logoutAction } from '@/server/actions/auth-actions';
 import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
@@ -105,6 +105,12 @@ function buildNav(identity: AdminIdentity): AdminNavGroup[] {
   const system = [
     { href: '/admin/settings', label: 'Content & settings' },
     { href: '/admin/audit', label: 'Audit trail' },
+    // Only a super administrator may change a role, so the entry is shown only
+    // to them. The page re-checks the role; this merely keeps a link nobody
+    // else can use out of their sidebar.
+    ...(identity.roles.includes('SUPER_ADMIN')
+      ? [{ href: '/admin/staff', label: 'Staff & roles' }]
+      : []),
   ].filter((i) => may(i.href));
 
   if (catalogue.length > 0) groups.push({ heading: 'Catalogue', items: catalogue });
@@ -170,7 +176,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const avatarUrl = await fetchAvatarUrl(identity.userId);
 
   return (
-    <div className="bg-surface-50 min-h-dvh">
+    <div className="bg-surface-50 min-h-dvh lg:flex">
       <a
         href="#admin-content"
         className="focus:bg-ink-900 focus:text-surface-0 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:px-3 focus:py-2"
@@ -178,60 +184,74 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         Skip to content
       </a>
 
-      <header className="border-line-300 bg-surface-0 border-b">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-baseline gap-3">
-            <Link href="/admin" className="text-base font-semibold">
-              Administration
-            </Link>
-            <Link
-              href="/"
-              className="text-foreground-muted hover:text-ink-900 text-xs underline-offset-4 hover:underline"
-            >
-              View store
-            </Link>
-          </div>
+      {/* The rail is the shell's left edge on a wide viewport: full height, dark,
+          and sticky, so the section list stays put while a long table scrolls.
+          Below `lg` it collapses to a toggle inside the header area and becomes a
+          drawer. The dark ground is what makes the admin read as a different
+          place from the storefront rather than a page of it. */}
+      <aside className="bg-night-900 hidden w-auto shrink-0 p-3 lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-auto">
+        <AdminNav groups={buildNav(identity)} />
+      </aside>
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin/account"
-              className="focus-visible:outline-gold-700 flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
-            >
-              <UserAvatar url={avatarUrl} name={identity.email} size="sm" />
-              <span className="text-foreground-muted hidden text-xs sm:block">
-                {identity.email ?? 'Signed in'}
-                {identity.roles.length > 0 ? (
-                  <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
-                ) : null}
-              </span>
-              <span className="sr-only">Your account</span>
-            </Link>
-            {/* A real form, not a link: signing out is a state change, and a
-                link would be followed by a prefetch or a crawler. */}
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="text-ink-700 hover:text-ink-900 focus-visible:outline-gold-700 inline-flex items-center gap-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+      <div className="min-w-0 flex-1">
+        <header className="border-line-300 bg-surface-0/90 sticky top-0 z-30 border-b backdrop-blur">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <div className="flex items-baseline gap-3">
+              <Link href="/admin" className="text-base font-semibold">
+                Administration
+              </Link>
+              <Link
+                href="/"
+                className="text-foreground-muted hover:text-ink-900 text-xs underline-offset-4 hover:underline"
               >
-                <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
-                Sign out
-              </button>
-            </form>
+                View store
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/admin/account"
+                className="focus-visible:outline-gold-700 flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <UserAvatar url={avatarUrl} name={identity.email} size="sm" />
+                <span className="text-foreground-muted hidden text-xs sm:block">
+                  {identity.email ?? 'Signed in'}
+                  {identity.roles.length > 0 ? (
+                    <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
+                  ) : null}
+                </span>
+                <span className="sr-only">Your account</span>
+              </Link>
+              {/* A real form, not a link: signing out is a state change, and a
+                  link would be followed by a prefetch or a crawler. */}
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="text-ink-700 hover:text-ink-900 focus-visible:outline-gold-700 inline-flex items-center gap-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
+                  Sign out
+                </button>
+              </form>
+            </div>
           </div>
+        </header>
+
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+          {/* The mobile section toggle lives here, above the page content, so it
+              is the first thing above a table on a phone. On desktop the rail is
+              already visible and the component renders nothing at `lg`. */}
+          <div className="mb-5 lg:hidden">
+            <AdminMobileNav groups={buildNav(identity)} />
+          </div>
+
+          {/* `min-w-0` lets the content column shrink below its content width, so
+              a wide table cannot force the page to scroll sideways on a narrow
+              viewport. */}
+          <main id="admin-content" className="min-w-0">
+            {children}
+          </main>
         </div>
-      </header>
-
-      <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-6 lg:grid-cols-[200px_1fr] lg:gap-10 lg:py-10">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <AdminNav groups={buildNav(identity)} />
-        </aside>
-
-        {/* `min-w-0` lets the content column shrink below its content width, so a
-            wide table cannot force the page to scroll sideways on a narrow
-            viewport. */}
-        <main id="admin-content" className="min-w-0">
-          {children}
-        </main>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { AppointmentForm } from '@/components/service/appointment-form';
 import { ErrorState } from '@/components/ui/states';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -73,6 +74,8 @@ export default async function Page() {
         eyebrow="The Boutique"
         title="Request an appointment"
         intro="Choose a time that suits you and tell us what you would like to discuss. We will confirm the appointment with you before you travel."
+        photograph={SITE_PHOTOGRAPHY.patekDisplay}
+        eyebrowTone="gold"
       />
 
       <section

@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, Search, ShoppingBag, User } from 'lucide-react';
+import { Heart, LayoutDashboard, Search, ShoppingBag, User } from 'lucide-react';
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ export function HeaderActions({
   cartCount = 0,
   wishlistCount = 0,
   signedIn = true,
+  staff = false,
   className,
 }: {
   cartCount?: number;
@@ -35,6 +36,14 @@ export function HeaderActions({
    * know renders the neutral case rather than an incorrect "Sign in" prompt.
    */
   signedIn?: boolean;
+  /**
+   * Whether to show the route back to the admin dashboard.
+   *
+   * Only staff see it. The link is an affordance, not a permission: `/admin`
+   * re-checks the role on the server, so a forged `staff` prop reveals a link
+   * that the destination then refuses.
+   */
+  staff?: boolean;
   className?: string;
 }) {
   const actions = [
@@ -57,6 +66,26 @@ export function HeaderActions({
 
   return (
     <div className={cn('flex items-center gap-0.5', className)}>
+      {/* The way back to the dashboard, for staff only. It sits first and is
+          labelled rather than icon-only, because a lone icon among four others
+          would be indistinguishable from the account link at a glance.
+
+          Hidden below `md` rather than below `lg`: the full text pill does not
+          fit beside the search field and the action icons at 320px, but a
+          compact icon-only variant does, and a member of staff who runs the
+          storefront from a phone should not have to reach the dashboard through
+          their account page. The icon keeps the accessible name "Admin
+          dashboard", so the compact form is not a mystery to a screen reader.
+          The label reappears at `md`, where there is room for it. */}
+      {staff ? (
+        <Link
+          href="/admin"
+          className="text-on-night hover:bg-white/10 focus-visible:outline-gold-300 mr-1 inline-flex h-11 w-11 items-center justify-center rounded-sm border border-white/25 transition-colors hover:border-white/60 focus-visible:outline-2 focus-visible:outline-offset-2 md:h-10 md:w-auto md:gap-2 md:px-3"
+        >
+          <LayoutDashboard aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span className="sr-only md:not-sr-only md:text-sm md:font-medium">Admin dashboard</span>
+        </Link>
+      ) : null}
       {actions.map(({ href, label, Icon, count, hideBelowSm }) => (
         <Link
           key={href}

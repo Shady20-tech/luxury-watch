@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { FileQuestion } from 'lucide-react';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { noIndexMetadata } from '@/lib/seo/metadata';
@@ -101,6 +102,8 @@ export default async function Page({
         eyebrow="Order request"
         title={request.reference}
         intro="This is what we have on record. To change anything, reply to the email address you gave us and quote this reference."
+        photograph={SITE_PHOTOGRAPHY.rolexOysterPerpetual}
+        eyebrowTone="gold"
       />
 
       <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:py-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">

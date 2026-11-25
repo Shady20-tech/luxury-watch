@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { ContactForm } from '@/components/service/contact-form';
 import { getChrome } from '@/server/services/chrome-service';
 import { buildMetadata } from '@/lib/seo/metadata';
@@ -49,6 +50,8 @@ export default async function Page() {
         eyebrow="The Boutique"
         title="Contact"
         intro="Ask about a piece, request an appointment or start a service request. Send us a message and a member of the team will reply."
+        photograph={SITE_PHOTOGRAPHY.pocketWatch}
+        eyebrowTone="emerald"
       />
 
       <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-16 lg:py-14 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-16">

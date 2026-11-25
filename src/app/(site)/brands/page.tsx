@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -79,6 +80,8 @@ export default async function BrandsIndexPage() {
         eyebrow="Shop"
         title="Brands"
         intro="The houses we carry, and the model families within each. Every piece is sourced and inspected by us."
+        photograph={SITE_PHOTOGRAPHY.patekDisplay}
+        eyebrowTone="sapphire"
       />
 
       <div className="container-page py-10 sm:py-14">

@@ -128,6 +128,22 @@ export function CatalogueCard({
             <Badge variant="neutral">Price on request</Badge>
           ) : null}
         </div>
+
+        {/* Attribution for the photograph above.
+            CC BY and CC BY-SA require the author and the licence to be named
+            wherever the work is shown, and a listing card is a display — a grid
+            of 48 cards is 48 displays. It is plain text rather than a link on
+            purpose: the alternative is one outbound link per card in the tab
+            order, and the licences require attribution, not a clickable one. The
+            product page carries the same credit linked to its source.
+            `text-ink-500` on solid `surface-0`, not a translucent overlay: a
+            caption over a photograph cannot promise a contrast ratio, and this
+            must clear 4.5:1 whatever the photo behind it shows. */}
+        {product.imageCredit && product.imageUrl ? (
+          <p className="text-ink-500 border-line-200 bg-surface-0 border-t px-3 py-1.5 text-[0.625rem] leading-snug">
+            Photo: {product.imageCredit.credit} ({product.imageCredit.licence})
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col p-5">

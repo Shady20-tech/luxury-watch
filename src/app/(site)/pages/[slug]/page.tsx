@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { PageBlocks } from '@/components/content/page-blocks';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { ErrorState } from '@/components/ui/states';
 import { buildMetadata, noIndexMetadata } from '@/lib/seo/metadata';
 import { fetchPublishedPageSlugs } from '@/server/repositories/content-repository';
@@ -97,7 +98,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
   return (
     <div>
-      <PageHero title={page.title} intro={page.excerpt} />
+      <PageHero
+        title={page.title}
+        intro={page.excerpt}
+        photograph={SITE_PHOTOGRAPHY.watchmakerBench}
+        eyebrowTone="emerald"
+      />
 
       <div className="container-page max-w-3xl py-10 lg:py-14">
         {page.blocks.length > 0 ? (

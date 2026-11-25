@@ -8,6 +8,280 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### A search page's filters walked the visitor out of search
+
+**Date:** 2026-11-19
+
+`/search` is a listing with scope `all`: it calls the same RPC as `/shop` with no
+scope restriction, so the parser described it accurately and still produced the
+wrong links. Every address the page emitted was rebuilt from the *scope*, and
+scope `all` means `/shop`. So filtering a search navigated to `/shop?q=…`, a sort
+submission left the search page, page 2 of a search was page 2 of the shop, and
+the canonical pointed at `/shop` while `docs/SEO.md` says a search result page is
+`noindex` and canonicalises to itself.
+
+`CatalogueParams` now carries `basePath`, the listing's own path where the scope
+does not imply it. It is `null` on every scope-derived route — `/shop`, a brand,
+a collection, a model — so those keep deriving their address exactly as before,
+and `/search` passes `/search`. One value, read by `buildCatalogueHref`, the sort
+form, the pagination links and `listingSeo`, so the four cannot disagree again.
+
+Verified live against a production build on real rows: `/search?q=rolex` now
+emits facet links as `/search?q=rolex&condition=pre_owned`, paginates to
+`/search?q=rolex&page=2&pageSize=12`, and carries a self-referencing canonical
+with `noindex, follow`.
+
+### Facet values the database produces were rejected by the parser
+
+**Date:** 2026-11-19
+
+The facet-value allowlist was `[\p{L}\p{N} .&/+()-]`. Two values the catalogue
+itself emits did not match it: `gender` holds `Men's`, and `condition` is an enum
+whose values are `pre_owned` and `unworn`. A rejected value is not an error — it
+is *silently dropped* — so clicking "Men's" rendered the unfiltered catalogue.
+That is the worst shape a filter bug can take: twelve results of twelve looks
+like a working filter that matched everything, not like a filter that was ignored.
+
+The allowlist now admits apostrophes (straight and typographic) and underscores.
+It is still an allowlist, so the protection against control characters and quotes
+is unchanged; the change is that it now contains everything the database can
+legitimately produce. Verified live: `gender=Men's` returns 5 of 5, matching the
+database exactly, and `condition=pre_owned` returns 5.
+
+`tests/catalogue-params.test.ts` now parses every value the seed stores, so the
+allowlist cannot drift behind the schema again.
+
+### A "disabled" filter row was still a working link for a keyboard user
+
+**Date:** 2026-11-19
+
+A facet with a zero count was rendered as an `<a>` with `pointer-events-none`
+and `opacity-60`. The pointer could not click it, which is the intended
+behaviour, and the row stayed in the list so the panel did not jump as filters
+changed. But `pointer-events-none` is a mouse-only declaration: the anchor stayed
+in the tab order, announced itself as a link, and `Enter` navigated to an empty
+grid. A keyboard user could reach a destination a mouse user could not.
+
+`FilterRow` now renders a `<span aria-disabled="true">` when the count is zero.
+It is not focusable, it announces itself as unavailable, and it keeps its place.
+The current selection is exempt, because it is the way back out of a filter.
+`aria-pressed` is still absent — these are links, and the audit rejects that
+attribute on one.
+
+`tests/catalogue-params.test.ts` asserts the markup, because jsdom does not run
+the rule that would otherwise catch it: it checks that a zero-count row is not an
+anchor, carries `aria-disabled`, and that a selected row carries `aria-current`.
+
+### A model page's breadcrumb failed the browser audit, and only with real rows
+
+**Date:** 2026-11-19
+
+`/brands/[slug]/models/[model]` hand-rolled its trail: three `<a>`/`<span>`
+elements separated by bare `/` characters inside a `<nav>`. axe reported
+`link-in-text-block` — WCAG 1.4.1, "links must be distinguishable without
+relying on colour" — at all four viewports.
+
+It had never been seen because the seed publishes twelve products and none of
+them belonged to a model page, so the route was audited empty and axe had no
+text block to measure. Publishing 72 rows to exercise pagination made the page
+render cards, and the defect appeared. The shared `Breadcrumbs` component renders
+an `<ol>` with one crumb per `<li>`, so no link shares a text block with prose;
+the model page now uses it instead of its own markup.
+
+`tests/breadcrumbs.test.tsx` pins the structure — an ordered list, links on every
+crumb but the last, `aria-current="page"` on the final one — because jsdom cannot
+lay out a document and the axe rule that caught this never runs there.
+
+The audit is now clean across 33 pages × 4 viewports **with 72 published rows**,
+which is the configuration that exposed it. That is the point worth keeping: a
+green audit on a nearly empty database says very little about the pages it
+audited.
+
+### Roles had no way to be changed, and a product had no way to be removed
+
+**Date:** 2026-11-19
+
+The admin platform could read `user_roles` and could not write one. `user_roles`
+had an `ALL` policy for `SUPER_ADMIN` since 0007, so a table write would have
+passed RLS — and would still have been wrong, because a row policy cannot
+guarantee the four things a grant must: that `granted_by` is the actor, that the
+actor still holds `SUPER_ADMIN` at the moment of the grant, that the change is in
+the audit trail, and that the system cannot be locked out of its own role
+administration.
+
+Migration `0033` adds `admin_grant_role` and `admin_revoke_role`, both
+`SECURITY DEFINER` and both re-checking `has_role('SUPER_ADMIN')` inside the
+database rather than trusting the session's cached permission set. A self-grant is
+refused; a self-revocation is allowed, because a step-down is a legitimate thing
+to want and refusing it would mean the only way out of a role was to ask somebody
+else. The last unexpired `SUPER_ADMIN` cannot be removed, and an expired grant does
+not count as cover for that guard.
+
+The first version of `admin_revoke_role` deleted the row and then wrote the audit
+record. The test caught it immediately: `admin_write_audit_log` refuses a caller
+who is not staff, so a super administrator stepping down from their last staff
+role made themselves non-staff before the audit row was written, and the whole
+revocation failed. Writing the audit first fixes it and both statements still share
+the transaction.
+
+`admin_remove_product` is the other half. It is a soft delete — the row is
+archived, not deleted — because `order_request_items`, `cart_items`,
+`wishlist_items`, `inventory` and the service tables all reference a product, and a
+hard `DELETE` would cascade a customer's order history away with it. Archiving is
+what the storefront already treats as "not for sale", so removal reuses that one
+definition instead of inventing a second.
+
+The admin screen is `/admin/staff`, gated on `SUPER_ADMIN` in the page itself and
+reachable only from a super administrator's sidebar. Appointing a new person
+resolves their exact email to an account rather than browsing `profiles` by
+substring, so the field cannot enumerate customers. `supabase/tests/67_role_management.sql`
+proves the six properties, including that a revoked super administrator can no
+longer grant in the same session.
+
+Also in this pass: the storefront header's staff-only dashboard link was hidden
+below `lg`, so staff running the shop from a phone reached it only through their
+account page. It now shows a compact icon-only form at every width and expands to
+the full label at `md`.
+
+### Interior pages opened on a bare black band; the site had no photography of its own
+
+**Date:** 2026-11-19
+
+Every interior template opened with the same black rectangle. The band itself is
+right — it is the reference's rhythm, and `PageHero` implements it — but a site
+whose every page opens identically reads as unfinished, and the seed's product
+photography is a catalogue shot on white, which is the wrong register for an
+editorial band.
+
+Ten photographs were curated from Wikimedia Commons, chosen for a dark, moody
+register rather than the white-background catalogue look, and recompressed to
+webp at the size they are displayed. `src/lib/images/site-photography.ts` is now
+the single registry of what was used: dimensions, author, licence and licence
+URL for each, plus a resolver that maps a database-stored root-relative path to
+its registry entry. Anything not in the registry — an administrator's upload, an
+external URL — falls through untouched, so the registry constrains the seed
+without constraining the product.
+
+The images are wired through the database, not hardcoded into components:
+migration `0031_site_photography.sql` populates `homepage_sections.image_url`
+and `brands`/`collections`/`models.hero_image_url`, and the repositories return
+them. A model with no picture of its own borrows its brand's, so the more
+specific page is the one that can differ.
+
+Two licence traps cost time and are worth recording. The seed-photography test
+enforces an allowlist of licence strings, and it rejected `CC BY-SA 3.0 fr` and
+`CC0`; one image was dropped rather than the test widened. And a 512 KB original
+became 138 KB once resized to its display size, which is the whole argument for
+compressing at the target dimensions rather than shipping the download.
+
+**The defect this work introduced, and its fix.** `PageHero` hides the
+photograph below `lg` — on a narrow viewport the band is short and the image
+would sit behind the text. But the image was marked `priority`, and `priority`
+emits `<link rel="preload">`, which a browser fetches regardless of CSS. At
+320px every interior page downloaded a hero photograph it never painted:
+measured at 14.7 KB per pageview, and competing with the real LCP element, which
+is the `h1` text. Switching to `loading="lazy"` with no preload fixes both ends
+at once — a `display: none` lazy image is never fetched, while on desktop the
+image is inside the initial viewport so the loader fetches it immediately.
+`tests/page-hero.test.tsx` now asserts the image is lazy, is not
+`fetchpriority="high"`, and carries an empty `alt` in an `aria-hidden` wrapper.
+Re-measured after the fix: 0 bytes at 320px, 55 KB at 1440px.
+
+`MediaFrame` was deliberately not reused for these images. It letterboxes a
+product shot on a white panel with `object-contain`, which is right for a card
+and wrong for an editorial hero — the hero fills its frame with `object-cover`
+and fades its left edge into the band so the picture and the copy read as one
+surface.
+
+### There was no way back to the dashboard
+
+**Date:** 2026-11-19
+
+The admin area had a "View store" link, but it was a small muted label in a busy
+top bar, and the account sidebar pointed only further inward. Staff moving
+between the storefront and `/admin` had no labelled route in either direction.
+
+Three links were added, each at the place the person is already looking:
+`HeaderActions` draws a "Dashboard" pill for staff (hidden below `lg`, where the
+row has no space for it), `AccountNav` draws "Back to the shop" and "Admin
+dashboard" above its groups, and `AdminNav` leads with "View the storefront".
+Whether the visitor is staff comes from `readHeaderCounts`, which now calls the
+same `isStaff()` helper the `/admin` guard uses — so the link and the guard
+cannot disagree. The link is an affordance and never a grant: `/admin` re-checks
+the role on the server when the link is followed.
+
+### Listing cards showed licensed photographs with no attribution
+
+**Date:** 2026-11-19
+
+Migration 0028 gave `product_images` a `credit`, a `licence` and a
+`licence_url`, and the product detail gallery rendered all three. Every listing
+did not, because the RPCs behind them returned only the image path and alt
+text — so `/shop`, each collection page, each brand and model page, `/search`,
+`/wishlist` and the product page's own "Related timepieces" rail showed the
+seed's Wikimedia Commons photography with no photographer named.
+
+That is a licence defect rather than a cosmetic one. The seed photographs are
+CC BY 4.0 and CC BY-SA 4.0, and both require the author to be credited wherever
+the work is displayed; CC BY-SA additionally requires the licence to be named. A
+card is a display, and the busiest surface on the site was the one that never
+credited anything.
+
+The three functions that feed a `CatalogueCard` — `catalogue_search`,
+`catalogue_by_ids` and `catalogue_similar` — now return the credit columns of
+the row their image lateral already selects, so the attribution is always the
+photograph the card actually shows rather than whichever image happened to join.
+A credit was added rather than a second query for the visible page: two places
+deciding which image is primary is exactly how a card ends up crediting one
+photograph and displaying another.
+
+The card renders `Photo: <author> (<licence>)` as plain text on a solid surface,
+not a link and not an overlay. A link would add one outbound tab stop per card,
+and the licences require attribution, not a clickable one — the product page
+still carries the same credit linked to its source. A solid background is what
+lets the caption promise 4.5:1 contrast whatever the photograph behind it shows;
+the token rule in AGENTS.md already forbids `ink-400` for text.
+
+`supabase/tests/65_catalogue_image_attribution.sql` proves the RPCs return the
+primary image's credit and that a piece with no photograph reports none.
+`tests/catalogue-card-attribution.test.ts` pins the mapper's rule that a credit
+needs both an author and a licence — half an attribution does not satisfy
+CC BY-SA. Both were mutation-tested: dropping the columns from the RPCs, and
+accepting a licence with no author, each make the corresponding test fail.
+
+### An out-of-range page number was an indexable, self-canonical 200
+
+**Date:** 2026-11-19
+
+`/shop?page=999` answered `200` with an empty grid, `robots: index, follow` and a
+canonical pointing at **itself**. The empty state was honest — it said the
+results run to one page and offered page one — so nothing looked broken. But the
+parser accepts any page up to 10 000, and each of those URLs declared itself a
+distinct indexable page of the series. An invented or mistyped page number
+competed with the real listing instead of consolidating onto it, and the site had
+an unbounded family of empty 200s for a crawler to discover.
+
+The root cause was that the indexability decision and the canonical were made
+without knowing whether the page exists. `isIndexableListing()` reads only the
+query string, so it correctly said "pagination is a genuine series" — it simply
+could not see that this particular page was past the end.
+
+Both answers now come from one function, `listingSeo(params, total, scopeIsEligible)`,
+which adds the missing fact. A soft-404 page is `noindex, follow` and
+canonicalises onto page one; a real deeper page stays indexable and
+self-canonical, which is what the existing pagination rule intends. All four
+listing routes call it, so `/shop`, a brand, a collection and a model cannot
+drift apart on this — they previously each assembled the same two rules by hand.
+
+Verified live against a production build, on a database temporarily grown to two
+pages: `/shop?pageSize=12&page=2` stayed `index, follow` with a self-canonical,
+while `page=3` became `noindex, follow` canonicalised to `/shop`. The same
+boundary holds on `/brands/rolex`, `/collections/featured` and
+`/brands/rolex/models/milgauss`. `tests/catalogue-params.test.ts` pins it, and
+was mutation-tested by making `isPageOutOfRange` return `false` — the new test
+failed, so it is not vacuous. `docs/SEO.md` now carries the missing row in the
+crawl-trap table.
+
 ### The sort test asserted a sort that does not exist
 
 **Date:** 2026-11-19

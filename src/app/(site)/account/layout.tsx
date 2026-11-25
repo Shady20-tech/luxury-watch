@@ -6,7 +6,7 @@ import { AccountNav } from '@/components/account/account-nav';
 import { UserAvatar } from '@/components/account/user-avatar';
 import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
 import { countUnreadNotifications } from '@/server/services/notification-service';
-import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
+import { getAccountAccess, isStaff, loginPathFor } from '@/server/services/authorization-service';
 
 /**
  * The account area shell, and the guard that protects every route inside it.
@@ -75,9 +75,13 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   // themselves: the layout wraps every account page and must not become a second
   // place that reads a customer's inbox. It runs in parallel with the avatar
   // lookup so the shell waits for one round trip, not two.
-  const [avatarUrl, unreadNotifications] = await Promise.all([
+  const [avatarUrl, unreadNotifications, staff] = await Promise.all([
     fetchAvatarUrl(access.user.id),
     countUnreadNotifications(),
+    // Whether to offer the route to `/admin` beside the route home. This is not
+    // a guard — the admin layout checks the role itself — only a decision about
+    // whether to draw a link a customer cannot use.
+    isStaff(),
   ]);
 
   return (
@@ -96,7 +100,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[220px_1fr] lg:gap-12">
-        <AccountNav unreadNotifications={unreadNotifications} />
+        <AccountNav unreadNotifications={unreadNotifications} staff={staff} />
 
         {/* `min-w-0` lets the content column shrink below its content width, so a
             long order reference or a wide table cannot force the page to scroll

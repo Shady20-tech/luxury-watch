@@ -1,0 +1,240 @@
+/**
+ * Editorial photography used to dress the public site.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THIS IS A CODE FILE AND NOT A DATABASE TABLE
+ * -----------------------------------------------------------------------------
+ *
+ * These images decorate page chrome — a hero band, an editorial split — rather
+ * than record which photograph shows which watch for sale. They are not
+ * catalogue media, so they do not belong in `product_images`. Keeping them here
+ * means the attribution travels with the asset in the same commit, cannot be
+ * lost by a partial seed, and is typechecked.
+ *
+ * -----------------------------------------------------------------------------
+ * THE LICENCE RULE
+ * -----------------------------------------------------------------------------
+ *
+ * Every entry is CC BY, CC BY-SA or CC0 — the families that permit commercial
+ * use. NC and ND variants are not eligible: this is a commercial storefront, and
+ * ND would forbid the crop applied here. A ported licence (`CC BY-SA 3.0 fr`) is
+ * also excluded, because the deed is not the one the unported URL describes.
+ *
+ * Every CC BY / CC BY-SA entry names its author, because those licences require
+ * it. CC0 does not legally require attribution, but we credit anyway so the
+ * provenance of every pixel on the site is traceable.
+ *
+ * `tests/site-photography.test.ts` asserts each file exists, each credit is
+ * present, and each licence URL matches the licence named. Adding an image
+ * without its attribution fails the suite rather than shipping.
+ *
+ * -----------------------------------------------------------------------------
+ * WHAT THESE ARE NOT
+ * -----------------------------------------------------------------------------
+ *
+ * None of these is a photograph of a watch we have in stock, and none may be
+ * used on a product card or detail page. Those keep using `product_images` and
+ * its `is_representative` flag. Using one of these there would present a stock
+ * photograph as the actual piece for sale, which is a misdescription.
+ */
+
+export type SitePhotograph = {
+  /** Path under `public/`, as the browser requests it. */
+  src: string;
+  /** What the image shows. Used as `alt` where the image carries meaning. */
+  alt: string;
+  /** Photographer or uploader, as named on the source page. */
+  credit: string;
+  licence: SitePhotographLicence;
+  licenceUrl: string;
+  /** The Commons file page, so the licence can be traced back. */
+  sourceUrl: string;
+  width: number;
+  height: number;
+};
+
+export type SitePhotographLicence =
+  | 'CC BY 2.0'
+  | 'CC BY 4.0'
+  | 'CC BY-SA 2.0'
+  | 'CC BY-SA 4.0'
+  | 'CC0';
+
+export const SITE_PHOTOGRAPHY = {
+  /** A watchmaker's bench with tools laid out. The warmest, most human image we have. */
+  watchmakerBench: {
+    src: '/site-photography/watchmaker-bench.webp',
+    alt: 'A watchmaker’s bench with hand tools laid out ready for a service.',
+    credit: 'Yılmaz Kilim',
+    licence: 'CC0',
+    licenceUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Watchmaker_(184539829).jpeg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** An exposed chronograph calibre. Reads as craft and engineering. */
+  omegaCalibre1861: {
+    src: '/site-photography/omega-calibre-1861.webp',
+    alt: 'An exposed mechanical chronograph movement, showing the bridges and column wheel.',
+    credit: 'Shane Lin',
+    licence: 'CC BY-SA 2.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/2.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Omega_Cal._1861_Chronograph_Movement.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A movement on a neutral ground — a quiet decorative panel. */
+  burenMovement: {
+    src: '/site-photography/buren-movement.webp',
+    alt: 'An exposed mechanical watch movement photographed from above.',
+    credit: 'Raminagrobis',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Buren_1000_watch_movement.jpg',
+    width: 1400,
+    height: 1400,
+  },
+
+  /** Gold Day-Date dials in several lacquered colours. Colour for a dark band. */
+  rolexStellaDials: {
+    src: '/site-photography/rolex-stella-dials.webp',
+    alt: 'Several gold wristwatches with lacquered dials in different colours.',
+    credit: 'Kevin Sweeney',
+    licence: 'CC0',
+    licenceUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Rolex_Day-Date_Lacquered_Stella_Dial.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A gold Oyster Perpetual. Warm, and reads as a classic dress watch. */
+  rolexOysterPerpetual: {
+    src: '/site-photography/rolex-oyster-perpetual.webp',
+    alt: 'A gold Rolex Oyster Perpetual wristwatch with a champagne dial.',
+    credit: 'Camwolf12',
+    licence: 'CC0',
+    licenceUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Rolex_Oyster_Perpetual_with_a_%22Jubliee%22_dial.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A GMT with a two-tone bezel: the dark, graphic, high-contrast watch shot. */
+  rolexGmtBatgirl: {
+    src: '/site-photography/rolex-gmt-batgirl.webp',
+    alt: 'A steel Rolex GMT-Master II with a blue and black bezel.',
+    credit: 'Brattyq',
+    licence: 'CC0',
+    licenceUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Rolex-GMT-Master-II-Batgirl.jpg',
+    width: 1200,
+    height: 1500,
+  },
+
+  /** A gold Submariner with a coloured dial. Fills a portrait slot. */
+  rolexSubmarinerSultan: {
+    src: '/site-photography/rolex-submariner-sultan.webp',
+    alt: 'A gold Rolex Submariner with a deep blue dial on a matching bracelet.',
+    credit: 'EMore98',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Rolex_Submariner_ref._16618_Sultan_Dial.jpg',
+    width: 1400,
+    height: 1400,
+  },
+
+  /** A dark, sculptural coin watch. Reads almost as an object, not a product. */
+  corumCoinwatch: {
+    src: '/site-photography/corum-coinwatch.webp',
+    alt: 'A gold coin watch photographed against a dark ground.',
+    credit: 'Chcrm',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Corum_CoinWatch_Mushroom_BlackBackground.jpg',
+    width: 1000,
+    height: 1250,
+  },
+
+  /** A blue-dial sports watch on a dark ground. */
+  midoOceanStar: {
+    src: '/site-photography/mido-ocean-star.webp',
+    alt: 'A blue-dial sports watch photographed against a dark background.',
+    credit: 'Minzoblate',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Mido-Ocean-Star-V-Blue-Dial-1024.jpg',
+    width: 1200,
+    height: 1500,
+  },
+
+  /** A cabinet of Patek Philippes. Editorial, and unmistakably a collection. */
+  patekDisplay: {
+    src: '/site-photography/patek-display.webp',
+    alt: 'A display of Patek Philippe watches in a boutique cabinet.',
+    credit: 'Kamal Aboul-Hosn',
+    licence: 'CC BY 2.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by/2.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Tiffany%27s_Patek_Philippe_Watch_Collection_03.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /**
+   * A gold key-wound pocket watch against a dark ground.
+   *
+   * The account and authentication pages need an image that reads as *personal*
+   * rather than as stock: an inherited object with a chain, not another steel
+   * sports watch. It is also the darkest of the landscape plates after the
+   * coin-watch, so it holds up behind white text on the sign-in band.
+   */
+  pocketWatch: {
+    src: '/site-photography/pocket-watch.webp',
+    alt: 'A gold key-wound pocket watch photographed against a dark ground.',
+    credit: 'Anonymous (Warsaw)',
+    licence: 'CC0',
+    licenceUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Warsaw_Gold_pocket_watch_of_Fryderyk_Chopin_01.jpg',
+    width: 2000,
+    height: 1125,
+  },
+} as const satisfies Record<string, SitePhotograph>;
+
+export type SitePhotographKey = keyof typeof SITE_PHOTOGRAPHY;
+
+export function photograph(key: SitePhotographKey): SitePhotograph {
+  return SITE_PHOTOGRAPHY[key];
+}
+
+/**
+ * Resolve a database-stored `hero_image_url` to a resolvable hero, or `null`.
+ *
+ * The column holds a plain path (`/site-photography/x.webp`), but
+ * `PageHero` wants a whole `SitePhotograph`. Everything the hero needs beyond
+ * the path — the alt text, the credit, the intrinsic dimensions — lives in this
+ * registry, not in the row, so the row stays a single string an administrator
+ * can edit in the admin.
+ *
+ * Two outcomes only:
+ *
+ *  - a path that is in the registry resolves to its entry, and the hero renders;
+ *  - anything else returns `null`, and the hero renders its plain dark band.
+ *
+ * Returning `null` rather than a half-built object is the same discipline
+ * `resolveImageUrl` follows for catalogue images: a path we cannot attribute is
+ * not shown, because showing it would put an uncredited photograph on the site
+ * with no way for the licence to travel with it. An administrator who uploads a
+ * picture to Storage and pastes the URL here therefore gets the plain band, not
+ * a broken image and not an unattributed one.
+ */
+export function resolveSitePhotograph(path: string | null | undefined): SitePhotograph | null {
+  if (!path) return null;
+  const match = Object.values(SITE_PHOTOGRAPHY).find((entry) => entry.src === path);
+  return match ?? null;
+}

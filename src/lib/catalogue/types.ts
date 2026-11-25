@@ -36,6 +36,21 @@ export type CatalogueProduct = {
   summary: string | null;
   imageUrl: string | null;
   imageAlt: string;
+  /**
+   * Attribution for the photograph `imageUrl` points at, or `null` when the row
+   * has no photo or the photo carries no recorded credit.
+   *
+   * Required by CC BY 4.0 and CC BY-SA 4.0, which is what the seed photography
+   * is under: the author and the licence must be named wherever the work is
+   * shown, and a listing card is a display. `licenceUrl` is nullable because a
+   * licence name on its own is still valid attribution; the link is the
+   * courtesy, not the requirement.
+   */
+  imageCredit: {
+    credit: string;
+    licence: string;
+    licenceUrl: string | null;
+  } | null;
   /** Formatted price, or `null` when priced on request. */
   price: string | null;
   condition: 'new' | 'unworn' | 'pre_owned' | 'vintage' | null;

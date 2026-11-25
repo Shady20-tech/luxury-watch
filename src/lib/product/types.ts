@@ -40,6 +40,22 @@ export type ProductImage = {
   /** Intrinsic dimensions when the row records them, so the layout can reserve space. */
   width: number | null;
   height: number | null;
+  /**
+   * The photographer and the licence, when the image is a licensed third-party
+   * photograph rather than the dealer's own. Both are null together: a credit
+   * without a licence does not tell a reader what they may do with the picture,
+   * and CC BY-SA requires both, so a partial pair is treated as absent.
+   */
+  credit: string | null;
+  licence: string | null;
+  licenceUrl: string | null;
+  sourceUrl: string | null;
+  /**
+   * True when the photograph shows a model example of this watch rather than the
+   * exact piece in stock. The page says so beside the gallery; showing an
+   * example without saying so misdescribes the item for sale.
+   */
+  isRepresentative: boolean;
 };
 
 /** One row of the specification table. */

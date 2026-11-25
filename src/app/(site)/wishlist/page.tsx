@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { CatalogueCard } from '@/components/catalogue/catalogue-card';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { MoveToCartButton } from '@/components/wishlist/move-to-cart-button';
 import { WishlistRemoveButton } from '@/components/wishlist/wishlist-remove-button';
 import { GuestWishlist } from '@/components/wishlist/guest-wishlist';
@@ -58,6 +59,8 @@ export default async function Page() {
             ? 'Pieces you have saved to your account. Availability is confirmed from the catalogue each time you view this page.'
             : 'Pieces you have saved on this device. Sign in to keep them in your account.'
         }
+        photograph={SITE_PHOTOGRAPHY.rolexSubmarinerSultan}
+        eyebrowTone="burgundy"
       />
 
       {viewer.signedIn && viewer.userId ? (

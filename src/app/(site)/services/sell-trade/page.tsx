@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { SellTradeForm } from '@/components/service/sell-trade-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 
@@ -44,7 +45,12 @@ const STEPS = [
 export default function Page() {
   return (
     <div>
-      <PageHero eyebrow="Services" title="Sell or trade" />
+      <PageHero
+        eyebrow="Services"
+        title="Sell or trade"
+        photograph={SITE_PHOTOGRAPHY.corumCoinwatch}
+        eyebrowTone="burgundy"
+      />
 
       <div className="container-page py-10 lg:py-14">
         <section className="mt-10" aria-labelledby="how-it-works">

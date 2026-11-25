@@ -162,22 +162,45 @@ Faceted navigation and sort permutations multiply URLs. The strategy has one
 rule per URL class, and the sitemap applies the same rule so the two never
 contradict each other.
 
-| URL class                                     | Indexed?             | Canonical                             | In sitemap?                                               |
-| --------------------------------------------- | -------------------- | ------------------------------------- | --------------------------------------------------------- |
-| `/shop`, `/brands/x`, `/collections/x`        | yes                  | itself                                | yes, if it has published pieces                           |
-| `/shop?page=2` (any clean listing + page)     | yes                  | itself                                | no — a sitemap lists the head of a series, not every page |
-| `/shop?sort=price_asc`                        | yes                  | the clean listing                     | no                                                        |
-| `/shop?pageSize=48`                           | yes                  | the clean listing                     | no                                                        |
-| any listing with a filter or a `q` term       | no                   | the clean listing (`noindex, follow`) | no                                                        |
-| `/search` (blank or not)                      | no                   | `/search`                             | no                                                        |
-| a brand or collection with 0 published pieces | no                   | itself (`noindex, follow`)            | no                                                        |
-| `/collections/all`                            | n/a — 308 to `/shop` | —                                     | no                                                        |
+| URL class                                     | Indexed?             | Canonical                                                  | In sitemap?                                               |
+| --------------------------------------------- | -------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
+| `/shop`, `/brands/x`, `/collections/x`        | yes                  | itself                                                     | yes, if it has published pieces                           |
+| `/shop?page=2` (any clean listing + page)     | yes                  | itself                                                     | no — a sitemap lists the head of a series, not every page |
+| `/shop?page=999` (past the last page)         | no — a soft 404      | the clean listing                                          | no                                                        |
+| `/shop?sort=price_asc`                        | yes                  | the clean listing                                          | no                                                        |
+| `/shop?pageSize=48`                           | yes                  | the page in the 24-per-page series with the same first row | no                                                        |
+| `/shop?pageSize=48&page=2`                    | yes                  | `/shop?page=3`                                             | no                                                        |
+| any listing with a filter or a `q` term       | no                   | the clean listing (`noindex, follow`)                      | no                                                        |
+| `/search` (blank or not)                      | no                   | `/search`                                                  | no                                                        |
+| a brand or collection with 0 published pieces | no                   | itself (`noindex, follow`)                                 | no                                                        |
+| `/collections/all`                            | n/a — 308 to `/shop` | —                                                          | no                                                        |
 
-The decision lives in `isIndexableListing()` and `canonicalListingPath()` in
-`src/lib/catalogue/params.ts`, and `tests/catalogue-params.test.ts` pins it. The
-scoped-page half — a brand or collection holding nothing — is pinned separately
-in `tests/catalogue-scope-indexing.test.ts`, because it depends on a database
-count rather than only on the query string.
+The decision lives in `listingSeo()` in `src/lib/catalogue/params.ts`, which
+wraps `isIndexableListing()` and `canonicalListingPath()` and adds the one fact
+neither can see: whether the requested page exists. All four listing routes —
+`/shop`, a brand, a collection, a model — call it, so they cannot drift apart,
+and `tests/catalogue-params.test.ts` pins it. The scoped-page half — a brand or
+collection holding nothing — is pinned separately in
+`tests/catalogue-scope-indexing.test.ts`, because it depends on a database count
+rather than only on the query string.
+
+`?page=999` was the case this table originally missed. It answered `200` with an
+honest empty state, but it was `index, follow` and self-canonical, and the parser
+accepts page numbers up to 10 000 — so an invented page number became its own
+indexable address competing with the real listing. It is now `noindex` and
+canonicalises onto page one. The empty state itself is unchanged: the page still
+explains that the results run to fewer pages and offers page one, because a
+visitor who mistyped a page number should be told, not 404'd.
+
+The canonical is built from the listing's own path, not from its scope. Those are
+usually the same thing — a brand page's scope _is_ its path — but `/search` is a
+listing with scope `all`, and scope `all` resolves to `/shop`. Building the
+address from the scope alone therefore gave the search page facet links, sort
+submissions and pagination that all pointed into the shop, and a canonical that
+contradicted the row above. `CatalogueParams.basePath` carries the listing's own
+path where the scope does not imply it, and is `null` everywhere else so the
+scope-derived routes are unaffected. **If you add a listing route whose address
+is not derivable from its scope, set `basePath` or it will link into `/shop`.**
 
 ### Why `robots.txt` does not disallow query strings
 
@@ -251,6 +274,22 @@ understand a page. The accessibility tree is how a machine reads the content.
 The reference site sets `user-scalable=0`, which blocks pinch-zoom and fails
 WCAG 1.4.4. We do not. Our viewport sets `maximumScale: 5` and
 `userScalable: true`.
+
+## Image attribution is a content obligation, not decoration
+
+The seed photography is CC BY 4.0 and CC BY-SA 4.0. Attribution is a licence
+condition, so a surface that displays one of these images without naming the
+author is in breach regardless of how the page ranks. That makes the card credit
+part of the content contract rather than a UI nicety: `catalogue_search`,
+`catalogue_by_ids` and `catalogue_similar` all return the credit of the image
+the card selects, and `CatalogueCard` renders it as plain text.
+
+It is deliberately not a link. The product detail page links the credit to the
+source, which is the one place a reader is already considering the photograph;
+on a 48-card grid an outbound link per card would add 48 tab stops to reach the
+footer, and WCAG 2.4.4 is about a sensible order. The licence requires the author
+to be identified, not to be clickable. `KNOWN_ISSUES.md` G91 records the phase
+that found the listings missing this entirely.
 
 ## Targets
 

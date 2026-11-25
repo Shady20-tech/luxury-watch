@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/product/breadcrumbs';
 import { EnquiryForm } from '@/components/product/enquiry-form';
 import { OfferForm } from '@/components/service/offer-form';
-import { PriceBlock } from '@/components/product/price-block';
+import { PriceBlock, priceBlockRows } from '@/components/product/price-block';
 import { ProductGallery } from '@/components/product/product-gallery';
 import { PurchaseActions } from '@/components/product/purchase-actions';
 import { SpecTable } from '@/components/product/spec-table';
@@ -324,7 +324,11 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <h2 id="specification-heading" className="text-xl">
             Specification
           </h2>
-          <SpecTable specs={product.specs} className="mt-4" />
+          <SpecTable
+            specs={product.specs}
+            omit={priceBlockRows(product).map((row) => row.label)}
+            className="mt-4"
+          />
         </section>
       </div>
 

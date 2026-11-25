@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { CartContents } from '@/components/cart/cart-contents';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { getCart } from '@/server/services/cart-service';
 
@@ -45,6 +46,8 @@ export default async function Page() {
         eyebrow="Shop"
         title="Your cart"
         intro="Pieces you have set aside. Prices and availability are confirmed from the catalogue every time this page loads."
+        photograph={SITE_PHOTOGRAPHY.rolexSubmarinerSultan}
+        eyebrowTone="gold"
       />
 
       <div className="container-page py-10 lg:py-14">

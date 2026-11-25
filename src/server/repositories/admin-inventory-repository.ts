@@ -68,13 +68,14 @@ export async function listInventory(filters: InventoryFilters): Promise<Inventor
     .range(from, to);
 
   // A two-column comparison cannot be expressed as a PostgREST filter, so the
-  // qualifying rows are resolved first. Doing it after pagination would return a
-  // short page whose size does not match the total.
+  // qualifying rows are resolved from `inventory_stock_state`, which evaluates
+  // it in SQL. Doing it after pagination would return a short page whose size
+  // does not match the total.
   if (filters.lowStockOnly) {
     const { data: lowStockRows, error: lowStockError } = await supabase
-      .from('inventory')
+      .from('inventory_stock_state')
       .select('product_id')
-      .filter('quantity', 'lte', 'low_stock_threshold');
+      .eq('is_low_stock', true);
 
     if (lowStockError) {
       logger.error('admin.inventory_low_stock_failed', { message: lowStockError.message });

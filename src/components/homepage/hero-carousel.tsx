@@ -1,11 +1,11 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { MediaFrame } from '@/components/ui/media-frame';
 import type { HeroSlide } from '@/lib/homepage/types';
 import { cn } from '@/lib/utils';
 
@@ -157,7 +157,7 @@ export function HeroCarousel({
       ref={regionRef}
       aria-roledescription="carousel"
       aria-labelledby={headingId}
-      className={cn('bg-night-950', className)}
+      className={cn('relative isolate overflow-hidden bg-night-950', className)}
       onKeyDown={onKeyDown}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -166,7 +166,43 @@ export function HeroCarousel({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <div className="container-page grid gap-12 py-16 lg:grid-cols-2 lg:items-center lg:py-24">
+      {/* The wallpaper.
+
+          The photograph is the band itself rather than a panel beside the copy:
+          at this size a 4/5 box beside the headline reads as a product card, and
+          the brief for the homepage opening is a wall of watch photography you
+          land on. It is `aria-hidden` and `alt=""` because it is atmosphere — the
+          slide states its own subject in the heading, and announcing "a steel
+          Rolex GMT-Master II" before every headline is noise.
+
+          Two scrims, not one, and this is the load-bearing part:
+
+          - a left-to-right `night-950` → transparent gradient, so the column the
+            copy occupies is measured against near-black whatever the picture is;
+          - a bottom-up fade, so the body copy and the controls never sit on a
+            bright dial.
+
+          Between them the contrast of every text node is a property of the
+          gradients, not of the photograph an administrator happens to pick. The
+          browser audit measures the composed result at four viewports rather than
+          trusting that claim. */}
+      {slide.imageUrl ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <Image
+            src={slide.imageUrl}
+            alt=""
+            fill
+            sizes="100vw"
+            priority={isFirst}
+            loading={isFirst ? undefined : 'lazy'}
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/85 to-night-950/25" />
+          <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/45 to-night-950/20" />
+        </div>
+      ) : null}
+
+      <div className="container-page relative grid gap-12 py-20 lg:grid-cols-[minmax(0,34rem)_1fr] lg:items-center lg:py-32">
         <div>
           {slide.eyebrow ? (
             <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
@@ -275,14 +311,6 @@ export function HeroCarousel({
             </div>
           ) : null}
         </div>
-
-        <MediaFrame
-          src={slide.imageUrl}
-          alt={slide.imageUrl ? slide.imageAlt : ''}
-          ratio="4/5"
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          priority
-        />
       </div>
     </section>
   );

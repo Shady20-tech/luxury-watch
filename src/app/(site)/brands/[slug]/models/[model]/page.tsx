@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
 import { PageHero } from '@/components/layout/page-hero';
+import { Breadcrumbs } from '@/components/product/breadcrumbs';
+import { resolveSitePhotograph } from '@/lib/images/site-photography';
 import {
-  canonicalListingPath,
-  isIndexableListing,
+  listingSeo,
   modelScopeSlug,
   parseCatalogueParams,
   type RawSearchParams,
@@ -59,17 +59,16 @@ export async function generateMetadata({
     'model',
     modelScopeSlug(model.brandSlug, modelSlug),
   );
+  const listing = await getListing(listingParams);
+  const seo = listingSeo(listingParams, listing.total, model.productCount > 0);
 
   return buildMetadata({
     title: `${model.brandName} ${model.name}`,
     description:
       model.description ??
       `${model.brandName} ${model.name} pieces we currently hold. Browse the range, and request pricing and availability on any watch.`,
-    path: canonicalListingPath(listingParams),
-    robots: {
-      index: isIndexableListing(listingParams) && model.productCount > 0,
-      follow: true,
-    },
+    path: seo.path,
+    robots: { index: seo.index, follow: true },
   });
 }
 
@@ -97,6 +96,8 @@ export default async function Page({
       <PageHero
         eyebrow={model.brandName}
         title={model.name}
+        photograph={resolveSitePhotograph(model.heroImageUrl) ?? undefined}
+        eyebrowTone="sapphire"
         intro={
           model.description ??
           `Every ${model.brandName} ${model.name} we currently hold. Prices are shown where published; otherwise request pricing and availability.`
@@ -104,24 +105,14 @@ export default async function Page({
       />
 
       <div className="container-page py-10 sm:py-14">
-        <nav aria-label="Breadcrumb" className="pb-6 text-sm">
-          <Link href="/brands" className="text-ink-500 hover:text-foreground hover:underline">
-            Brands
-          </Link>
-          <span aria-hidden="true" className="px-2">
-            /
-          </span>
-          <Link
-            href={`/brands/${model.brandSlug}`}
-            className="text-ink-500 hover:text-foreground hover:underline"
-          >
-            {model.brandName}
-          </Link>
-          <span aria-hidden="true" className="px-2">
-            /
-          </span>
-          <span aria-current="page">{model.name}</span>
-        </nav>
+        <Breadcrumbs
+          className="pb-6"
+          entries={[
+            { name: 'Brands', path: '/brands' },
+            { name: model.brandName, path: `/brands/${model.brandSlug}` },
+            { name: model.name, path: `/brands/${model.brandSlug}/models/${modelSlug}` },
+          ]}
+        />
 
         <CatalogueListingView
           listing={listing}

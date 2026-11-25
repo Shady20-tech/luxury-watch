@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { CmsPage } from '@/components/content/cms-page';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { buildMetadata } from '@/lib/seo/metadata';
 
 /**
@@ -32,6 +33,8 @@ export default function Page() {
         title: 'Returns & Warranty',
         intro: 'Our returns window and what our warranty covers.',
       }}
+      photograph={SITE_PHOTOGRAPHY.omegaCalibre1861}
+      eyebrowTone="sapphire"
     />
   );
 }

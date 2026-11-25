@@ -331,6 +331,34 @@ it belongs in the public surface, then update the grant list **and**
 `supabase/tests/17_product_detail.sql`. Test it through the real client path, not
 only in SQL — a policy that reads correctly can still leak a column.
 
+### An image credit belongs on every surface that shows the image
+
+The seed photography is CC BY 4.0 and CC BY-SA 4.0. Both require the author to be
+credited wherever the work is displayed, and CC BY-SA also requires the licence to
+be named. The `credit`, `licence` and `licence_url` columns exist for that, and
+`product_images_licence_complete_check` refuses a row that claims a licence without
+them, so the data could not be incomplete.
+
+The display still was. Phase 5 found that only the product detail gallery returned
+those columns: `catalogue_search`, `catalogue_by_ids` and `catalogue_similar` — the
+three functions behind every `CatalogueCard` — returned just the image path and alt
+text. So the busiest surfaces (`/shop`, every collection, brand and model page,
+`/search`, `/wishlist`, and the product page's own related rail) showed Commons
+photographs with nobody credited. Nothing failed, because the columns existed and
+one surface read them.
+
+**The standing obligation:** a card is a display. Any new RPC that feeds a card
+must return the credit columns from the _same_ lateral that picks the image it
+shows — not from a separate join, or the card credits one photograph and displays
+another. Render the credit only when both author and licence are present; half an
+attribution does not satisfy CC BY-SA. `supabase/tests/65_catalogue_image_attribution.sql`
+and `tests/catalogue-card-attribution.test.ts` guard this, and both were
+mutation-tested.
+
+Do not put the card credit in a link. It would add one outbound tab stop per card
+on a 48-card grid, and the licence requires attribution, not a clickable one. The
+product page links it to the source.
+
 ### A cookie-reading page must be explicitly dynamic, or production 500s
 
 The Supabase server client (`lib/supabase/server.ts`) is cookie-aware, because it
@@ -699,6 +727,24 @@ block that does not appear is worse than a refusal that explains itself.
 - **`admin_audit_logs` has no write policy at all.** Not even `SUPER_ADMIN` can
   insert through the API. Writes are expected to go through a `SECURITY DEFINER`
   function. If a feature needs to write an audit row, write that function.
+- **A role change is a function call, never a table write.** `user_roles` has an
+  `ALL` policy for `SUPER_ADMIN`, so a direct insert would pass RLS and still be
+  wrong: a row policy cannot set `granted_by` to the real actor, cannot re-check
+  that the actor still holds `SUPER_ADMIN` at the moment of the write, cannot
+  write the audit row, and cannot refuse the two things that must be refused —
+  self-elevation and removing the last unexpired `SUPER_ADMIN`.
+  `admin_grant_role`/`admin_revoke_role` (migration `0033`) are the only paths.
+- **Write the audit row before a destructive step that changes the actor's own
+  authority.** `admin_write_audit_log` refuses a non-staff caller, so a super
+  administrator revoking their own last staff role ceases to be staff the instant
+  the row is deleted. `admin_revoke_role` therefore writes the audit row first;
+  the transaction makes the pair atomic either way. This was caught by the test,
+  not by review — the ordering looked harmless.
+- **Product removal is an archive, not a delete.** `products` is referenced by
+  `order_request_items`, `cart_items`, `wishlist_items`, `inventory` and the
+  service tables, so `DELETE` cascades order history away. `admin_remove_product`
+  sets `status = 'archived'`, which every public query and the sitemap already
+  exclude. Do not "clean up" archived rows.
 - **Role helper functions are `SECURITY DEFINER` with `set search_path = ''`.**
   Keep fully qualified references inside them; an unqualified name there is
   redirectable by a hostile `search_path`.
@@ -726,6 +772,33 @@ block that does not appear is worse than a refusal that explains itself.
   navigate. Use `aria-current` for "the current item in a set of links", and
   `aria-pressed` only on a real `<button>`. jsdom does not run this rule, so the
   audit is what catches it.
+- **`pointer-events-none` is not a disabled control.** A zero-count facet row
+  rendered as an `<a class="pointer-events-none">` cannot be clicked, but it stays
+  in the tab order and still navigates on `Enter` — so a keyboard user reaches an
+  empty grid a mouse user cannot. Render a `<span aria-disabled="true">` instead:
+  not focusable, announced as unavailable, and still in place so the panel does
+  not jump as counts change. Keep the current selection clickable; it is the way
+  back out of a filter.
+- **A validating parser's allowlist must contain everything the database can
+  produce, or the filter silently does nothing.** The facet-value pattern once
+  excluded apostrophes and underscores, which dropped `gender=Men's` and
+  `condition=pre_owned` — the two most useful facets on a pre-owned catalogue. A
+  dropped value is not an error, so the page rendered all twelve products and
+  looked like a filter that matched everything. `tests/catalogue-params.test.ts`
+  now parses every value the seed stores.
+- **A listing's address is not always derivable from its scope.** `/search` has
+  scope `all`, and scope `all` means `/shop`, so every facet link, sort
+  submission, pagination link and its canonical pointed into the shop.
+  `CatalogueParams.basePath` carries the listing's own path where the scope does
+  not imply it, and is `null` on the scope-derived routes. A new listing route
+  with its own URL must set it, or it will link into `/shop`.
+- **A green browser audit against a nearly empty database is evidence about the
+  empty states, not about the pages.** `/brands/[slug]/models/[model]` failed
+  WCAG 1.4.1 (`link-in-text-block`) on a hand-rolled breadcrumb that used bare
+  `/` separators, and the audit had never seen it because no seeded product
+  belonged to a model page. Publishing 72 rows to exercise pagination made the
+  cards render and the defect appeared at once. Use the shared `Breadcrumbs`
+  component — it renders an `<ol>`, so no link shares a text block with prose.
 - **A heading that is `display:none` is not in the accessibility tree, so it
   cannot carry heading order.** The catalogue's cards are `h3`, and the only
   `h2` above them was the filter sidebar's "Filter" — which is `hidden lg:block`.
@@ -844,11 +917,22 @@ page, add it there, and confirm the pass still fails when pointed at a public pa
 
 ### One rule decides what may be indexed, and the sitemap applies the same one
 
-`src/lib/catalogue/params.ts` owns the decision: `isIndexableListing()` and
-`canonicalListingPath()`. A clean listing is indexable with a self-canonical; a
-filtered, searched or sorted one is `noindex, follow` and canonicalises onto the
-clean listing. The full table is in `docs/SEO.md`, and
-`tests/catalogue-params.test.ts` pins it.
+`src/lib/catalogue/params.ts` owns the decision, and **one function answers both
+halves of it**: `listingSeo(params, total, scopeIsEligible)` returns the canonical
+path and whether the page may be indexed. Every listing route — `/shop`, a brand,
+a collection, a model — calls it, so they cannot drift apart. A clean listing is
+indexable with a self-canonical; a filtered, searched or sorted one is
+`noindex, follow` and canonicalises onto the clean listing. The full table is in
+`docs/SEO.md`, and `tests/catalogue-params.test.ts` pins it.
+
+**Indexability is not a function of the query string alone.** `isIndexableListing()`
+reads only the parameters, so it said "pagination is a genuine series" and
+indexed `?page=999` on a one-page listing — a soft 404, self-canonical, and one of
+ten thousand possible addresses competing with the real page. The answer needed a
+fact the query string does not carry: whether the requested page exists, which
+only the loaded listing knows. If you add a rule about a listing's crawlability,
+pass it the result count too, and go through `listingSeo` rather than composing
+`isIndexableListing` and `canonicalListingPath` at the call site.
 
 The scoped half is separate because it needs a database number rather than only
 the query string: a brand or collection page holding **zero published pieces** is
@@ -918,6 +1002,48 @@ Two mechanics to remember when changing seeded copy:
   contains stray CR characters in a handful of spec strings; a naive read/write in
   Python strips them and turns a four-line change into an unrelated multi-line
   diff. Use `git diff` on the seed and expect only your own lines.
+
+## Site photography
+
+The editorial photography — the pictures in `PageHero`, the homepage carousel and
+the mid-page bands — is not the product catalogue. It is licensed stock chosen
+for a dark, editorial register, and it lives under `public/site-photography/`.
+
+`src/lib/images/site-photography.ts` is the **single registry**. Every file has
+its recorded dimensions, author, licence and licence URL there, and
+`tests/site-photography.test.ts` verifies the dimensions against the real files
+on disk. `SITE_PHOTOGRAPHY` is for components that know which picture they want;
+`resolveSitePhotograph()` is for a path that came out of the database and returns
+`null` for anything not in the registry, so an administrator's upload falls
+through untouched rather than being forced into the seed's catalogue.
+
+**The licence rule is a test, not a convention.** `tests/seed-photography.test.ts`
+requires a licence matching `^CC BY(-SA)? [0-9.]+$` — so `CC BY-SA 4.0` and
+`CC BY 2.0` pass, while `CC0` (wrong shape entirely) and `CC BY-SA 3.0 fr` (a
+locale suffix the pattern does not allow) are rejected. Both were hit in
+practice; one picture was dropped rather than the pattern widened. When a new
+picture is rejected, pick another — do not loosen the test to make it pass.
+
+**A `priority` image is downloaded even when CSS hides it.** `priority` emits
+`<link rel="preload">`, and a preload ignores `display: none`. `PageHero` hides
+its photograph below `lg`, so marking that image `priority` made every interior
+page download a hero it never painted — 14.7 KB per pageview at 320px, competing
+with the `h1`, which is the real LCP element. The image is `loading="lazy"` with
+no preload instead: a hidden lazy image is never fetched, and on desktop it is in
+the initial viewport so the loader fetches it immediately. `tests/page-hero.test.tsx`
+pins this. The general rule: **never put `priority` on an image a breakpoint can
+hide.**
+
+**`MediaFrame` is for products, not for atmosphere.** It letterboxes on a white
+panel with `object-contain`, because a watch is tall and `cover` would crop the
+lugs. An editorial hero wants the opposite — `object-cover`, filling its frame.
+Reaching for `MediaFrame` out of habit is how an editorial photograph ends up
+floating in a white box.
+
+**A static file added after the dev server starts is a 404.** Next.js serves
+`public/` from the build manifest, so adding a webp and refreshing the running dev
+server shows a broken image. Restart the server, and rebuild before auditing a
+production build.
 
 ## Payments
 

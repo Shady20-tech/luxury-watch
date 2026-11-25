@@ -1,9 +1,9 @@
 import { ArrowRight, Gem, PackageCheck, ShieldCheck, Wallet } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/section';
-import { MediaFrame } from '@/components/ui/media-frame';
 import type {
   BrandTile,
   CopySection,
@@ -337,7 +337,20 @@ export function EditorialSplit({
       </div>
       {section.imageUrl ? (
         <div className={cn(imageFirst && 'lg:order-1')}>
-          <MediaFrame src={section.imageUrl} alt="" ratio="4/5" />
+          {/* `cover`, not `MediaFrame`: an editorial photograph is atmosphere and
+              should fill its frame edge to edge. `MediaFrame` letterboxes on a
+              white panel to keep a whole watch visible, which would leave an
+              editorial crop floating in a white box. */}
+          <div className="bg-night-800 relative aspect-4/5 overflow-hidden rounded-sm">
+            <Image
+              src={section.imageUrl}
+              alt=""
+              aria-hidden="true"
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover"
+            />
+          </div>
         </div>
       ) : null}
     </div>

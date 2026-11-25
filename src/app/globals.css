@@ -58,6 +58,47 @@
   --color-on-night: #f5f5f5;
   --color-on-night-muted: #b0b0b0;
 
+  /* ---------------------------------------------------------------------
+     Secondary accents
+
+     Gold alone reads austere. These three families give the site depth: a
+     deep green for trust and provenance, a burgundy for editorial weight,
+     and a sapphire for watchmaking. Each has a `-700` that is safe for
+     *body text* on white (>= 4.5:1) and a `-300` that is safe for text on
+     `night-900` (>= 4.5:1). The mid tones are decoration only, exactly like
+     `gold-500`, and `tests/design-tokens.test.ts` asserts both ends so a
+     token cannot drift out of range unnoticed.
+
+     The rule is the same one gold already follows: a `-300` is never used as
+     text on a light ground, and a `-700` is never used as text on a dark one.
+     --------------------------------------------------------------------- */
+  --color-emerald-300: #7fcaa8;
+  --color-emerald-500: #0f7a5a;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+  --color-emerald-900: #064e3b;
+
+  --color-burgundy-300: #d98fa6;
+  --color-burgundy-500: #a3264d;
+  --color-burgundy-700: #8c1c3f;
+  --color-burgundy-900: #4c0519;
+
+  --color-sapphire-300: #8fb4e8;
+  --color-sapphire-500: #2563a8;
+  --color-sapphire-700: #1e3a8a;
+  --color-sapphire-900: #0a1a33;
+
+  /* Warm and cool ground tints. Very light: these separate sections from a
+     white page without becoming a colour statement, which is the job the
+     reference gives its off-white panels. Both keep `ink-900` well above
+     4.5:1 (14:1 or better). */
+  --color-surface-warm: #f7f3ea;
+  --color-surface-cool: #f1f4f3;
+
+  /* A precious-metal tint for small decorative rules and dividers. Not a text
+     colour: it is 1.6:1 on white and is only ever a hairline or a background. */
+  --color-platinum-200: #e7e6e2;
+
   /* Status */
   --color-success-600: #1f7a4d;
   --color-warning-700: #8a5a00;

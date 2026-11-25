@@ -54,6 +54,9 @@ export type CatalogueSearchRow = {
   image_storage_path: string | null;
   image_external_url: string | null;
   image_alt: string | null;
+  image_credit: string | null;
+  image_licence: string | null;
+  image_licence_url: string | null;
   is_available: boolean | null;
   total_count: number | string | null;
 };
@@ -170,6 +173,17 @@ export function toCatalogueProduct(
     // came back, so the product name is the fallback rather than an empty
     // attribute — an empty alt tells a screen-reader user nothing.
     imageAlt: row.image_alt?.trim() || row.title,
+    // Both halves or nothing: a licence with no author does not satisfy
+    // attribution, and an author with no licence does not satisfy CC BY-SA.
+    // The card renders the credit only when this is non-null.
+    imageCredit:
+      row.image_credit?.trim() && row.image_licence?.trim()
+        ? {
+            credit: row.image_credit.trim(),
+            licence: row.image_licence.trim(),
+            licenceUrl: row.image_licence_url,
+          }
+        : null,
     price: formatPrice(priceCents, row.currency ?? 'USD', row.price_on_request === true),
     condition: toCondition(row.condition),
     reference: row.reference_number,

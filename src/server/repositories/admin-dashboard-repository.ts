@@ -109,12 +109,15 @@ export async function fetchDashboardCounts(): Promise<DashboardCounts> {
         .eq('status', 'confirmed'),
     ),
     // "Low stock" is the table's own definition — at or below the per-product
-    // threshold — not a constant chosen here.
+    // threshold — not a constant chosen here. The comparison is evaluated in
+    // `inventory_stock_state`; PostgREST filters compare against literals, so
+    // the column-to-column form this used to send was rejected as 22P02 and
+    // counted as zero.
     countRows('inventory_low_stock', () =>
       supabase
-        .from('inventory')
+        .from('inventory_stock_state')
         .select('*', { count: 'exact', head: true })
-        .filter('quantity', 'lte', 'low_stock_threshold'),
+        .eq('is_low_stock', true),
     ),
     countRows('inquiries_open', () =>
       supabase

@@ -4,12 +4,8 @@ import { notFound } from 'next/navigation';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
 import { PageHero } from '@/components/layout/page-hero';
-import {
-  canonicalListingPath,
-  isIndexableListing,
-  parseCatalogueParams,
-  type RawSearchParams,
-} from '@/lib/catalogue/params';
+import { resolveSitePhotograph } from '@/lib/images/site-photography';
+import { listingSeo, parseCatalogueParams, type RawSearchParams } from '@/lib/catalogue/params';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { fetchActiveBrandSummary } from '@/server/repositories/catalogue-repository';
 import { getListing } from '@/server/services/catalogue-service';
@@ -46,21 +42,21 @@ export async function generateMetadata({
   }
 
   const listingParams = parseCatalogueParams(await searchParams, 'brand', slug);
+  const listing = await getListing(listingParams);
+  const seo = listingSeo(listingParams, listing.total, brand.productCount > 0);
 
   return buildMetadata({
     title: `${brand.name} watches`,
     description:
       brand.description ??
       `Watches by ${brand.name}. Browse the pieces we currently hold, and request pricing and availability on any of them.`,
-    path: canonicalListingPath(listingParams),
-    // Two conditions, both required. A filtered permutation is a duplicate of
+    path: seo.path,
+    // Three conditions, all required. A filtered permutation is a duplicate of
     // the clean brand page and must not rank; a brand with nothing published is
-    // thin content that says only "we hold none right now". The sitemap applies
-    // the same count rule, so the page and the sitemap cannot disagree.
-    robots: {
-      index: isIndexableListing(listingParams) && brand.productCount > 0,
-      follow: true,
-    },
+    // thin content that says only "we hold none right now"; and a page past the
+    // end of the results is a soft 404. The sitemap applies the same count rule,
+    // so the page and the sitemap cannot disagree.
+    robots: { index: seo.index, follow: true },
   });
 }
 
@@ -86,6 +82,8 @@ export default async function Page({
       <PageHero
         eyebrow="Brand"
         title={brand.name}
+        photograph={resolveSitePhotograph(brand.heroImageUrl) ?? undefined}
+        eyebrowTone="sapphire"
         intro={
           brand.description ??
           `Every ${brand.name} piece we currently hold. Prices are shown where published; otherwise request pricing and availability.`

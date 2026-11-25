@@ -29,6 +29,11 @@ const BASE = process.argv[2] ?? 'http://localhost:3000';
 const PAGES = [
   '/',
   '/collections/all',
+  // The collection directory. It is its own template (a grid of editorial
+  // tiles, not a listing) with its own hero, and it was absent from this list
+  // until the heroes gained photography — which is exactly the change that can
+  // fail contrast on a card's overlay text.
+  '/collections',
   '/brands',
   '/brands/rolex',
   // The catalogue surfaces. These are the densest pages on the site — a filter

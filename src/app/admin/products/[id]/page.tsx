@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react';
 
 import { AdminPageHeader, StatusPill } from '@/components/admin/ui';
 import { ProductForm } from '@/components/admin/product-form';
+import { RemoveProductPanel } from '@/components/admin/remove-product-panel';
 import { formatAdminDateTime } from '@/lib/admin/format';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { updateProductAction } from '@/server/actions/admin-actions';
@@ -22,7 +23,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = noIndexMetadata('Edit product · Administration');
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission('catalog.read');
+  const identity = await requirePermission('catalog.read');
   const { id } = await params;
 
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -59,6 +60,16 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           </Link>
         }
       />
+
+      {identity.permissions.has('catalog.write') ? (
+        <div className="mb-6">
+          <RemoveProductPanel
+            productId={product.id}
+            productTitle={product.title}
+            status={product.status}
+          />
+        </div>
+      ) : null}
 
       <ProductForm
         action={updateProductAction}

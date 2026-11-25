@@ -35,6 +35,7 @@ const product: CatalogueProduct = {
   summary: null,
   imageUrl: null,
   imageAlt: 'Rolex Milgauss',
+  imageCredit: null,
   price: null,
   condition: 'new',
   reference: '116400GV',

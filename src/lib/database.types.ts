@@ -523,14 +523,14 @@ isOneToOne: false
                   ]
                 },"product_images": {
                   Row: {
-                    "alt_text": string,"category": Database["public"]["Enums"]["watch_image_category"],"created_at": string,"external_url": string | null,"height": number | null,"id": string,"is_primary": boolean,"product_id": string,"sort_order": number,"storage_path": string | null,"width": number | null
+                    "alt_text": string,"category": Database["public"]["Enums"]["watch_image_category"],"created_at": string,"credit": string | null,"external_url": string | null,"height": number | null,"id": string,"is_primary": boolean,"is_representative": boolean,"licence": string | null,"licence_url": string | null,"product_id": string,"sort_order": number,"source_url": string | null,"storage_path": string | null,"width": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "alt_text": string,"category"?: Database["public"]["Enums"]["watch_image_category"],"created_at"?: string,"external_url"?: string | null,"height"?: number | null,"id"?: string,"is_primary"?: boolean,"product_id": string,"sort_order"?: number,"storage_path"?: string | null,"width"?: number | null
+                    "alt_text": string,"category"?: Database["public"]["Enums"]["watch_image_category"],"created_at"?: string,"credit"?: string | null,"external_url"?: string | null,"height"?: number | null,"id"?: string,"is_primary"?: boolean,"is_representative"?: boolean,"licence"?: string | null,"licence_url"?: string | null,"product_id": string,"sort_order"?: number,"source_url"?: string | null,"storage_path"?: string | null,"width"?: number | null
                   }
                   Update: {
-                    "alt_text"?: string,"category"?: Database["public"]["Enums"]["watch_image_category"],"created_at"?: string,"external_url"?: string | null,"height"?: number | null,"id"?: string,"is_primary"?: boolean,"product_id"?: string,"sort_order"?: number,"storage_path"?: string | null,"width"?: number | null
+                    "alt_text"?: string,"category"?: Database["public"]["Enums"]["watch_image_category"],"created_at"?: string,"credit"?: string | null,"external_url"?: string | null,"height"?: number | null,"id"?: string,"is_primary"?: boolean,"is_representative"?: boolean,"licence"?: string | null,"licence_url"?: string | null,"product_id"?: string,"sort_order"?: number,"source_url"?: string | null,"storage_path"?: string | null,"width"?: number | null
                   }
                   Relationships: [
                     {
@@ -923,9 +923,76 @@ isOneToOne: false
                   Relationships: [
 
                   ]
+                },
+            "admin_staff_roster": {
+                  Row: {
+                    "email": string | null,"expires_at": string | null,"full_name": string | null,"granted_at": string,"is_expired": boolean,"role": Database["public"]['Enums']["staff_role"],"user_id": string,"user_role_id": string
+                  }
+                  Relationships: [
+
+                  ]
+                },
+            "inventory_stock_state": {
+                  Row: {
+                    "available_quantity": number,"is_low_stock": boolean,"low_stock_threshold": number,"product_id": string,"quantity": number,"reserved_quantity": number
+                  }
+                  Relationships: [
+
+                  ]
                 }
           }
           Functions: {
+            "admin_grant_role":
+{ Args: { "p_expires_at"?: string | null,"p_role": Database["public"]['Enums']["staff_role"],"p_user_id": string }; Returns: {
+              "expires_at": string | null,
+"granted_at": string,
+"granted_by": string | null,
+"id": string,
+"role": Database["public"]['Enums']["staff_role"],
+"user_id": string
+            }
+                           },
+            "admin_remove_product":
+{ Args: { "p_product_id": string }; Returns: {
+              "bezel": string | null,
+"box_and_papers": boolean | null,
+"bracelet_material": string | null,
+"brand_id": string | null,
+"case_material": string | null,
+"case_size_mm": number | null,
+"compare_at_cents": number | null,
+"condition": Database["public"]['Enums']["product_condition"] | null,
+"cost_cents": number | null,
+"created_at": string,
+"currency": string,
+"description": string | null,
+"dial_color": string | null,
+"gender": string | null,
+"id": string,
+"is_featured": boolean,
+"model_id": string | null,
+"movement": string | null,
+"og_image_url": string | null,
+"price_cents": number | null,
+"price_on_request": boolean,
+"production_year": number | null,
+"published_at": string | null,
+"reference_number": string | null,
+"seo_description": string | null,
+"seo_title": string | null,
+"short_description": string | null,
+"sku": string,
+"slug": string,
+"sort_order": number,
+"status": Database["public"]['Enums']["product_status"],
+"title": string,
+"updated_at": string,
+"water_resistance_m": number | null
+            }
+                           },
+            "admin_revoke_role":
+{ Args: { "p_role": Database["public"]['Enums']["staff_role"],"p_user_id": string }; Returns: undefined
+                           },
             "admin_adjust_stock":
 { Args: { "p_delta": number,"p_product_id": string,"p_reason": string }; Returns: {
               "id": string,
@@ -1042,7 +1109,10 @@ isOneToOne: false
 "gender": string | null,
 "id": string,
 "image_alt": string | null,
+"image_credit": string | null,
 "image_external_url": string | null,
+"image_licence": string | null,
+"image_licence_url": string | null,
 "image_storage_path": string | null,
 "is_available": boolean | null,
 "is_featured": boolean | null,
@@ -1081,7 +1151,10 @@ isOneToOne: false
 "gender": string | null,
 "id": string,
 "image_alt": string | null,
+"image_credit": string | null,
 "image_external_url": string | null,
+"image_licence": string | null,
+"image_licence_url": string | null,
 "image_storage_path": string | null,
 "is_available": boolean | null,
 "is_featured": boolean | null,
@@ -1112,7 +1185,10 @@ isOneToOne: false
 "gender": string | null,
 "id": string,
 "image_alt": string | null,
+"image_credit": string | null,
 "image_external_url": string | null,
+"image_licence": string | null,
+"image_licence_url": string | null,
 "image_storage_path": string | null,
 "is_available": boolean | null,
 "is_featured": boolean | null,

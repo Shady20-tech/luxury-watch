@@ -4,6 +4,7 @@ import { ShoppingBag } from 'lucide-react';
 
 import { CheckoutForm } from '@/components/checkout/checkout-form';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { OrderSummary } from '@/components/checkout/order-summary';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/states';
@@ -83,7 +84,13 @@ export default async function Page() {
 
   return (
     <div>
-      <PageHero eyebrow="Shop" title={ORDER_COPY.pageTitle} intro={ORDER_COPY.intro} />
+      <PageHero
+        eyebrow="Shop"
+        title={ORDER_COPY.pageTitle}
+        intro={ORDER_COPY.intro}
+        photograph={SITE_PHOTOGRAPHY.rolexSubmarinerSultan}
+        eyebrowTone="gold"
+      />
 
       <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:py-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <CheckoutForm checkout={checkout} />
