@@ -6,6 +6,7 @@ import {
   mayEnterSection,
   maySeeOverview,
   permissionForSection,
+  adminRequirementPaths,
   requirementForSection,
 } from '@/lib/admin/sections';
 
@@ -146,9 +147,10 @@ describe('mayEnterSection', () => {
   });
 
   it('admits a super administrator everywhere', () => {
-    // `role_permissions('SUPER_ADMIN')` expands to every permission, which is
-    // what `current_admin_permissions` reports to the app. A super administrator
-    // must reach every screen a narrower role can, plus the staff screen.
+    // `role_permissions('SUPER_ADMIN')` expands to `array['*']`, and
+    // `has_permission` treats `'*'` as satisfying every requirement. A super
+    // administrator must therefore reach every screen a narrower role can, plus
+    // the staff screen.
     const superAdmin = held(
       'catalog.read',
       'catalog.write',
@@ -189,6 +191,40 @@ describe('mayEnterSection', () => {
       '/admin/account',
     ]) {
       expect(mayEnterSection(path, superAdmin), path).toBe(true);
+    }
+  });
+
+  it('admits a super administrator to every permission-gated path, without listing them', () => {
+    /**
+     * The test above names its paths by hand, so a section added later is not
+     * covered by it — the guarantee silently shrinks as the map grows. This
+     * derives the paths from the map instead, so it cannot fall behind, and
+     * asserts the property that actually matters: for every requirement the map
+     * defines, holding everything SUPER_ADMIN holds is at least as good as
+     * holding exactly what that requirement asks for.
+     *
+     * That is the parity claim, stated once and checked against the real map
+     * rather than a transcription of it.
+     */
+    const requirements = adminRequirementPaths();
+    expect(requirements.length).toBeGreaterThan(10);
+
+    // Everything SUPER_ADMIN holds. `role_permissions('SUPER_ADMIN')` is
+    // `array['*']`, which satisfies any permission, so the set is every
+    // permission the map names plus the role itself.
+    const everyPermission = requirements.flatMap(([, requirement]) =>
+      'permission' in requirement ? [requirement.permission] : [],
+    );
+    const superAdmin = heldBy({
+      permissions: new Set(everyPermission),
+      roles: ['SUPER_ADMIN'],
+    });
+
+    for (const [path, requirement] of requirements) {
+      const minimallyEntitled =
+        'role' in requirement ? held(requirement.role) : held(requirement.permission);
+      expect(mayEnterSection(path, minimallyEntitled), `${path} (minimal holder)`).toBe(true);
+      expect(mayEnterSection(path, superAdmin), `${path} (super admin)`).toBe(true);
     }
   });
 

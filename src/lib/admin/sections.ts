@@ -102,6 +102,21 @@ function matchesRoot(pathname: string, root: string): boolean {
 }
 
 /**
+ * Every path the section map governs, as `[path, requirement]` pairs.
+ *
+ * Exposed so a test can assert a property of the *whole* map — "a super
+ * administrator reaches everything a narrower role can" — without transcribing
+ * the map into the test, where it would silently fall behind as sections are
+ * added. A trailing-slash root is returned with a sample descendant, because
+ * the root itself is deliberately not matched by it.
+ */
+export function adminRequirementPaths(): ReadonlyArray<readonly [string, SectionRequirement]> {
+  return [...ROUTE_REQUIREMENTS, ...SECTION_REQUIREMENTS].map(
+    ([root, requirement]) => [root.endsWith('/') ? `${root}sample` : root, requirement] as const,
+  );
+}
+
+/**
  * The requirement that opens `pathname`, or `null` when any staff member may
  * enter it.
  *
