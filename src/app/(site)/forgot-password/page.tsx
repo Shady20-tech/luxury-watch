@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 
-import { AuthBand } from '@/components/auth/auth-band';
+import { AuthShell } from '@/components/auth/auth-shell';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
-import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { buildMetadata } from '@/lib/seo/metadata';
 
 export const metadata: Metadata = buildMetadata({
@@ -22,11 +21,10 @@ export const metadata: Metadata = buildMetadata({
  */
 export default function ForgotPasswordPage() {
   return (
-    <div>
-      <AuthBand photograph={SITE_PHOTOGRAPHY.pocketWatch} />
-      <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
+    <AuthShell>
+      <div className="w-full">
         <ForgotPasswordForm />
       </div>
-    </div>
+    </AuthShell>
   );
 }

@@ -8,6 +8,65 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The homepage photography was in the migrations but not in the database
+
+**Date:** 2026-11-19
+
+The hero rendered as a flat black band, the brand and collection tiles were blank,
+and the sell-and-trade promo had no picture. Nothing was wrong with the components:
+they were reading `site_photography.image_url`, and every row of it was `null`.
+
+Two independent causes, both now closed.
+
+The first was deployment. Migrations `0031_site_photography.sql` through
+`0034_newest_sort_order.sql` were authored after the preview database was last
+migrated, so they had never run against it. Applying them seeded all seven
+photography slots and gave the four brands and three collections their hero
+images. A preview database is only as current as the last migrate run against it;
+a migration existing in the tree proves nothing about the data.
+
+The second was the seed. `supabase/seed/03_homepage_demo.sql` re-asserted
+`image_url = excluded.image_url` on conflict, and the demo values are `NULL`. Every
+re-seed therefore wiped the photography the migration had just set, so the fix
+above would have un-done itself on the next seed. The conflict clause now preserves
+an existing `image_url`, which keeps the seed idempotent without letting it
+overwrite content that came from somewhere else.
+
+With photographs present the hero scrim was still too heavy — the image loaded but
+read as a dark rectangle. The scrim opacity in `hero-carousel.tsx` is reduced so
+the photograph shows through while the headline keeps its contrast.
+
+### The site had no motion, and the auth pages opened on a photograph they did not need
+
+**Date:** 2026-11-19
+
+The storefront had four `transition` declarations and no animation at all. Sections
+appeared fully formed as the page painted, which is what made a long editorial
+homepage feel like a static document rather than a storefront.
+
+`globals.css` now carries a small motion layer: an `--ease-out-soft` token, the
+keyframes the hero drift needs, and a `[data-reveal]` utility that starts an element
+translated and transparent and settles it when `is-revealed` is added. A single
+`RevealOnScroll` client component, mounted once in the root layout, observes every
+`[data-reveal]` element and reveals it on intersection. `prefers-reduced-motion`
+disables the whole layer, so the reduced-motion contract is unchanged rather than
+re-established per component.
+
+Reveals and staggered delays are applied to the homepage brand rail, trust row and
+product grid, and to the catalogue grid, where the delay is capped at six items so a
+long result set does not queue up off-screen.
+
+The four auth pages (sign in, register, forgot, reset) opened on the same
+photographic band as the marketing pages, which framed a form as editorial content
+and pushed the panel below the fold on a phone. They now use an `AuthShell` that is
+centred, quiet and photographic-free, and `AuthPanel` is restyled to match: a softer
+shadow, a larger serif title and a single gold hairline along the top edge.
+`auth-band.tsx` is deleted — nothing referenced it afterwards.
+
+The admin rail was also rebuilt: a gradient surface, a wordmark badge, an active
+gold rule that now shows at every width rather than only when collapsed, and a
+matching treatment in the shell header.
+
 ### The page ground was pure white, and every form field was outlined in a hairline
 
 **Date:** 2026-11-19

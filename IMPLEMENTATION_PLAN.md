@@ -404,6 +404,42 @@ and add-to-cart on the card (Phases 7 and 9), and the product detail template
 (Phase 6). A card control that looked live but discarded the click would be worse
 than its absence, so the whole card is one link to the product.
 
+**Third pass (2026-11-19) re-audited the phase against a live database rather than
+a fixture, and found no functional gap.** Every route was exercised through the
+real `supabase-js` → PostgREST → Postgres path on the preview server:
+
+- `/shop` renders 12 published pieces; `/shop?brand=rolex&sort=price_asc` narrows
+  to 8 in the database's order; `?pageSize=9999` and `?minPrice=abc` are clamped
+  and dropped rather than forwarded; `?page=999` renders the honest past-the-end
+  state.
+- `/collections` is a real index linking all three published collections, and
+  `/brands/rolex/models/milgauss` resolves through the
+  brand → model → product hierarchy.
+- `/search` matches on title and reference: `milgauss` and `royal oak` return 8,
+  `cubitus` 6. A term with no match (`submariner`, which is genuinely absent from
+  the published set) returns the empty state, not an error — worth stating,
+  because an earlier reading of "0 results" looked like a search defect until the
+  published titles were listed.
+- Canonical/robots behaviour matches the documented policy exactly:
+  `/shop` → `index, follow` self-canonical; `?brand=rolex` → `noindex, follow`
+  canonicalised to `/shop`; `?sort=price_asc` → indexable, canonical drops the
+  sort; `/search?q=…` → `noindex, follow`; `/brands/rolex` → indexable.
+- Draft products 404 (4098 drafts, 12 published). Card states render honestly:
+  "Request pricing & availability" for the 12 unpriced pieces, "Reserved" for the
+  unavailable ones, and box-and-papers text from the recorded value.
+
+`npm run audit:a11y` is green across 33 pages × 4 viewports including the mobile
+filter drawer, and `npm run verify` is green at 1068 tests. The card now also
+carries the site-wide scroll-reveal treatment and a hover lift, added in the same
+pass that introduced the motion layer (see CHANGELOG).
+
+The one thing this pass could not widen is the *quantity* of pagination evidence:
+with only 12 published rows and a 24-per-page default there is a single page, so
+the multi-page path is covered by the SQL suites and the canonical tests rather
+than by a live second page. That is a property of the current seed, not of the
+code, and it resolves as soon as the catalogue is published.
+
+
 ---
 
 ## Phase 6 — Product detail page

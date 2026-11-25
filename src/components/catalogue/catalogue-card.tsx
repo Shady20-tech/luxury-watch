@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { AddToCartButton } from '@/components/cart/add-to-cart-button';
 import { WishlistToggle } from '@/components/product/wishlist-toggle';
@@ -93,7 +94,7 @@ export function CatalogueCard({
   return (
     <article
       className={cn(
-        'group border-line-200 bg-surface-0 hover:border-ink-300 relative flex h-full flex-col rounded-md border transition-[border-color,box-shadow] duration-200 focus-within:border-ink-300 hover:shadow-sm',
+        'group border-line-200 bg-surface-0 hover:border-ink-300 relative flex h-full flex-col rounded-md border transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-standard)] focus-within:border-ink-300 hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-y-0',
         className,
       )}
     >
@@ -262,7 +263,12 @@ export function CatalogueGrid({
       ) : null}
       <ul className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
         {products.map((product, index) => (
-          <li key={product.id} className="flex">
+          <li
+            key={product.id}
+            className="flex"
+            data-reveal
+            style={{ '--reveal-delay': `${Math.min(index, 5) * 70}ms` } as CSSProperties}
+          >
             <CatalogueCard
               product={product}
               // Only the first row is prioritised; everything below the fold is

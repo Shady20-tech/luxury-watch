@@ -196,7 +196,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     requestedPath.startsWith('/admin') && !mayEnterSection(requestedPath, held);
 
   return (
-    <div className="bg-surface-50 min-h-dvh lg:flex">
+    <div className="bg-surface-page min-h-dvh lg:flex">
       <a
         href="#admin-content"
         className="focus:bg-ink-900 focus:text-surface-0 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:px-3 focus:py-2"
@@ -209,15 +209,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           Below `lg` it collapses to a toggle inside the header area and becomes a
           drawer. The dark ground is what makes the admin read as a different
           place from the storefront rather than a page of it. */}
-      <aside className="bg-night-900 hidden w-auto shrink-0 p-3 lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-auto">
+      <aside className="bg-night-950 hidden w-auto shrink-0 p-3 lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-auto">
         <AdminNav groups={buildNav(identity)} />
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="border-line-300 bg-surface-0/90 sticky top-0 z-30 border-b backdrop-blur">
+        <header className="border-line-200 bg-surface-0/80 sticky top-0 z-30 border-b backdrop-blur-md">
           <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div className="flex items-baseline gap-3">
-              <Link href="/admin" className="text-base font-semibold">
+              <Link
+                href="/admin"
+                className="font-display text-ink-950 text-lg leading-none tracking-tight"
+              >
                 Administration
               </Link>
               <Link

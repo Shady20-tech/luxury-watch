@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { AuthBand } from '@/components/auth/auth-band';
+import { AuthShell } from '@/components/auth/auth-shell';
 import { LoginForm } from '@/components/auth/login-form';
-import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { FormAlert } from '@/components/auth/auth-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { safeRedirectPath } from '@/lib/auth/redirect';
@@ -60,9 +59,8 @@ export default async function LoginPage({
     : null;
 
   return (
-    <div>
-      <AuthBand photograph={SITE_PHOTOGRAPHY.pocketWatch} />
-      <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
+    <AuthShell>
+      <div className="w-full">
         {reasonState ? (
           <div className="mb-6">
             <FormAlert state={reasonState} />
@@ -71,6 +69,6 @@ export default async function LoginPage({
 
         <LoginForm next={safeRedirectPath(typeof params.next === 'string' ? params.next : null)} />
       </div>
-    </div>
+    </AuthShell>
   );
 }

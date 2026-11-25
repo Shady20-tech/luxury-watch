@@ -656,6 +656,47 @@ and silently dropped. The homepage editor warns when a section key is not one th
 because such a section would render nothing. Do not "fix" either by accepting anything: a saved
 block that does not appear is worse than a refusal that explains itself.
 
+### A migration in the tree is not a migration in the database
+
+The homepage hero, brand tiles and promo band all read their picture from
+`site_photography.image_url`. They rendered blank, and the components were
+correct — every row of that table was `null`. Two causes stacked:
+
+1. **Migrations 0031–0034 had never run against the preview database.** They
+   were authored after the last migrate run. Applying them seeded all seven
+   photography slots and the brand/collection hero images. Before blaming a
+   component for a blank field, check the data:
+   `select key, image_url from site_photography;`
+2. **The seed then wiped them.** `supabase/seed/03_homepage_demo.sql` had
+   `image_url = excluded.image_url` in its `on conflict` clause and the demo
+   value is `NULL`, so every re-seed reset the column. The clause now preserves
+   an existing `image_url`. A seed that re-asserts a nullable column will
+   silently erase whatever a migration or an editor put there.
+
+The general rule: an `on conflict do update` that sets a column to
+`excluded.<column>` overwrites _every_ row on every seed. Only re-assert columns
+the seed genuinely owns; preserve the ones another process may have set.
+
+### Motion is one layer, not per-component animation
+
+`globals.css` defines `[data-reveal]` / `is-revealed`, the `--ease-out-soft`
+token and the hero drift keyframes. `src/components/ui/reveal.tsx` mounts once in
+the root layout and observes every `[data-reveal]` element.
+
+To animate something on scroll, add `data-reveal` to the element and, for a
+stagger, a `--reveal-delay` custom property. Do not write a second
+IntersectionObserver or a per-component `useEffect` — the whole layer is disabled
+under `prefers-reduced-motion` in one place, and a bespoke observer would not be.
+
+### The admin rail is the shell's left edge, and it is dark on purpose
+
+`AdminNav` is a dark gradient rail inside a light admin shell. The active row is
+marked by a gold rule at **every** width, not only when collapsed — on a dark
+surface the 5%-white fill is not enough on its own to read as "you are here".
+`navLinkClass` owns that treatment. The collapsed width is persisted in
+`localStorage` and read after mount, never during render, or the first client
+render disagrees with the server's and hydration fails.
+
 ### Things that will bite you
 
 - **A sort branch that falls through to the default is a sort that is not applied.** `catalogue_search` builds one `row_number()` that switches on `p_sort`, and the featured branch is a `case` that applies whenever the sort is _not_ in an explicit list. `'newest'` was left off that list, so it fell into the featured branch and the editor's unique `sort_order` decided the order ahead of `published_at desc`. "Newest first" returned the catalogue oldest-first for as long as the seed's `sort_order` happened to match its dates — which it did, so every test and every manual check agreed with the bug. When you add a sort option, add it to **both** the explicit-ordering `case` terms and the direction term it needs; a `case` that returns `null` for the other branches silently yields to whatever comes next. Test sorts against a fixture where the competing orderings disagree, or the test proves only that the seed is sorted.

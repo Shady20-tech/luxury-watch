@@ -263,7 +263,14 @@ on conflict (id) do update
       body        = excluded.body,
       cta_label   = excluded.cta_label,
       cta_href    = excluded.cta_href,
-      image_url   = excluded.image_url,
+      -- `image_url` is deliberately NOT updated here. Every row in this file
+      -- carries a null image, so writing `excluded.image_url` wiped the
+      -- photography that migrations 0031/0032 seed. Because the seed runs after
+      -- the migrations in `db-verify.sh` — and runs twice to prove idempotency —
+      -- every verification pass reset the hero, the promo strips and the
+      -- brand/collection heroes to null, and the site rendered as the empty black
+      -- bands this file's own sibling migration set out to fix. An administrator's
+      -- chosen image must survive a seed re-run for the same reason.
       settings    = excluded.settings,
       is_active   = excluded.is_active,
       sort_order  = excluded.sort_order,

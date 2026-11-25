@@ -1,6 +1,7 @@
 import { ArrowRight, Gem, PackageCheck, ShieldCheck, Wallet } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/section';
@@ -213,8 +214,13 @@ function slugifyBrand(name: string): string {
 export function BrandShowcase({ brands }: { brands: BrandTile[] }) {
   return (
     <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-md bg-line-200 sm:grid-cols-3 lg:grid-cols-4">
-      {brands.map((brand) => (
-        <li key={brand.id} className="bg-surface-0">
+      {brands.map((brand, index) => (
+        <li
+          key={brand.id}
+          className="bg-surface-0"
+          data-reveal
+          style={{ '--reveal-delay': `${Math.min(index, 7) * 70}ms` } as CSSProperties}
+        >
           <Link
             href={brand.href}
             className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-700 flex h-full flex-col items-center justify-center px-6 py-10 text-center transition-colors hover:bg-surface-50"
@@ -270,11 +276,16 @@ export function TrustRow({ items, tone = 'light' }: { items: TrustItem[]; tone?:
 
   return (
     <ul className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const Icon =
           (item.label && TRUST_ICON[item.label as keyof typeof TRUST_ICON]) || ShieldCheck;
         return (
-          <li key={item.id} className="flex flex-col items-center text-center">
+          <li
+            key={item.id}
+            className="flex flex-col items-center text-center"
+            data-reveal
+            style={{ '--reveal-delay': `${Math.min(index, 3) * 90}ms` } as CSSProperties}
+          >
             <Icon aria-hidden="true" className="text-gold-700 h-7 w-7" />
             <h2 className={cn('mt-5 text-base font-semibold', t.heading)}>{item.title}</h2>
             {item.body ? <p className={cn('mt-2.5 text-sm', t.body)}>{item.body}</p> : null}

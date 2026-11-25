@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { AuthBand } from '@/components/auth/auth-band';
+import { AuthShell } from '@/components/auth/auth-shell';
 import { ResetPasswordForm } from '@/components/auth/reset-password-form';
-import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { AuthPanel } from '@/components/auth/auth-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { getAuthUser } from '@/server/repositories/auth-repository';
@@ -44,9 +43,8 @@ export default async function ResetPasswordPage() {
 
   if (!user) {
     return (
-      <div>
-        <AuthBand photograph={SITE_PHOTOGRAPHY.pocketWatch} />
-        <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
+      <AuthShell>
+        <div className="w-full">
           <AuthPanel
             title="This link is not valid"
             description="A password reset link can only be used once, and it expires. Request a new one to continue."
@@ -64,16 +62,15 @@ export default async function ResetPasswordPage() {
             </div>
           </AuthPanel>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div>
-      <AuthBand photograph={SITE_PHOTOGRAPHY.pocketWatch} />
-      <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
+    <AuthShell>
+      <div className="w-full">
         <ResetPasswordForm />
       </div>
-    </div>
+    </AuthShell>
   );
 }

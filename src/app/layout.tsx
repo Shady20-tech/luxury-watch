@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Cardo, Nunito } from 'next/font/google';
 
 import { JsonLd } from '@/components/seo/json-ld';
+import { RevealOnScroll } from '@/components/ui/reveal';
 import { getPublicEnv } from '@/lib/env';
 import { organizationSchema, websiteSchema } from '@/lib/seo/schema';
 
@@ -62,6 +63,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           Skip to main content
         </a>
         {children}
+        {/* Watches for `[data-reveal]` and reveals it on scroll. Mounted once
+            here so any Server Component can opt in with an attribute, without
+            turning its children into client components. */}
+        <RevealOnScroll />
         {/* Site-wide identity. Emitted once here rather than repeated on every
             page; individual pages reference these nodes by `@id`. */}
         <JsonLd nodes={[organizationSchema(), websiteSchema()]} />

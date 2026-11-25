@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { MediaFrame } from '@/components/ui/media-frame';
@@ -132,7 +133,12 @@ export function ProductGrid({
       // A list of products is a list; the announcement is left to the section.
     >
       {products.map((product, index) => (
-        <li key={product.id} className="flex">
+        <li
+          key={product.id}
+          className="flex"
+          data-reveal
+          style={{ '--reveal-delay': `${Math.min(index, 4) * 80}ms` } as CSSProperties}
+        >
           <ProductCard
             product={product}
             // Only the very first card is prioritised, and only within the

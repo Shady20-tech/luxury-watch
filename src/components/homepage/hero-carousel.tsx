@@ -188,17 +188,38 @@ export function HeroCarousel({
           trusting that claim. */}
       {slide.imageUrl ? (
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          <Image
-            src={slide.imageUrl}
-            alt=""
-            fill
-            sizes="100vw"
-            priority={isFirst}
-            loading={isFirst ? undefined : 'lazy'}
-            className="object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/85 to-night-950/25" />
-          <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/45 to-night-950/20" />
+          {/* `scale-105` with a slow Ken Burns drift: the photograph is a wall,
+              and a still wall behind moving copy reads as a background image
+              rather than as a photograph someone chose. The scale is applied to
+              the wrapper, not the `<img>`, so `object-cover` still does its
+              cropping work. It is disabled under `prefers-reduced-motion` by the
+              global rule in `globals.css`. */}
+          <div className="absolute inset-0 scale-105 motion-safe:animate-[hero-drift_28s_ease-in-out_infinite_alternate]">
+            <Image
+              src={slide.imageUrl}
+              alt=""
+              fill
+              sizes="100vw"
+              priority={isFirst}
+              loading={isFirst ? undefined : 'lazy'}
+              className="object-cover object-center"
+            />
+          </div>
+          {/* Two scrims, and their weights are the whole legibility argument.
+
+              The photograph has to be *visible* — a hero nobody can see is the
+              defect this replaced — so the middle of the band is left close to
+              clear and the darkness is pushed to the left edge, under the copy
+              column, and to the bottom edge, under the body text and controls.
+              `from-night-950` at the left is opaque where the headline starts and
+              falls to 10% by 70% across, which keeps the dials readable on the
+              right of a wide viewport.
+
+              Contrast is a property of these gradients at the widths the copy
+              occupies, not of whichever picture an administrator picks, and the
+              browser audit measures the composed result at four viewports. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/70 to-night-950/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/25 to-transparent" />
         </div>
       ) : null}
 

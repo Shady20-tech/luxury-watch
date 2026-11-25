@@ -211,9 +211,154 @@
 
   /* Motion */
   --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
+  --duration-reveal: 700ms;
+}
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   The reference site is quietly animated: photography drifts, cards lift on
+   hover, and content fades up as you scroll. Ours had none of that — four
+   transitions in the whole codebase — which is most of why it read as static
+   next to it.
+
+   Three rules govern everything here:
+
+    1. **Motion is opt-in by capability, never required for comprehension.**
+       Every reveal animates *from* a visible-but-offset state to the resting
+       state, so if JavaScript never runs the content is still readable. The
+       reveal script adds `.is-revealed`; without it the element is simply in
+       its final position after the CSS `animation-fill-mode`.
+
+    2. **`prefers-reduced-motion` wins.** The global block at the bottom of this
+       file collapses every animation and transition to 0.01ms, and each
+       utility below is additionally guarded by `motion-safe` at the call site
+       where it would otherwise move something large.
+
+    3. **Nothing loops forever except the hero drift.** A looping animation is a
+       WCAG 2.2.2 hazard and a battery cost; the drift is slow, decorative and
+       paused by the same reduced-motion rule.
+   ========================================================================== */
+
+@keyframes hero-drift {
+  from {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1.5%, -1%, 0);
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.75rem, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* ==========================================================================
+   Scroll reveal
+   --------------------------------------------------------------------------
+   `[data-reveal]` starts offset and transparent; the observer in
+   `components/ui/reveal.tsx` adds `.is-revealed` when the element first enters
+   the viewport. The transition (not an animation) is used so a reveal that is
+   interrupted by a fast scroll settles smoothly instead of snapping.
+
+   The stagger is driven by `--reveal-delay`, set inline per child, so a grid of
+   cards can cascade without a class per position.
+   ========================================================================== */
+@layer components {
+  [data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+    transition:
+      opacity var(--duration-reveal) var(--ease-out-soft),
+      transform var(--duration-reveal) var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+
+  [data-reveal].is-revealed {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    /* Drop the hint once settled: a permanently promoted layer costs memory and
+       can make text render blurry on some GPUs. */
+    will-change: auto;
+  }
+
+  /* If the observer never runs — JS disabled, or a browser without
+     IntersectionObserver — the content must still be readable. `no-js` is set
+     on `<html>` by the reveal script's absence only in the sense that the class
+     is never added, so this fallback keys off the reduced-motion query and a
+     media query for print, which is the one context where an invisible element
+     is always wrong. */
+  @media print {
+    [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}
+
+/* A link or card that lifts on hover. Kept as a utility so the transform and
+   its shadow move together — animating one without the other is what makes a
+   hover feel cheap. */
+@utility lift {
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard);
+
+  &:hover {
+    transform: translate3d(0, -2px, 0);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* An image inside a `group` that scales gently on hover. The overflow clip lives
+   on the parent so the scale never bleeds outside the card. */
+@utility zoom-media {
+  transition: transform 600ms var(--ease-out-soft);
+
+  .group:hover & {
+    transform: scale(1.04);
+  }
 }
 
 /* ==========================================================================

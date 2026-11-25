@@ -104,11 +104,11 @@ function isActive(pathname: string, href: string): boolean {
 
 function navLinkClass(active: boolean, collapsed: boolean): string {
   return cn(
-    'focus-visible:outline-gold-300 group relative flex items-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
+    'focus-visible:outline-gold-300 group relative flex items-center rounded-lg transition-[background-color,color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2',
     collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5',
     active
-      ? 'text-on-night bg-white/10 font-medium'
-      : 'text-on-night-muted hover:text-on-night hover:bg-white/5',
+      ? 'text-on-night bg-gradient-to-r from-white/[0.14] to-white/[0.04] font-medium shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]'
+      : 'text-on-night-muted hover:text-on-night hover:bg-white/[0.055]',
   );
 }
 
@@ -150,12 +150,18 @@ function NavItems({
                     title={collapsed ? item.label : undefined}
                     className={navLinkClass(active, collapsed)}
                   >
-                    {/* The rule earns its place only when collapsed, where the
-                        fill alone is easy to miss at a glance. */}
-                    {collapsed && active ? (
+                    {/* The gold rule marks the active row at every width. It was
+                        previously drawn only when collapsed, on the theory that
+                        the fill was enough when expanded — but on a dark rail the
+                        fill is a 5% lift, and the rule is what actually reads as
+                        "you are here" at a glance. */}
+                    {active ? (
                       <span
                         aria-hidden="true"
-                        className="bg-gold-300 absolute top-1/2 -left-2 h-6 w-0.5 -translate-y-1/2 rounded-full"
+                        className={cn(
+                          'bg-gold-300 absolute top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full',
+                          collapsed ? '-left-2' : '-left-3',
+                        )}
                       />
                     ) : null}
                     <Icon
@@ -243,37 +249,56 @@ export function AdminNav({ groups }: { groups: AdminNavGroup[] }) {
     <nav
       aria-label="Administration"
       className={cn(
-        'bg-night-900 flex h-full flex-col rounded-lg p-3 transition-[width] duration-200',
-        collapsed ? 'w-[4.5rem]' : 'w-[15rem]',
+        'relative flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-gradient-to-b from-night-800 to-night-900 p-3 shadow-[0_1px_0_rgb(255_255_255/0.05)_inset,0_24px_48px_-24px_rgb(0_0_0/0.6)] transition-[width] duration-300 ease-[var(--ease-standard)]',
+        collapsed ? 'w-[4.5rem]' : 'w-[15.5rem]',
       )}
     >
-      <div className={cn('mb-4', collapsed ? 'flex justify-center' : 'px-1')}>
-        <span className={cn('text-on-night text-sm font-semibold', collapsed && 'sr-only')}>
-          Administration
+      {/* A gold bloom in the top corner. Subtle enough that it reads as the rail
+          being lit from one side rather than as a coloured panel, and it is the
+          only saturated thing in the admin shell. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-gold-500/10 blur-3xl"
+      />
+
+      <div
+        className={cn(
+          'relative mb-4 flex items-center gap-2.5 border-b border-white/[0.07] pb-4',
+          collapsed ? 'justify-center' : 'px-1',
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="bg-gold-300/90 grid h-8 w-8 shrink-0 place-items-center rounded-lg font-display text-sm font-bold text-night-950 shadow-[0_0_0_1px_rgb(217_188_122/0.3)]"
+        >
+          C
         </span>
-        {collapsed ? (
-          <span aria-hidden="true" className="text-gold-300 text-lg font-semibold">
-            A
+        <span className={cn('min-w-0', collapsed && 'sr-only')}>
+          <span className="text-on-night block text-sm font-semibold tracking-tight">
+            Administration
           </span>
-        ) : null}
+          <span className="text-on-night-muted block text-[0.6875rem] tracking-[0.1em] uppercase">
+            Boutique console
+          </span>
+        </span>
       </div>
 
       <div className="mb-5">
         <StoreLink collapsed={collapsed} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
         <NavItems groups={groups} pathname={pathname} collapsed={collapsed} />
       </div>
 
-      <div className="mt-4 border-t border-white/10 pt-3">
+      <div className="mt-4 border-t border-white/[0.07] pt-3">
         <button
           type="button"
           onClick={toggleCollapsed}
           aria-pressed={collapsed}
           title={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
           className={cn(
-            'focus-visible:outline-gold-300 text-on-night-muted hover:text-on-night flex w-full items-center rounded-md transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2',
+            'focus-visible:outline-gold-300 text-on-night-muted hover:text-on-night flex w-full items-center rounded-lg transition-colors hover:bg-white/[0.055] focus-visible:outline-2 focus-visible:outline-offset-2',
             collapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2.5',
           )}
         >
