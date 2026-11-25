@@ -321,6 +321,112 @@ export const SITE_PHOTOGRAPHY = {
     width: 2000,
     height: 1125,
   },
+
+  /* ---------------------------------------------------------------------------
+     Editorial plates added for the Phase 5 catalogue and the console.
+
+     Chosen for what they show rather than for a brand: three "collection" flats
+     give the shop, brand and collection bands a row of watches rather than one
+     object, and the museum pieces give the service and journal pages a warmer,
+     older register than the modern sports models already here.
+     --------------------------------------------------------------------------- */
+
+  /** Three Speedmasters laid out side by side. The strongest group shot we hold. */
+  omegaSpeedmasterTrio: {
+    src: '/site-photography/omega-speedmaster-trio.webp',
+    alt: 'Three Omega Speedmaster chronographs arranged side by side.',
+    credit: 'Auge=mit',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Omega_Speedmaster_compilation_pp01.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A modern steel dive watch. Reads as "tool watch", the opposite of the dress plates. */
+  seikoProspexDiver: {
+    src: '/site-photography/seiko-prospex-diver.webp',
+    alt: 'A steel Seiko Prospex dive watch with a black dial on a steel bracelet.',
+    credit: 'Deerpeter',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Seiko_Prospex_SPB143J1.png',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A flat of dress watches on a dark ground. Pairs with the steel-sports plate. */
+  collectionDressWatches: {
+    src: '/site-photography/collection-dress-watches.webp',
+    alt: 'A group of dress wristwatches with leather straps laid out together.',
+    credit: 'Zane Loke',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Watch_Collection_1.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A flat of steel sports watches. The catalogue's own register. */
+  collectionSteelSports: {
+    src: '/site-photography/collection-steel-sports.webp',
+    alt: 'Several steel sports wristwatches grouped together on a dark surface.',
+    credit: 'Zane Loke',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Watch_Collection_2.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** Boxed vintage pieces. Carries the "box and papers" story without claiming stock. */
+  collectionVintageBoxed: {
+    src: '/site-photography/collection-vintage-boxed.webp',
+    alt: 'Vintage wristwatches shown with their presentation boxes.',
+    credit: 'Zane Loke',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Watch_Collection_3.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A gold pocket watch on black. Warm, high contrast, good under a serif title. */
+  goldPocketWatch: {
+    src: '/site-photography/gold-pocket-watch.webp',
+    alt: 'A gold pocket watch photographed against a black ground.',
+    credit: 'Auckland Museum Collections',
+    licence: 'CC BY 2.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by/2.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Watch,_Gold_(48708080673).jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** A watch beside its box. The plainest statement of what "full set" means. */
+  watchAndBox: {
+    src: '/site-photography/watch-and-box.webp',
+    alt: 'A wristwatch displayed next to its presentation box.',
+    credit: 'Auckland Museum Collections',
+    licence: 'CC BY 2.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by/2.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Watch_and_Box_(48709551141).jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  /** An exhibition caseback on a movement. The craft plate for the service pages. */
+  exhibitionCaseback: {
+    src: '/site-photography/exhibition-caseback.webp',
+    alt: 'A wristwatch with a transparent caseback showing its automatic movement.',
+    credit: 'Petar Milošević',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Self-winding_wristwatch_(transparent_backside).jpg',
+    width: 2000,
+    height: 1125,
+  },
 } as const satisfies Record<string, SitePhotograph>;
 
 export type SitePhotographKey = keyof typeof SITE_PHOTOGRAPHY;

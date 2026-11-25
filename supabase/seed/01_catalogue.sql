@@ -67,17 +67,24 @@ begin;
 -- Brands
 -- -----------------------------------------------------------------------------
 
-insert into public.brands (name, slug, description, is_active, sort_order)
+-- Each brand carries its hero plate here rather than relying on a later
+-- migration to point at one. The photography migrations run before this seed on
+-- a fresh database, so their `update ... where slug = ...` matched no rows and
+-- every brand page opened on a plain black band. The value belongs with the row
+-- that creates it; `0039_hero_photography_after_seed.sql` re-applies the same
+-- mapping so an existing database is repaired too.
+insert into public.brands (name, slug, description, hero_image_url, is_active, sort_order)
 values
 
-  ('Rolex', 'rolex', 'Swiss watchmaker founded in London in 1905 and based in Geneva since 1919. Known for the Oyster case, the Perpetual rotor and the Milgauss, an antimagnetic model originally built for laboratory and industrial work.', true, 1),
-  ('Patek Philippe', 'patek-philippe', 'Geneva watchmaker with roots back to 1839, and the family-owned house behind the Calatrava, Nautilus and, from 2024, the Cubitus. Its pieces are typically offered with an archive extract or certificate of origin.', true, 2),
-  ('Audemars Piguet', 'audemars-piguet', 'Independent Swiss house based in Le Brassus since 1875. It introduced the Royal Oak in 1972, a steel sports watch with an integrated bracelet and the octagonal bezel that has defined the collection since.', true, 3),
-  ('Richard Mille', 'richard-mille', 'Swiss maker founded in 2001, working in tonneau-shaped cases and skeletonised movements with materials borrowed from aerospace and motorsport. Production is small and references are typically released in limited runs.', true, 4)
+  ('Rolex', 'rolex', 'Swiss watchmaker founded in London in 1905 and based in Geneva since 1919. Known for the Oyster case, the Perpetual rotor and the Milgauss, an antimagnetic model originally built for laboratory and industrial work.', '/site-photography/brand-rolex.webp', true, 1),
+  ('Patek Philippe', 'patek-philippe', 'Geneva watchmaker with roots back to 1839, and the family-owned house behind the Calatrava, Nautilus and, from 2024, the Cubitus. Its pieces are typically offered with an archive extract or certificate of origin.', '/site-photography/brand-patek-philippe.webp', true, 2),
+  ('Audemars Piguet', 'audemars-piguet', 'Independent Swiss house based in Le Brassus since 1875. It introduced the Royal Oak in 1972, a steel sports watch with an integrated bracelet and the octagonal bezel that has defined the collection since.', '/site-photography/brand-audemars-piguet.webp', true, 3),
+  ('Richard Mille', 'richard-mille', 'Swiss maker founded in 2001, working in tonneau-shaped cases and skeletonised movements with materials borrowed from aerospace and motorsport. Production is small and references are typically released in limited runs.', '/site-photography/richard-mille-rm030.webp', true, 4)
 
 on conflict (slug) do update
   set name = excluded.name,
       description = excluded.description,
+      hero_image_url = coalesce(public.brands.hero_image_url, excluded.hero_image_url),
       is_active = excluded.is_active,
       sort_order = excluded.sort_order;
 
@@ -13139,14 +13146,18 @@ join public.products p on p.slug = v.product_slug;
 -- Mirrors the reference site's curated sets, populated from real product rows.
 -- -----------------------------------------------------------------------------
 
-insert into public.collections (title, slug, kind, description, is_active, sort_order)
+-- Hero plates travel with the row. See `01_catalogue.sql` for why: the
+-- photography migrations run before the seed, so an `update` from a migration
+-- matches nothing on a fresh database.
+insert into public.collections (title, slug, kind, description, hero_image_url, is_active, sort_order)
 values
-  ('Featured', 'featured', 'featured', 'Hand-picked watches from the current catalogue.', true, 1),
-  ('New Arrivals', 'new-arrivals', 'novelty', 'The most recently added watches.', true, 2),
-  ('Price on Request', 'price-on-request', 'merchandising', 'Watches priced on application.', true, 3)
+  ('Featured', 'featured', 'featured', 'Hand-picked watches from the current catalogue.', '/site-photography/omega-speedmaster-trio.webp', true, 1),
+  ('New Arrivals', 'new-arrivals', 'novelty', 'The most recently added watches.', '/site-photography/collection-steel-sports.webp', true, 2),
+  ('Price on Request', 'price-on-request', 'merchandising', 'Watches priced on application.', '/site-photography/gold-pocket-watch.webp', true, 3)
 on conflict (slug) do update
   set title = excluded.title,
       kind = excluded.kind,
+      hero_image_url = coalesce(public.collections.hero_image_url, excluded.hero_image_url),
       is_active = excluded.is_active;
 
 -- Featured: the first published-able product per brand, as a starting point for

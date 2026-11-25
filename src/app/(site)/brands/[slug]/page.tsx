@@ -44,6 +44,7 @@ export async function generateMetadata({
   const listingParams = parseCatalogueParams(await searchParams, 'brand', slug);
   const listing = await getListing(listingParams);
   const seo = listingSeo(listingParams, listing.total, brand.productCount > 0);
+  const hero = resolveSitePhotograph(brand.heroImageUrl);
 
   return buildMetadata({
     title: `${brand.name} watches`,
@@ -51,6 +52,11 @@ export async function generateMetadata({
       brand.description ??
       `Watches by ${brand.name}. Browse the pieces we currently hold, and request pricing and availability on any of them.`,
     path: seo.path,
+    // The hero this page renders, so a shared link previews the brand rather
+    // than a generic card.
+    images: hero
+      ? [{ url: hero.src, alt: hero.alt, width: hero.width, height: hero.height }]
+      : undefined,
     // Three conditions, all required. A filtered permutation is a duplicate of
     // the clean brand page and must not rank; a brand with nothing published is
     // thin content that says only "we hold none right now"; and a page past the

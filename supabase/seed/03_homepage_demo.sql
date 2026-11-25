@@ -153,19 +153,19 @@ values
    'Timepieces chosen one at a time',
    'Independent luxury watch retail',
    'We buy, sell and source fine watches, and we tell you what we actually think. Every piece is inspected before it is offered, and every price is discussed with you directly.',
-   'Browse the collection', '/shop', null, '{"eyebrow": "Independent watch retail"}'::jsonb, true, 10),
+   'Browse the collection', '/shop', '/site-photography/rolex-gmt-batgirl.webp', '{"eyebrow": "Independent watch retail"}'::jsonb, true, 10),
 
   ('00000000-0000-4000-8000-000000000402', 'hero_2',
    'Looking for a specific reference?',
    'Watch sourcing',
    'If the piece you want is not in the catalogue, we will search our network for it and come back to you with an honest assessment of availability and cost.',
-   'Start a sourcing request', '/services/sourcing', null, '{"eyebrow": "Sourcing"}'::jsonb, true, 20),
+   'Start a sourcing request', '/services/sourcing', '/site-photography/patek-display.webp', '{"eyebrow": "Sourcing"}'::jsonb, true, 20),
 
   ('00000000-0000-4000-8000-000000000403', 'hero_3',
    'Sell or trade your watch',
    'Sell and trade',
    'Send us the details and we will come back with a realistic figure, usually within a day. No obligation, and no pressure to accept.',
-   'Get a valuation', '/services/sell-trade', null, '{"eyebrow": "Sell and trade"}'::jsonb, true, 30),
+   'Get a valuation', '/services/sell-trade', '/site-photography/watchmaker-bench.webp', '{"eyebrow": "Sell and trade"}'::jsonb, true, 30),
 
   -- Brand showcase heading.
   ('00000000-0000-4000-8000-000000000404', 'brand_showcase',
@@ -177,14 +177,14 @@ values
   ('00000000-0000-4000-8000-000000000405', 'featured_collection',
    'A curated selection', 'Featured',
    'Pieces our team has chosen from the current catalogue.',
-   'View the selection', '/collections/featured', null, '{"collection_slug": "featured", "limit": 4}'::jsonb, true, 50),
+   'View the selection', '/collections/featured', '/site-photography/rolex-stella-dials.webp', '{"collection_slug": "featured", "limit": 4}'::jsonb, true, 50),
 
   -- Brand story.
   ('00000000-0000-4000-8000-000000000406', 'brand_story',
    'A small team, and a straight answer',
    'About us',
    'We are an independent watch retailer. We handle a limited number of pieces, we describe them accurately, and we would rather tell you that something is not right for you than make a sale. Buying a watch should not require you to become an expert first.',
-   'Read more about us', '/pages/about', null, '{}'::jsonb, true, 60),
+   'Read more about us', '/pages/about', '/site-photography/omega-calibre-1861.webp', '{}'::jsonb, true, 60),
 
   -- New arrivals, driven by a real collection.
   ('00000000-0000-4000-8000-000000000407', 'new_arrivals',
@@ -202,13 +202,13 @@ values
   ('00000000-0000-4000-8000-000000000409', 'sell_trade_cta',
    'Sell or trade your watch', 'Sell and trade',
    'Tell us what you have. We will give you a realistic figure and explain how we arrived at it.',
-   'Get started', '/services/sell-trade', null, '{}'::jsonb, true, 90),
+   'Get started', '/services/sell-trade', '/site-photography/corum-coinwatch.webp', '{}'::jsonb, true, 90),
 
   -- Sourcing CTA.
   ('00000000-0000-4000-8000-000000000410', 'sourcing_cta',
    'Your watch, sourced worldwide', 'Watch sourcing',
    'Access a network of dealers and collectors. If it exists, there is a good chance we can find it.',
-   'Get started', '/services/sourcing', null, '{}'::jsonb, true, 100),
+   'Get started', '/services/sourcing', '/site-photography/omega-calibre-1861.webp', '{}'::jsonb, true, 100),
 
   -- Trust / value propositions. One row each.
   ('00000000-0000-4000-8000-000000000411', 'trust_1',
@@ -263,14 +263,15 @@ on conflict (id) do update
       body        = excluded.body,
       cta_label   = excluded.cta_label,
       cta_href    = excluded.cta_href,
-      -- `image_url` is deliberately NOT updated here. Every row in this file
-      -- carries a null image, so writing `excluded.image_url` wiped the
-      -- photography that migrations 0031/0032 seed. Because the seed runs after
-      -- the migrations in `db-verify.sh` — and runs twice to prove idempotency —
-      -- every verification pass reset the hero, the promo strips and the
-      -- brand/collection heroes to null, and the site rendered as the empty black
-      -- bands this file's own sibling migration set out to fix. An administrator's
-      -- chosen image must survive a seed re-run for the same reason.
+      -- `image_url` keeps whatever is already stored and falls back to this
+      -- file's plate only when the column is empty. The earlier version of this
+      -- clause omitted the column entirely, because every row here carried a
+      -- null and writing it wiped the photography the migrations seed — but
+      -- that also meant a fresh database never got an image from the seed at
+      -- all, since the migrations had already run against an empty table. The
+      -- coalesce keeps both properties: an administrator's choice survives a
+      -- re-run, and a database built from the seed alone is not left blank.
+      image_url   = coalesce(public.homepage_sections.image_url, excluded.image_url),
       settings    = excluded.settings,
       is_active   = excluded.is_active,
       sort_order  = excluded.sort_order,

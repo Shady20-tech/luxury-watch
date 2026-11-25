@@ -8,6 +8,106 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Every hero band on the site was a black rectangle, because the seed could not see the migrations
+
+**Date:** 2026-11-19
+
+The homepage carousel, all nine brand pages and all three collection pages opened
+on an empty dark panel with no photograph. Measured with Playwright at 1440×900,
+right-side pixel brightness: `/` 0 (standard deviation 0, pure black),
+`/brands/rolex` 14, `/collections/featured` 15 — against `/shop` at 123, which was
+the only page that looked right. So the defect was not a styling problem on one
+template; it was that three of the four hero surfaces had no image to render.
+
+The cause was ordering, not code. `db-verify.sh` applies **every migration, then
+every seed**. The photography migrations (`0031`, `0032`, `0036`, `0037`) assign
+their images with statements shaped like
+
+```sql
+update public.brands set hero_image_url = '/site-photography/brand-rolex.webp'
+ where slug = 'rolex';
+```
+
+and on a fresh database `brands`, `collections` and `homepage_sections` are all
+empty at that point, so every one of those `update`s matched zero rows. SQL does
+not treat "matched nothing" as an error, so the migration suite stayed green while
+the site shipped without photography. `0039_hero_photography_after_seed.sql` had
+been written to re-apply the mapping, but it is a migration too — it ran before
+the seed for exactly the same reason, and was equally empty-handed.
+
+The fix is to put the image on the row that creates it. `01_catalogue.sql`,
+`05_extended_catalogue.sql` and `03_homepage_demo.sql` now carry `hero_image_url`
+and `image_url` in their inserts. Their conflict clauses use
+`coalesce(existing, excluded)` rather than overwriting, which preserves both
+properties at once: an administrator's chosen image survives a re-seed, and a
+database built from the seed alone is no longer blank. `0039` stays, so an
+existing deployment is repaired on the next migrate.
+
+`supabase/tests/68_hero_photography.sql` proves it. It asserts that every active
+brand, every active collection and every photograph-rendering homepage section
+has a path, and that each path names a file in `public/site-photography/`. It was
+mutation-tested: nulling one brand's hero makes it fail with
+`1 active brand(s) have no hero image`, and restoring it passes.
+
+The general lesson is the one worth keeping: **a migration that `update`s a row
+another migration will create must run after it, and "matched zero rows" is a
+silent success.** Anything that points at seed-created rows belongs in the seed,
+or needs an assertion that the update it performed was not empty.
+
+Verified after the fix on a database built by `db-verify.sh` from nothing: 9 of 9
+brands, 3 of 3 collections and 7 of 7 photographed sections carry an image, all
+from the seed alone, and the same brightness probe reads 77–130 on the right side
+of every hero with the copy column still dark at 13–22.
+
+### The administration dashboard was three rows of identical white cards
+
+**Date:** 2026-11-19
+
+The console's landing page was an `h1`, one line of role text, and every figure
+rendered as the same white rectangle in an even grid. Nothing was wrong with it —
+the counts are real, each tile links to the rows behind it, and the permission
+scoping is careful — but it gave a visitor no idea where to start, and it looked
+nothing like the storefront it administers.
+
+It now opens on a dark `night-900` band with a serif title and a gold rule, the
+same register every public template uses, and a single summary line that reads
+either "N waiting on you" or "Nothing is waiting". Below it, the one queue that
+most needs a person today is promoted to a full-width card — chosen in the order
+work arrives (orders, then enquiries, then appointments, then stock) — beside the
+catalogue's health. The remaining figures keep the tile grid, three across rather
+than four, with the number set in the display face at 2.25rem.
+
+The attention treatment is a warm `gold-100` ground and a 2px gold rule at the top
+edge, not red. These are queues to work through, not errors, and a dashboard where
+every tile is red teaches staff to ignore red. The rule is also the non-colour half
+of the signal, so it survives a monochrome screen.
+
+Checked rather than assumed: one `h1` in the content region, no horizontal
+overflow at 320, 375, 768, 1024 or 1440, and every new colour pair measured —
+`on-night` on `night-900` 18.4:1, `on-night-muted` 9.2:1, `gold-300` 10.9:1,
+`gold-900` on `gold-100` 9.5:1. `npm run verify` is green at 1084 tests and the
+browser audit is clean across 33 pages × 4 viewports.
+
+### Catalogue listings now emit an Open Graph image
+
+**Date:** 2026-11-19
+
+`/shop`, every brand page, every collection page and every model page built their
+metadata through `buildMetadata`, which supports an `images` array — and none of
+them passed one. So a shared link previewed as a title card with no picture, on
+pages that have a hero photograph sitting at the top of the document.
+
+Each route now passes the same registered photograph its hero renders, with its
+alt text and intrinsic dimensions, so the preview is the image the visitor lands
+on. Only a path in `src/lib/images/site-photography.ts` is used: an unregistered
+path has no credit or dimensions, and an Open Graph image we cannot attribute is
+worse than none. `twitter:card` consequently upgrades from `summary` to
+`summary_large_image` on those routes.
+
+`/search` is deliberately left without one — it is `noindex`, and a page that
+should not be indexed does not need a social card.
+
+
 ### The bracelet filter split one material into two, and each half hid the other
 
 **Date:** 2026-11-19

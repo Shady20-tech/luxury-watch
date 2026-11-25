@@ -50,14 +50,18 @@ begin;
 -- Brands
 -- -----------------------------------------------------------------------------
 
-insert into public.brands (name, slug, description, country, founded_year, sort_order)
+-- Hero plates are part of the row, for the same reason as in `01_catalogue.sql`:
+-- the photography migrations run before this seed, so their updates match no
+-- rows on a fresh database.
+insert into public.brands (name, slug, description, country, founded_year, hero_image_url, sort_order)
 values
-  ('Omega', 'omega', 'Swiss manufacturer known for the Speedmaster, the first watch flight-qualified by NASA for spaceflight, and for the Seamaster dive line.', 'Switzerland', 1848, 10),
-  ('Cartier', 'cartier', 'Parisian maison whose Santos, designed in 1904, is widely credited as the first purpose-made men''s wristwatch.', 'France', 1847, 11),
-  ('Grand Seiko', 'grand-seiko', 'Japanese manufacture from the Seiko watchmaking studios in Shizukuishi, recognised for dial finishing and the Spring Drive movement.', 'Japan', 1960, 12),
-  ('Jaeger-LeCoultre', 'jaeger-lecoultre', 'Le Sentier manufacture and movement supplier, home of the reversible Reverso case introduced in 1931.', 'Switzerland', 1833, 13),
-  ('Breitling', 'breitling', 'Swiss maker of aviation chronographs, including the Navitimer with its circular slide rule bezel.', 'Switzerland', 1884, 14)
-on conflict (slug) do nothing;
+  ('Omega', 'omega', 'Swiss manufacturer known for the Speedmaster, the first watch flight-qualified by NASA for spaceflight, and for the Seamaster dive line.', 'Switzerland', 1848, '/site-photography/brand-omega.webp', 10),
+  ('Cartier', 'cartier', 'Parisian maison whose Santos, designed in 1904, is widely credited as the first purpose-made men''s wristwatch.', 'France', 1847, '/site-photography/brand-cartier.webp', 11),
+  ('Grand Seiko', 'grand-seiko', 'Japanese manufacture from the Seiko watchmaking studios in Shizukuishi, recognised for dial finishing and the Spring Drive movement.', 'Japan', 1960, '/site-photography/brand-grand-seiko.webp', 12),
+  ('Jaeger-LeCoultre', 'jaeger-lecoultre', 'Le Sentier manufacture and movement supplier, home of the reversible Reverso case introduced in 1931.', 'Switzerland', 1833, '/site-photography/brand-jaeger-lecoultre.webp', 13),
+  ('Breitling', 'breitling', 'Swiss maker of aviation chronographs, including the Navitimer with its circular slide rule bezel.', 'Switzerland', 1884, '/site-photography/brand-breitling.webp', 14)
+on conflict (slug) do update
+  set hero_image_url = coalesce(public.brands.hero_image_url, excluded.hero_image_url);
 
 -- -----------------------------------------------------------------------------
 -- Model families

@@ -49,6 +49,7 @@ export async function generateMetadata({
   // runs rather than a second one.
   const listing = await getListing(params);
   const seo = listingSeo(params, listing.total);
+  const hero = SITE_PHOTOGRAPHY.rolexGmtBatgirl;
 
   return buildMetadata({
     title: params.query !== '' ? `Search: ${params.query}` : 'The Collection',
@@ -57,10 +58,20 @@ export async function generateMetadata({
     // The canonical is the clean listing, so every filtered permutation points
     // a crawler at one address instead of competing with itself.
     path: seo.path,
-    // A clean listing is indexable; any filter, search term or sort makes this
-    // page a parameter-defined duplicate of it, so it is not. This must use
-    // `listingSeo` rather than comparing the canonical path to `/shop`:
-    // filtering keeps the base path, so that comparison would be true either way.
+    // The page's own hero, so a shared link previews the collection rather than
+    // a bare title card.
+    images: [{ url: hero.src, alt: hero.alt, width: hero.width, height: hero.height }],
+    // A clean listing is indexable; any filter or search term makes this page a
+    // parameter-defined duplicate of it, so it is not. This must use `listingSeo`
+    // rather than comparing the canonical path to `/shop`: filtering keeps the
+    // base path, so that comparison would be true either way.
+    //
+    // `sort` is the deliberate exception and it is not an oversight. Sorting
+    // reorders the same result set rather than narrowing it, so the page is not a
+    // duplicate of the clean listing — but it must not become its own canonical
+    // address either, or `?sort=price_asc` would compete with `/shop` for the
+    // same products. `canonicalListingPath` therefore resets the sort while
+    // leaving the page indexable, which keeps one address per result set.
     robots: { index: seo.index, follow: true },
   });
 }

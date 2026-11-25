@@ -697,6 +697,41 @@ surface the 5%-white fill is not enough on its own to read as "you are here".
 `localStorage` and read after mount, never during render, or the first client
 render disagrees with the server's and hydration fails.
 
+### A migration that updates a seeded row runs before the row exists
+
+`db-verify.sh` applies **every migration, then every seed**. So a migration
+shaped like
+
+```sql
+update public.brands set hero_image_url = '/site-photography/brand-rolex.webp'
+ where slug = 'rolex';
+```
+
+matches **zero rows** on a fresh database, because the seed that creates `rolex`
+has not run yet. SQL does not treat an update that matched nothing as an error,
+so the migration suite stays green and the site ships with the column null. This
+is how every hero band on the site — homepage carousel, all nine brand pages, all
+three collection pages — came to be a black rectangle while every check passed.
+
+**A value that belongs to a seeded row belongs in the seed**, in the `insert`
+that creates the row. Migrations are for schema and for data that must be
+corrected on databases that already exist, not for pointing at rows another file
+will create later. A follow-up migration cannot fix it either: it runs in the same
+empty window.
+
+The conflict clause needs care. `on conflict (slug) do update set x = excluded.x`
+overwrites an administrator's edit every time the seed re-runs, which is why the
+seed used to omit such columns entirely — and omitting them is what left a fresh
+database blank. Use `coalesce(public.t.col, excluded.col)` so a stored value wins
+and the seed value only fills an empty one. That satisfies both properties at
+once.
+
+Test it against an empty database, not the one you have been working in: `db-reset`
+then `db-verify`, and assert the column is populated _from the seed alone_. A
+populated value on a long-lived database may be left over from a manual `update`
+that no fresh install would ever run. `supabase/tests/68_hero_photography.sql` is
+the standing check for the hero columns.
+
 ### Things that will bite you
 
 - **A `not-found.tsx` or `error.tsx` inside a route group renders _inside_ that group's layout.** So it must not render the layout's own chrome. `src/app/(site)/not-found.tsx` first rendered `SiteHeader`/`SiteFooter` — which `(site)/layout.tsx` already provides — and used its own `<main>` inside the layout's `<main>`. The result was two headers, two footers and two `main` landmarks on every unmatched public route. No unit test sees this (it is a property of the composed page, not of the component) and reading the file in isolation looks right. Drive a browser across a real 404 and count `header`, `footer`, `main` and `h1`; the expected answer is one of each. The root `src/app/not-found.tsx` is different — it sits _outside_ the group, replaces the whole layout, and therefore _must_ render the chrome itself.

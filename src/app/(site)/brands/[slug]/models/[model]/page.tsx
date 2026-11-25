@@ -61,6 +61,7 @@ export async function generateMetadata({
   );
   const listing = await getListing(listingParams);
   const seo = listingSeo(listingParams, listing.total, model.productCount > 0);
+  const hero = resolveSitePhotograph(model.heroImageUrl);
 
   return buildMetadata({
     title: `${model.brandName} ${model.name}`,
@@ -68,6 +69,9 @@ export async function generateMetadata({
       model.description ??
       `${model.brandName} ${model.name} pieces we currently hold. Browse the range, and request pricing and availability on any watch.`,
     path: seo.path,
+    images: hero
+      ? [{ url: hero.src, alt: hero.alt, width: hero.width, height: hero.height }]
+      : undefined,
     robots: { index: seo.index, follow: true },
   });
 }

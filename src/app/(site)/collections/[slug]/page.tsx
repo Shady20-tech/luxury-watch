@@ -40,12 +40,21 @@ export async function generateMetadata({
   const listing = await getListing(listingParams);
   const seo = listingSeo(listingParams, listing.total, collection.productCount > 0);
 
+  // The same photograph the page's hero renders, so the card a visitor sees when
+  // somebody shares the link is the image they land on. Only a registered
+  // photograph is used: an unregistered path has no credit or dimensions, and an
+  // OG image we cannot attribute is worse than none.
+  const hero = resolveSitePhotograph(collection.heroImageUrl);
+
   return buildMetadata({
     title: collection.title,
     description:
       collection.description ??
       `${collection.title} — a curated selection from our catalogue. Request pricing and availability on any piece.`,
     path: seo.path,
+    images: hero
+      ? [{ url: hero.src, alt: hero.alt, width: hero.width, height: hero.height }]
+      : undefined,
     // A filtered permutation duplicates the clean collection page; an empty
     // collection is thin content; a page past the end of the results is a soft
     // 404. All three are `noindex`, and the sitemap uses the same published
