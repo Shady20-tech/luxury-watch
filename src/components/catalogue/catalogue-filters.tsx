@@ -189,7 +189,7 @@ function RangeFilter({
               inputMode="numeric"
               defaultValue={toDisplay(currentMin)}
               placeholder={range.min === null ? '—' : String(range.min)}
-              className="border-line-300 bg-surface-0 h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
+              className="border-field-border bg-field h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
             />
           </div>
           <div className="flex-1">
@@ -203,7 +203,7 @@ function RangeFilter({
               inputMode="numeric"
               defaultValue={toDisplay(currentMax)}
               placeholder={range.max === null ? '—' : String(range.max)}
-              className="border-line-300 bg-surface-0 h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
+              className="border-field-border bg-field h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
             />
           </div>
           <button

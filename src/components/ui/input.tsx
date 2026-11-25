@@ -39,10 +39,13 @@ export function Input({ id, label, error, hint, hideLabel, className, ...props }
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
         className={cn(
-          'border-line-300 bg-surface-0 text-foreground h-11 rounded-sm border px-3 text-sm',
+          // A field is a filled well with a real control outline, not a white
+          // box with a hairline. `field-border` clears 3:1 against the fill,
+          // which `line-300` never did — see the token comment in globals.css.
+          'border-field-border bg-field text-foreground h-11 rounded-sm border px-3 text-sm',
           'placeholder:text-ink-500',
           'focus-visible:border-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold-700',
-          'disabled:bg-surface-100 disabled:text-ink-500',
+          'disabled:bg-field-disabled disabled:text-ink-500',
           error && 'border-danger-600',
           className,
         )}

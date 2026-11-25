@@ -74,7 +74,7 @@ export function OrderTransitionPanel({
                   id={noteId}
                   name="note"
                   rows={2}
-                  className="border-line-300 focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+                  className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
                 />
                 <button
                   type="submit"

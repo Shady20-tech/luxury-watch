@@ -126,6 +126,123 @@ describe('text contrast on the light surface', () => {
   });
 });
 
+describe('form fields are readable controls, not white boxes', () => {
+  /**
+   * WCAG 1.4.11 (Non-text Contrast) requires 3:1 for the visual boundary of a
+   * user-interface component. A decorative hairline is not a control outline:
+   * `line-300` on white is 1.36:1, and using it to delimit an input is exactly
+   * how a form ends up looking washed out on a bright screen.
+   *
+   * These assertions pin the split between the two roles. If a future palette
+   * pass lightens `field-border` back towards the hairline tokens, this fails
+   * rather than the form quietly losing its edges.
+   */
+  const page = token('color-surface-page');
+  const field = token('color-field');
+  const white = token('color-surface-0');
+
+  it('the field boundary meets the 3:1 non-text minimum against its own fill', () => {
+    expect(contrastRatio(token('color-field-border'), field)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the field boundary also meets 3:1 against the page it sits on', () => {
+    expect(contrastRatio(token('color-field-border'), page)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('body text and placeholders clear AA on the field fill', () => {
+    expect(contrastRatio(token('color-ink-900'), field)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(token('color-ink-500'), field)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the disabled fill still carries readable text', () => {
+    // WCAG exempts disabled controls, but a value the user cannot read is not
+    // disabled — it is hidden. Hold it to AA anyway.
+    expect(
+      contrastRatio(token('color-ink-500'), token('color-field-disabled')),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the field is distinguishable from both the page ground and a white card', () => {
+    // Visible as a well, not so dark it becomes a panel of its own.
+    expect(contrastRatio(field, page)).toBeGreaterThan(1.04);
+    expect(contrastRatio(field, white)).toBeLessThan(1.3);
+  });
+});
+
+describe('the page ground is a tint, not white', () => {
+  /**
+   * The brightness pass moved the page ground off pure white. These hold the two
+   * properties that change is allowed to have: it stays light enough to be a
+   * neutral ground, and every text token still clears AA on it.
+   */
+  const page = token('color-surface-page');
+  const white = token('color-surface-0');
+
+  it('is a tint of white, not a colour in its own right', () => {
+    expect(contrastRatio(page, white)).toBeLessThan(1.15);
+    expect(page.toLowerCase()).not.toBe('#ffffff');
+  });
+
+  it('keeps every body-text token at AA', () => {
+    for (const name of ['color-ink-900', 'color-ink-500', 'color-gold-700', 'color-danger-600']) {
+      expect(contrastRatio(token(name), page), name).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('leaves the section tints visibly distinct from the ground', () => {
+    // A tinted band has to differ from the ground it alternates with, or the
+    // light/dark rhythm the templates rely on disappears.
+    expect(contrastRatio(token('color-surface-warm'), page)).toBeGreaterThan(1.05);
+    expect(contrastRatio(token('color-surface-cool'), page)).toBeGreaterThan(1.05);
+  });
+});
+
+describe('status text clears AA on the tint it is actually painted on', () => {
+  /**
+   * Every status banner in the app is the same shape: a status text colour on a
+   * faint tint of *that same colour* (`bg-success-600/10 text-success-600`),
+   * layered over the page ground. The contrast that matters is therefore
+   * text-against-tint-over-ground.
+   *
+   * Testing the text colour against the ground alone is what hid a real failure:
+   * `success-600` passed at 5.05:1 on the page, but the 10% banner tint
+   * composited over that page ground pulled it to 4.41:1, and the Chromium audit
+   * failed on it at every viewport. The tint is the part that is easy to forget,
+   * so it is the part this asserts.
+   */
+  const ground = token('color-surface-page');
+
+  function tint(hex: string, alpha: number, backdrop: string): string {
+    const channels = [1, 3, 5].map((offset) =>
+      parseInt(hex.replace('#', '').slice(offset - 1, offset + 1), 16),
+    );
+    const back = [1, 3, 5].map((offset) =>
+      parseInt(backdrop.replace('#', '').slice(offset - 1, offset + 1), 16),
+    );
+    return `#${channels
+      .map((channel, index) =>
+        Math.round(channel * alpha + (back[index] ?? 0) * (1 - alpha))
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')}`;
+  }
+
+  const statuses = [
+    ['success', 'color-success-600', 0.1],
+    ['success (lighter tint)', 'color-success-600', 0.05],
+    ['danger', 'color-danger-600', 0.1],
+    ['danger (lighter tint)', 'color-danger-600', 0.05],
+    ['warning', 'color-warning-700', 0.1],
+  ] as const;
+
+  it.each(statuses)('%s text stays at 4.5:1 on its own tint', (_label, name, alpha) => {
+    const text = token(name);
+    const banner = tint(text, alpha, ground);
+    expect(contrastRatio(text, banner)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('secondary accents are usable at both ends', () => {
   /**
    * The extended palette follows gold's rule: a `-700` is a text colour on a

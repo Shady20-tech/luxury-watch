@@ -64,7 +64,7 @@ export function ListingToolbar({ listing }: { listing: CatalogueListing }) {
           id="listing-sort"
           name="sort"
           defaultValue={params.sort}
-          className="border-line-300 bg-surface-0 h-10 rounded-sm border px-2 text-sm"
+          className="border-field-border bg-field h-10 rounded-sm border px-2 text-sm"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -80,7 +80,7 @@ export function ListingToolbar({ listing }: { listing: CatalogueListing }) {
           id="listing-page-size"
           name="pageSize"
           defaultValue={String(pageSize)}
-          className="border-line-300 bg-surface-0 h-10 rounded-sm border px-2 text-sm"
+          className="border-field-border bg-field h-10 rounded-sm border px-2 text-sm"
         >
           {PAGE_SIZES.map((size) => (
             <option key={size} value={size}>

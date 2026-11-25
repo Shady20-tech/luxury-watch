@@ -33,11 +33,38 @@
   --color-line-200: #eeeeee;
   --color-line-300: #dddddd;
 
-  /* Surfaces */
+  /* Surfaces.
+     `surface-0` is the card and panel colour: pure white, so a panel still
+     reads as raised against the page. `surface-page` is the ground *behind*
+     those panels — a warm off-white, not white.
+
+     The ground was pure white until the brightness pass. A full-viewport
+     `#ffffff` is the single brightest thing a light theme can show, and at
+     laptop brightness it reads as glare rather than as space. Tinting the
+     ground and leaving cards white keeps the hierarchy (panels still sit
+     forward) while lowering the overall luminance. `tests/design-tokens.test.ts`
+     asserts the tint stays subtle enough to read as a tint and that every text
+     token still clears AA on it. */
   --color-surface-0: #ffffff;
-  --color-surface-50: #fafafa;
-  --color-surface-100: #f5f5f5;
+  --color-surface-50: #faf9f5;
+  --color-surface-100: #f3f1ea;
   --color-surface-200: #e9e9e9;
+  --color-surface-page: #faf9f5;
+
+  /* Form fields.
+     A field is filled, not white-on-white. The fill is deliberately deeper
+     than both the page ground and a white card, so a control reads as an
+     editable well rather than as a bordered rectangle — which is what makes a
+     dense form (the admin editors especially) tiring to look at.
+
+     `field-border` is much darker than the decorative `line-*` hairlines on
+     purpose. WCAG 1.4.11 requires 3:1 for the boundary of a user-interface
+     component, and a hairline at `line-300` is 1.36:1 on white: it is a
+     divider, not a control outline. The two roles were previously served by one
+     token, which is why fields looked washed out. */
+  --color-field: #f1eee6;
+  --color-field-disabled: #eae7de;
+  --color-field-border: #8f8672;
 
   /* Dark ground.
      The reference storefront is black-dominant: the hero, the "special deals"
@@ -88,19 +115,37 @@
   --color-sapphire-700: #1e3a8a;
   --color-sapphire-900: #0a1a33;
 
-  /* Warm and cool ground tints. Very light: these separate sections from a
-     white page without becoming a colour statement, which is the job the
+  /* Warm and cool ground tints. Very light: these separate sections from the
+     page ground without becoming a colour statement, which is the job the
      reference gives its off-white panels. Both keep `ink-900` well above
-     4.5:1 (14:1 or better). */
-  --color-surface-warm: #f7f3ea;
-  --color-surface-cool: #f1f4f3;
+     4.5:1 (13:1 or better).
+
+     They were deepened slightly alongside the ground tint. Against a white page
+     they only had to differ from white; against `surface-page` they need to
+     differ from *that*, and the earlier values landed 1.05:1 away — close
+     enough that a tinted section stopped reading as a separate band. */
+  --color-surface-warm: #f3eee1;
+  --color-surface-cool: #ebf1ef;
 
   /* A precious-metal tint for small decorative rules and dividers. Not a text
      colour: it is 1.6:1 on white and is only ever a hairline or a background. */
   --color-platinum-200: #e7e6e2;
 
-  /* Status */
-  --color-success-600: #1f7a4d;
+  /* Status
+     These are text colours on their own faint tint (`bg-success-600/10`), which
+     is how every success, error and warning banner in the app is built. That
+     tint sits *on top of* whatever surface it is placed on, so the contrast
+     that matters is text-against-tint-over-ground, not text-against-ground —
+     and it is lower than it looks.
+
+     `success-600` was `#1f7a4d`. Against a white page the 10% banner tint
+     reached 4.66:1, which passed but with almost no margin. Once the page ground
+     was tinted, the same banner composited to 4.41:1 and failed AA — a defect
+     the browser audit caught and the token tests could not, because they only
+     compared a text token with a solid background. It is now dark enough to keep
+     a wide margin on either ground; see `tests/design-tokens.test.ts`, which
+     composites the real tint rather than assuming one. */
+  --color-success-600: #17603c;
   --color-warning-700: #8a5a00;
   --color-danger-600: #b3261e;
 
@@ -135,7 +180,7 @@
   --shadow-lg: 0 12px 32px rgb(17 17 17 / 0.12);
 
   /* Semantic aliases — components reference these, not raw palettes */
-  --color-background: var(--color-surface-0);
+  --color-background: var(--color-surface-page);
   --color-background-muted: var(--color-surface-100);
   --color-foreground: var(--color-ink-900);
   --color-foreground-muted: var(--color-ink-500);

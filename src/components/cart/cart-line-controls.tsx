@@ -94,7 +94,7 @@ export function CartLineControls({ line, className }: { line: CartLine; classNam
               onChange={(event) => {
                 event.currentTarget.form?.requestSubmit();
               }}
-              className="border-line-300 bg-surface-0 text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 h-9 rounded-sm border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
+              className="border-field-border bg-field text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 h-9 rounded-sm border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
             >
               {options.map((value) => (
                 <option key={value} value={value}>

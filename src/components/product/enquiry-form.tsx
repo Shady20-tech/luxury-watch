@@ -137,7 +137,7 @@ export function EnquiryForm({
           required
           aria-invalid={fieldErrors.message ? true : undefined}
           aria-describedby={fieldErrors.message ? 'enquiry-message-error' : undefined}
-          className="border-line-300 bg-surface-0 text-foreground focus-visible:border-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm"
+          className="border-field-border bg-field text-foreground focus-visible:border-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm"
           placeholder="Ask about condition, provenance, servicing or delivery."
         />
         {fieldErrors.message ? (

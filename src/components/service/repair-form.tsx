@@ -86,7 +86,7 @@ export function RepairForm({ className }: { className?: string }) {
               id="repair-preferred-contact"
               name="preferredContact"
               defaultValue=""
-              className="border-line-300 bg-surface-0 text-foreground focus-visible:border-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold-700 h-11 rounded-sm border px-3 text-sm"
+              className="border-field-border bg-field text-foreground focus-visible:border-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold-700 h-11 rounded-sm border px-3 text-sm"
             >
               <option value="">No preference</option>
               <option value="email">Email</option>

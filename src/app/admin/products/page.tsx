@@ -84,7 +84,7 @@ export default async function AdminProductsPage({
             type="search"
             defaultValue={params.q ?? ''}
             placeholder="Title, reference or slug"
-            className="border-line-300 focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
           />
         </div>
 
@@ -96,7 +96,7 @@ export default async function AdminProductsPage({
             id="product-status"
             name="status"
             defaultValue={params.status}
-            className="border-line-300 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
           >
             {STATUSES.map((status) => (
               <option key={status} value={status}>
@@ -114,7 +114,7 @@ export default async function AdminProductsPage({
             id="product-stock"
             name="stock"
             defaultValue={params.stock ?? ''}
-            className="border-line-300 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
           >
             <option value="">Any stock</option>
             <option value="low">Low stock only</option>

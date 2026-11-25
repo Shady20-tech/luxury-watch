@@ -168,7 +168,7 @@ export function SearchCombobox({ defaultQuery }: { defaultQuery: string }) {
         aria-controls={listboxId}
         aria-autocomplete="list"
         aria-activedescendant={active ? `${listboxId}-${activeIndex}` : undefined}
-        className="border-line-300 bg-surface-0 focus-visible:border-ink-900 h-11 w-full min-w-0 rounded-sm border px-3 text-sm"
+        className="border-field-border bg-field focus-visible:border-ink-900 h-11 w-full min-w-0 rounded-sm border px-3 text-sm"
       />
 
       {/* The list is rendered only when open, and marked as a popup so it is
