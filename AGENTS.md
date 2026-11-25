@@ -605,6 +605,7 @@ block that does not appear is worse than a refusal that explains itself.
 
 ### Things that will bite you
 
+- **A card that shows the brand twice passes every test that checks one field at a time.** The catalogue and homepage cards render `brandName` as their own line and then print `title`, and every seeded title already begins with the brand — so each card read "Patek Philippe / Patek Philippe Cubitus …" on every listing. Both components were individually correct, the seed was correct, and the tests asserted each field in isolation. It survived a visual pass because it reads like a deliberate caption-plus-title design. `titleWithoutBrand` (`src/lib/product/title.ts`) strips the prefix at a word boundary only, so `Rolexford 100` keeps its name, and both mappers call it. When a component prints two fields that can overlap, assert on the rendered text as a whole, not on each field.
 - **A validated parameter is not a stored value.** `submit_sell_trade_request`
   checked `p_transaction_type` against `('sell','trade')` and then inserted
   without it, and the table had no column for it either. A customer who chose
