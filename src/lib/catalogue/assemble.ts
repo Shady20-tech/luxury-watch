@@ -20,6 +20,9 @@ import {
 import type { CatalogueProduct, FacetOption, FacetRange, FacetSet } from '@/lib/catalogue/types';
 import { emptyFacets } from '@/lib/catalogue/types';
 import { FACET_KEYS, type FacetKey } from '@/lib/catalogue/params';
+import { titleWithoutBrand } from '@/lib/product/title';
+
+export { titleWithoutBrand };
 
 /**
  * A row from `catalogue_search`.
@@ -162,7 +165,7 @@ export function toCatalogueProduct(
     id: row.id,
     slug: row.slug,
     href: `/products/${row.slug}`,
-    title: row.title,
+    title: titleWithoutBrand(row.title, row.brand_name),
     brandName: row.brand_name,
     brandSlug: row.brand_slug,
     modelName: row.model_name,

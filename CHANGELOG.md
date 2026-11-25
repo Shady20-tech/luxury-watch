@@ -8,6 +8,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Every card printed the brand twice
+
+**Date:** 2026-11-19
+
+`CatalogueCard` and the homepage `ProductCard` both render the brand as their
+own line above the product name, and every seeded title already begins with the
+brand. Each card therefore read "Patek Philippe / Patek Philippe Cubitus …", on
+`/shop`, the homepage, every brand, collection, model and search page. It read as
+a caption-plus-title design rather than a duplication, which is why a visual pass
+did not flag it.
+
+`titleWithoutBrand` strips the brand from the card's name, at a word boundary
+only — `Rolexford 100` keeps its name, and a title that is nothing but the brand
+stays as it is. Both mappers use it, so the two cards cannot diverge. The detail
+page keeps its full `h1`, where the brand line above it is an eyebrow rather than
+a repeated fact. `tests/product-title.test.ts` pins the separators, the
+case-insensitive match, the prefix-word trap and the brand-only title.
+
 ### A search page's filters walked the visitor out of search
 
 **Date:** 2026-11-19

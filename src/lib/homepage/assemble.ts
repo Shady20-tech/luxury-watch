@@ -10,6 +10,8 @@ import type {
   TrustItem,
 } from './types';
 
+import { titleWithoutBrand } from '@/lib/product/title';
+
 /**
  * Turn homepage rows into view models.
  *
@@ -246,7 +248,7 @@ export function toProductCard(row: ProductRow, now: string): ProductCard {
     id: row.id,
     slug: row.slug,
     href: `/products/${row.slug}`,
-    title: row.title,
+    title: titleWithoutBrand(row.title, row.brand_name),
     brandName: row.brand_name,
     summary: composeSummary(row),
     imageUrl: row.image_url,
