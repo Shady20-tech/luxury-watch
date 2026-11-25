@@ -45,6 +45,7 @@ npm run preview:stop
 # End-to-end browser suite. Needs the preview listening on 12000.
 ./scripts/e2e-seed-checkout-fixtures.sh   # required after db-reset.sh, see below
 npx playwright test
+CHROMIUM_PATH=/usr/bin/chromium npx playwright test   # reuse a local Chromium
 ```
 
 ### The E2E suite needs fixtures that `db-reset.sh` deletes
@@ -67,6 +68,33 @@ catalogue tests need real rows through PostgREST (see "A preview needs PostgREST
 not just `next start`"), and several assert on the rendered order of real
 products. `playwright.config.ts` defaults `baseURL` to `http://127.0.0.1:12000`
 and honours `LW_BASE_URL` if the preview is somewhere else.
+
+`playwright.config.ts` also honours `CHROMIUM_PATH`, the same variable
+`scripts/a11y-audit.mjs` uses. Without it the suite insists on Playwright's own
+downloaded browser and every test fails in ~3 ms with
+`Executable doesn't exist at …/chromium_headless_shell-…` — a launch error that
+looks nothing like a test failure and tells you nothing about the site:
+
+```bash
+CHROMIUM_PATH=/usr/bin/chromium npx playwright test
+```
+
+**Read the sorting assertion's source, not just its result.** The catalogue card
+prints the brand as its own eyebrow line and an `h3` that already has the brand
+stripped (G97), while the database orders on the full `products.title`, which
+begins with the brand. A helper that compares only the `h3` text therefore
+compares the second half of one sort key against the first half of the next, and
+calls a correctly brand-then-model sorted grid unsorted. Compose what the visitor
+reads — eyebrow plus heading — before comparing. This cost a debugging session
+because the failure looked like a real product defect.
+
+The premise that makes this sound is an invariant worth checking rather than
+assuming: every published title begins with its own brand, so the composed name
+equals the column the database ordered on. It holds for the seed (20 of 20), and
+it is the reason "Name: A to Z" reads alphabetically on screen. A future title
+that does not start with its brand breaks that equivalence — the grid would sort
+on a string the card never shows — so the admin form should keep inviting the
+brand-prefixed shape it already asks for.
 
 `npm run verify` runs the same steps in the same order as CI. If you add a check
 to CI, add it to `verify` in the same commit — these diverging is exactly what
@@ -126,6 +154,42 @@ disabled controls and the lower contrast is the signal.
 `tests/design-tokens.test.ts` asserts this and scans `src/` for
 `text-ink-400`, so the class cannot be reintroduced by copy-paste. If that test
 fails, change the class rather than the test.
+
+**`ink-300` is worse, and the test does not name it.** It is 2.84:1 on white —
+below AA for text and below the 3:1 non-text minimum for an icon or a rule. The
+scan is a string match on `text-ink-400`, so a _different_ too-faint token walks
+straight past it. That is how `ink-300` reached the dashboard's brand chart in the
+admin redesign, in new code written after this rule was documented. Treat any
+`ink-300` used for something a person must read or see as the same defect, and let
+the browser audit be the check that catches it: axe computes real contrast against
+the real painted background, and the jsdom token test cannot.
+
+## The site-wide skip link targets `#main-content`, and every layout must honour it
+
+`src/app/layout.tsx` renders `Skip to main content` as the first focusable element
+on every page, pointing at `#main-content`. A layout that wraps its content in
+`<main id="something-else">` breaks that link silently: nothing looks wrong, and
+the failure only appears in an axe run (`skip-link`, plus `region` for the
+unlandmarked content). The admin layout did exactly this with `id="admin-content"`
+and also rendered a _second_ skip link of its own, so every `/admin` route had a
+dead site-wide link and two competing ones.
+
+One link, one target. If a layout needs its own `<main>`, give it
+`id="main-content"` and do not add a second skip link.
+
+## A `not-found.tsx` does not catch a URL that matches no route
+
+A `not-found.tsx` inside a segment renders when a page in that segment _calls_
+`notFound()`. A URL that matches no page at all — `/admin/typo` — is resolved by
+Next.js against the root, so it renders the root not-found, outside the segment's
+layout. For `/admin` that meant the storefront's 404: shop header, shop footer and
+all, served for a console address.
+
+The fix is a catch-all segment that claims those addresses inside the segment and
+raises `notFound()` itself, so the segment's layout (and its guard) runs first.
+`src/app/admin/[...notFound]/page.tsx` does this. Static segments take precedence
+over a catch-all, so no real route is shadowed. The same pattern applies to any
+route group whose 404 must stay inside its own chrome.
 
 ## The ground is a tint, and a field is a well
 
@@ -281,6 +345,33 @@ before believing the result.
 header with it is correct; adding it above one that already has an `h1` is not,
 and the audit will not catch that.
 
+### An image asset's padding is part of its size
+
+The header crest and the footer wordmark share one component, `Wordmark`, and it
+sizes the mark by height only, letting `w-auto` keep the proportions. That means
+the **rendered height is the whole story**, and a PNG whose ink floats inside a
+mostly-empty canvas is drawn far smaller than its box suggests.
+
+`public/brand/logo.png` was a 512×512 canvas with the mark occupying only
+x 23–489, y 75–436. At `h-8` that is about 23px of actual ink, and a hairline
+gold stroke at 23px reads as a smudge. Trimming the transparent border and
+re-emitting the sizes fixed it without touching the layout: the delivered height
+went 32px → 50–55px with the header's height unchanged.
+
+Two things to remember before "making the logo bigger":
+
+- **Check the asset before changing the CSS.** If the ink does not fill the
+  canvas, trimming it is the cheaper fix and it cannot cause overflow. Measure
+  with `Image.getbbox()` rather than by eye.
+- **Do not grow the header bar to fit the mark.** It is already ~162px tall
+  (announcement bar + utility row + nav row) while the catalogue sidebars pin at
+  `top-24` = 96px, so the bar already overlaps them. Enlarging the mark inside
+  the existing row avoids deepening that; raising the row does not.
+
+The reference renders its own crest at 140px with no wordmark beside it. That
+proportion is worth matching, but its artwork is not ours to copy — see
+`REFERENCE_ANALYSIS.md` and the licensing note under "Content and licensing".
+
 ## Database
 
 ### A preview needs PostgREST, not just `next start`
@@ -435,6 +526,24 @@ must not be the only signal, because it says "static" while the data layer says
 **How to catch it:** after `npm run build`, run `next start` and request the real
 routes. `next build` alone does not fail. The `●` marker in the build output means
 SSG; if the page reads cookies, that combination is the bug.
+
+### A new function needs a PostgREST schema reload before the app can call it
+
+A migration that creates or changes a function changes the database, not
+PostgREST's cache of what exists. Until that cache is refreshed, `supabase-js`
+calls to the new function fail with `PGRST202` — "function not found in the schema
+cache" — which reads exactly like a typo in the name or a missing `grant`. It is
+neither.
+
+```sql
+notify pgrst, 'reload schema';
+```
+
+Run it after applying a migration that adds or redefines a function, or restart
+PostgREST. This bit the dashboard charts: both functions existed, were granted and
+were proven by the SQL suite, and the page still reported no data until the cache
+was reloaded. A function's correctness and its discoverability are two separate
+questions.
 
 ### The migration that last defines a function is the one that governs
 
@@ -683,10 +792,28 @@ the seed genuinely owns; preserve the ones another process may have set.
 token and the hero drift keyframes. `src/components/ui/reveal.tsx` mounts once in
 the root layout and observes every `[data-reveal]` element.
 
-To animate something on scroll, add `data-reveal` to the element and, for a
-stagger, a `--reveal-delay` custom property. Do not write a second
+To animate something on scroll, add `data-reveal` to the element. For a cascade
+in a grid, put `data-reveal-stagger` on the **parent** and `data-reveal` on each
+child: the parent only supplies `--reveal-delay` from the child's position, and
+every child is still observed on its own. Do not write a second
 IntersectionObserver or a per-component `useEffect` — the whole layer is disabled
 under `prefers-reduced-motion` in one place, and a bespoke observer would not be.
+
+**A grid must be staggered per child, never revealed as one group.** An earlier
+revision observed the parent and revealed all its children together. That is
+wrong twice over, and the browser audit is what exposed it: it played the whole
+cascade while the lower rows were off-screen, so most of the effect was wasted;
+and because every child starts fading at once, a card twenty rows down was still
+partially transparent when axe sampled the page. axe reported a genuine
+`color-contrast` failure on `/collections/featured` at two viewports. The audit
+was right — a half-faded card really is below the threshold at that moment — and
+the fix was the reveal strategy, not the colour. If a contrast failure appears
+only on a page with a long grid, check the reveal layer before touching tokens.
+
+For an element already in view at first paint — the hero, `PageHero` — use
+`hero-in` rather than `data-reveal`: it is a CSS animation with `both` fill and a
+`--hero-delay`, so it plays immediately, settles in its final state, and never
+depends on JavaScript to become visible.
 
 ### The admin rail is the shell's left edge, and it is dark on purpose
 

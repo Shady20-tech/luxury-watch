@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { MediaFrame } from '@/components/ui/media-frame';
@@ -55,7 +54,7 @@ export function ProductCard({
         className,
       )}
     >
-      <div className="relative">
+      <div className="relative overflow-hidden">
         <MediaFrame
           src={product.imageUrl}
           alt={product.imageAlt}
@@ -64,6 +63,10 @@ export function ProductCard({
           dialColor={product.dialColor}
           caseMaterial={product.caseMaterial}
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+          // The frame clips its own media; the scale is on the frame so the
+          // border and radius move with the picture rather than being left
+          // behind by it.
+          className="zoom-media"
         />
         {/* Badges sit over the media but are not interactive, so they are
             marked presentational and the text is repeated in the accessible
@@ -131,14 +134,10 @@ export function ProductGrid({
         className,
       )}
       // A list of products is a list; the announcement is left to the section.
+      data-reveal-stagger
     >
       {products.map((product, index) => (
-        <li
-          key={product.id}
-          className="flex"
-          data-reveal
-          style={{ '--reveal-delay': `${Math.min(index, 4) * 80}ms` } as CSSProperties}
-        >
+        <li key={product.id} className="flex" data-reveal>
           <ProductCard
             product={product}
             // Only the very first card is prioritised, and only within the

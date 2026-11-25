@@ -56,10 +56,23 @@ test.describe('anonymous catalogue browsing', () => {
     await page.goto('/shop?sort=title_asc', { waitUntil: 'networkidle' });
     await expect(page.locator('#listing-sort')).toHaveValue('title_asc');
 
+    // The card shows the brand as its own eyebrow line and prints the title
+    // *without* the brand prefix. The database sorts on the full `products.title`,
+    // which begins with the brand, so the key being sorted and the name a visitor
+    // reads are the same string only when the eyebrow is put back in front of the
+    // `h3`. Reading the `h3` alone compares the second half of each key against
+    // the first half of the next, and reports an unsorted grid that is in fact
+    // correctly sorted by brand then model.
     const titles = async (): Promise<string[]> =>
-      (await page.locator('h3 a[href^="/products/"]').allTextContents())
-        .map((title) => title.trim())
-        .filter(Boolean);
+      page.locator('h3 a[href^="/products/"]').evaluateAll((links) =>
+        links
+          .map((link) => {
+            const eyebrow = link.closest('h3')?.previousElementSibling;
+            const brand = eyebrow?.tagName === 'P' ? (eyebrow.textContent ?? '').trim() : '';
+            return `${brand} ${(link.textContent ?? '').trim()}`.trim();
+          })
+          .filter(Boolean),
+      );
 
     const ascending = await titles();
     expect(ascending.length).toBeGreaterThan(1);

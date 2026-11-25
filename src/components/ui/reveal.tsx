@@ -43,8 +43,11 @@ export function RevealOnScroll() {
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    const REVEAL_SELECTOR = '[data-reveal]';
+    const PENDING_SELECTOR = `${REVEAL_SELECTOR}:not(.is-revealed)`;
+
     const revealAll = () => {
-      for (const el of document.querySelectorAll('[data-reveal]')) {
+      for (const el of document.querySelectorAll(REVEAL_SELECTOR)) {
         el.classList.add('is-revealed');
       }
     };
@@ -72,7 +75,7 @@ export function RevealOnScroll() {
     );
 
     const observeWithin = (root: ParentNode) => {
-      for (const el of root.querySelectorAll('[data-reveal]:not(.is-revealed)')) {
+      for (const el of root.querySelectorAll(PENDING_SELECTOR)) {
         observer.observe(el);
       }
     };
@@ -84,7 +87,7 @@ export function RevealOnScroll() {
         for (const node of record.addedNodes) {
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
           const el = node as Element;
-          if (el.matches('[data-reveal]:not(.is-revealed)')) observer.observe(el);
+          if (el.matches(PENDING_SELECTOR)) observer.observe(el);
           observeWithin(el);
         }
       }

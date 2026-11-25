@@ -410,6 +410,31 @@ describe('the dark glass header keeps its light text readable', () => {
     );
   });
 
+  /**
+   * The footer is dark glass too, but it sits on the page ground rather than
+   * over a hero, so its realistic backdrop is the *lightest* the page can be —
+   * not the darkest. A lighter panel would lift the composite towards mid-grey
+   * and take the legal text with it, which is exactly the failure this guards.
+   */
+  const footerBackdrops = [
+    ['the page ground', '#faf9f5'],
+    ['a white section above it', '#ffffff'],
+    ['the admin canvas', '#eef0f2'],
+  ] as const;
+
+  it.each(footerBackdrops)('footer glass over %s keeps body text at 4.5:1', (_label, backdrop) => {
+    const surface = compositeNight(nightToken('color-glass-footer'), backdrop);
+    expect(contrastRatio(token('color-on-night'), surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(footerBackdrops)(
+    'muted footer text over %s keeps body text at 4.5:1',
+    (_label, backdrop) => {
+      const surface = compositeNight(nightToken('color-glass-footer'), backdrop);
+      expect(contrastRatio(token('color-on-night-muted'), surface)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
   it('muted light text on the solid dark ground meets AA', () => {
     expect(
       contrastRatio(token('color-on-night-muted'), token('color-night-900')),

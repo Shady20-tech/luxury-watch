@@ -61,7 +61,7 @@ export function SiteHeader({ data }: { data: ChromeData }) {
           <div className="flex h-16 items-center gap-4 lg:h-20">
             <MobileNav data={data} />
 
-            <Wordmark identity={data.identity} tone="light" />
+            <Wordmark identity={data.identity} tone="light" size="lg" />
 
             <HeaderSearch className="mx-auto hidden w-full max-w-md md:block" />
 

@@ -31,6 +31,14 @@ export function Wordmark({
   const textClass = size === 'lg' ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl';
   const isLight = tone === 'light';
 
+  // The crest is a wide mark, so a height-only rule plus `w-auto` keeps its
+  // proportions. The `lg` tier is the header's: the bar is h-20, and the mark
+  // plus its two text lines has to fit inside it, so the crest tops out at the
+  // 44px that leaves the wordmark breathable rather than crowding the row.
+  // The trimming applied to `public/brand/logo*.png` removed the transparent
+  // canvas around the ink, so the same height now shows a visibly larger mark.
+  const crestClass = size === 'lg' ? 'h-10 sm:h-11' : 'h-8 sm:h-9';
+
   return (
     <Link
       href="/"
@@ -62,7 +70,7 @@ export function Wordmark({
             src={identity.logoUrl}
             alt=""
             aria-hidden="true"
-            className={cn('w-auto shrink-0', size === 'lg' ? 'h-10 sm:h-11' : 'h-8 sm:h-9')}
+            className={cn('w-auto shrink-0', crestClass)}
           />
           <span className="flex min-w-0 flex-col leading-none pl-3">
             <span

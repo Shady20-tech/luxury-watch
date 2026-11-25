@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import type { SitePhotograph } from '@/lib/images/site-photography';
 import { cn } from '@/lib/utils';
@@ -138,24 +138,34 @@ export function PageHero({
               fill
               loading="lazy"
               sizes="100vw"
-              className="object-cover object-center"
+              className="object-cover object-center brightness-110 saturate-105"
             />
-            {/* One wash, and only one.
+            {/* The wash, tuned by where the copy actually is.
 
-                The photograph is a plain picture; legibility of the `h1` is this
-                component's job, not the picture's. The wash is therefore opaque
-                under the headline column on the left and clears by mid-band so
-                the subject on the right is actually visible.
+                The `h1` and its intro occupy the left of the band, up to about
+                55% of the width on a wide screen. The wash is therefore opaque
+                there and clears across the last third, so the subject on the
+                right is a photograph rather than a suggestion of one. An earlier
+                revision held `night-900/75` until the halfway mark, which left
+                the photo side at roughly 90/255 mean luminance — visible in the
+                DOM, unreadable on screen.
 
-                Three stacked gradients used to sit here and multiplied to almost
-                black: the photograph was in the DOM and invisible, which is the
-                defect this band exists to avoid. Raising the image's opacity
-                instead would lighten the ground under the `h1` at the same time,
-                so the wash is tuned here and the pictures stay untouched.
+                The stops are written as an arbitrary gradient rather than
+                `from/via/to` because Tailwind's three-stop form cannot express a
+                curve this shape: it needs to stay flat, drop late, and reach
+                zero.
 
-                The browser audit measures the composed hero, which is the only
-                check that can see this — jsdom cannot composite a gradient. */}
-            <div className="from-night-900 via-night-900/75 to-night-900/5 absolute inset-0 bg-gradient-to-r" />
+                On a phone there is no "photo side" — the copy spans the band — so
+                a second, vertical wash carries the contrast there. It is opaque
+                enough for white text over a white-background product shot, and
+                it is scoped below `lg` so it never dims the desktop photograph.
+
+                Both washes are measured by `npm run audit:a11y`, which
+                composites the gradient and the image the way a browser does.
+                jsdom cannot, which is why this cannot be asserted in a unit
+                test. */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(8,8,8,0.97)_0%,rgba(8,8,8,0.95)_38%,rgba(8,8,8,0.82)_52%,rgba(8,8,8,0.38)_66%,rgba(8,8,8,0.08)_80%,rgba(8,8,8,0)_100%)]" />
+            <div className="bg-night-900/72 absolute inset-0 lg:hidden" />
           </div>
         ) : null}
 
@@ -179,16 +189,27 @@ export function PageHero({
           >
             <div className={cn('max-w-prose', photograph && 'lg:max-w-2xl')}>
               {eyebrow ? (
-                <p className={cn('eyebrow flex items-center gap-3', accent.eyebrow)}>
+                <p
+                  className={cn('eyebrow hero-in flex items-center gap-3', accent.eyebrow)}
+                  style={{ '--hero-delay': '0ms' } as CSSProperties}
+                >
                   <span aria-hidden="true" className={cn('h-px w-6', accent.rule)} />
                   {eyebrow}
                 </p>
               ) : null}
-              <h1 className={cn('text-on-night text-4xl sm:text-5xl', eyebrow && 'mt-3')}>
+              <h1
+                className={cn('text-on-night hero-in text-4xl sm:text-5xl', eyebrow && 'mt-3')}
+                style={{ '--hero-delay': '70ms' } as CSSProperties}
+              >
                 {title}
               </h1>
               {intro ? (
-                <p className="text-on-night-muted mt-4 max-w-prose text-base">{intro}</p>
+                <p
+                  className="text-on-night-muted hero-in mt-4 max-w-prose text-base"
+                  style={{ '--hero-delay': '150ms' } as CSSProperties}
+                >
+                  {intro}
+                </p>
               ) : null}
             </div>
 

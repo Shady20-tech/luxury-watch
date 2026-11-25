@@ -8,6 +8,188 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The nav crest was drawn at a third of its available size, and its canvas was mostly empty
+
+**Date:** 2026-11-19
+
+The header rendered `site_settings.logo_url` at 32px (36px from `sm`), and the
+mark still read as a faint gold scribble. Two causes, and only one of them was
+the size.
+
+The asset carried its own margins. `public/brand/logo.png` was a 512×512 canvas
+whose ink occupied only x 23–489, y 75–436 — about 71% of the height and 91% of
+the width. Rendering that at `h-8` produced roughly 23px of visible ink, and at
+a 1px hairline stroke in gold on a dark ground the detail simply disappeared.
+Trimming the transparent canvas and re-saving the four sizes removed the dead
+space, so the same box now shows the whole mark. Delivered height went from
+32px to 50–55px with **no change to the header's own height** and no horizontal
+overflow at 320px, which the audit confirms.
+
+`Wordmark` grew a `crestClass` tier so the header can use a larger mark than the
+footer, rather than one size serving both. The header passes `size="lg"`; the
+footer keeps the default.
+
+The bar itself was deliberately **not** grown. It is already 162px on a desktop
+because the announcement bar and two rows sit above the fold, and the catalogue
+sidebars pin themselves at `top-24` (96px). Enlarging the mark inside the
+existing bar avoids deepening that pre-existing occlusion instead of adding to
+it.
+
+Measured, not eyeballed: gold pixels in the header logo zone rose from 379 to
+884 in the same captured region — 2.3× more visible ink. `npm run audit:a11y`
+stays green across 33 pages × 4 viewports plus the mobile drawer, and the
+Wordmark accessibility tests are unchanged and passing.
+
+**Not adopted:** the reference site renders its own mark at 140px and with no
+wordmark beside it. Its PNG is a different drawing from ours, and `AGENTS.md`
+records that the reference's assets are not ours to copy, so the proportion was
+matched rather than the artwork.
+
+### Storefront motion: hero entrance, and a grid cascade that failed the contrast audit
+
+**Date:** 2026-11-19
+
+**Scope:** Phase 5 (catalogue browsing) — no behaviour change to search, filters,
+sorting, pagination or metadata; the audit below re-confirms all of them.
+
+**Hero and page-hero entrance.** `hero-in` is a new CSS utility: a 500ms
+`reveal-up` with `both` fill and a `--hero-delay` custom property. It is applied
+to the homepage hero's eyebrow, headline, body and CTA at 0/70/150/230ms, and to
+`PageHero`'s eyebrow, `h1` and intro at 0/70/150ms. It is an animation rather
+than an IntersectionObserver reveal because the hero is already in view at first
+paint — waiting for an intersection would either never fire or fire late. `both`
+fill means the copy is in its final state before the animation starts and after
+it ends, so a browser that ignores it still shows the copy, and the LCP element
+is not held invisible while a script loads.
+
+**The grid cascade was wrong, and the audit caught it.** The catalogue grid,
+brand showcase, trust row and testimonial list were revealed as a single
+observed group: one observer entry for the parent, with the children's delays
+from CSS. It looked right in isolation and was wrong in two ways. The whole
+cascade played when the parent entered the viewport, so rows still below the fold
+animated where nobody could see them; and every child began fading at once, so a
+card deep in the grid was still partially transparent when axe sampled the page.
+
+`npm run audit:a11y` reported a **serious `color-contrast` failure** on
+`/collections/featured` at `tablet-768` and `desktop-1440`, naming the card's
+reference line, brand eyebrow, summary and price. Probing directly confirmed the
+diagnosis: with no settle the violation appeared with 20 nodes; after a 3-second
+settle it was gone. The audit was measuring a real state — a half-faded card is
+genuinely below 4.5:1 — so the defect was the reveal strategy, not the palette.
+
+The grids now use `data-reveal-stagger` on the parent and `data-reveal` on each
+child. Every child is observed individually and animates when *it* reaches the
+viewport; the parent supplies only `--reveal-delay` from the child's position
+(0/70/140/210ms, then 280ms for everything after the fourth). The cascade is
+spent where it can be seen, and no card is ever mid-fade merely because a
+sibling far above it triggered. `reveal.tsx` is back to one selector,
+`[data-reveal]`; the group branch is gone rather than left unused.
+
+Verified in a real browser against the rebuilt preview: stagger delays resolve
+from CSS position (`0s, 70ms, .14s, .21s, .28s, .28s`), **0 of 16** below-fold
+cards were marked revealed before scrolling, and the hero `h1` carries
+`animation: reveal-up` with a `0.07s` delay and settles at `opacity: 1`.
+
+**Audit result:** `npm run audit:a11y` green — *"No critical or serious issues,
+and no horizontal overflow, across 33 pages × 4 viewports, plus the mobile filter
+drawer."*
+
+**Phase 5 re-verified against the running preview** (the brief's acceptance
+criteria, not just the test suite):
+
+| Check | Result |
+| --- | --- |
+| Filtered listing canonical | `/shop` (params dropped) |
+| Multi-facet / search / page-2 robots | `noindex, follow` |
+| Clean `/brands/rolex`, `/collections/featured`, `/brands/rolex/models/milgauss` | `index, follow`, self-canonical |
+| Invented `/brands`, `/collections`, `/products` slug | `404` |
+| Cross-brand model URL (`/brands/omega/models/milgauss`) | `404` |
+| `/collections/all` | `308 → /shop` |
+| Pagination partition (`pageSize=12`) | 12 + 8 unique, 0 overlap |
+| `pageSize=1000` | clamped to 20 rows returned |
+| Sort A–Z / Z–A / price asc / newest | each yields a different first row |
+| Hostile params (`pageSize=abc`, `page=-5`, `sort=hacked`, SQL-ish brand) | all `200`, no leak, no 500 |
+| Sitemap | 57 URLs; only scopes holding published pieces |
+| Suggest API | returns `product`, `brand`, `model`, `collection` kinds |
+
+`npm run verify` green at 1099 tests.
+
+### The e2e suite could not launch a browser, and its sort assertion read the wrong field
+
+**Date:** 2026-11-19
+
+Two defects in the *evidence*, not the product.
+
+`playwright.config.ts` had no way to use a system Chromium, so in an environment
+that has Chromium but no `npx playwright install` every test failed in 2–3 ms
+with `Executable doesn't exist at …/chromium_headless_shell-1194/…`. That is the
+same gap `scripts/a11y-audit.mjs` closed in G98 with `CHROMIUM_PATH`; the config
+now honours the same variable and passes it as `launchOptions.executablePath`, so
+one setting serves both tools.
+
+With a browser available, `browse.spec.ts` ran and failed its sort assertion —
+correctly revealing a bug in the test. `titles()` selected only `h3 a` text, but
+the card prints the brand as a separate eyebrow above a heading that already has
+the brand stripped out (G97), while the database sorts on the full title that
+begins with the brand. Comparing brand-stripped names against a brand-first order
+calls a correctly sorted grid unsorted. `titles()` now rebuilds the composed name
+the visitor reads before comparing. Verified both ways: the composed list is
+exactly codepoint-sorted for `title_asc` and its exact reverse for `title_desc`;
+the `h3`-only list matches neither.
+
+`browse.spec.ts` is 14/14 across desktop and mobile. `npm run verify` remains
+green at 69 files and 1093 tests.
+
+### The dashboard opened on a black band and drew no charts, and `/admin/<typo>` served the shop's 404
+
+**Date:** 2026-11-19
+
+Three separate things, all on the console.
+
+**The dashboard's figures had no shape.** It reported nine counts as nine
+identical tiles. Counts alone cannot show that a brand holds 2,497 rows and six
+published pieces, or that every stock row sits at its low-stock threshold, so the
+page gained two charts: catalogue by brand (total against published) and stock
+health (healthy / low / out). Both are drawn from aggregate functions rather than
+by reading the catalogue — `admin_catalogue_by_brand` and
+`admin_inventory_by_state` in `0040_admin_dashboard_metrics.sql` — because the
+alternative is the "load the whole catalogue to draw a bar" the catalogue phase
+forbids, and it would grow with the catalogue instead of with the chart. They are
+`SECURITY DEFINER`, permission-guarded in the database, and callable by
+`authenticated`, so each refuses a caller who does not hold the permission its
+figures belong to; `69_admin_dashboard_metrics.sql` proves that with three
+different callers, including one who may read the brand chart and must not read
+the stock chart.
+
+The charts are hand-rolled SVG-free markup rather than a charting library: a bar
+list and a stacked bar, together under eighty lines, emitted as Server Components
+so they ship no JavaScript. Every bar prints its value as text, because a length
+is not readable by a screen reader or a monochrome printout.
+
+**The page was re-laid out.** A pale gold welcome card instead of the near-black
+band — the console is a working surface, and a dark slab above a light page made
+every visit start by adjusting to the contrast — then the single most urgent queue
+promoted to a full-width card, a four-across figure grid, the chart row, and an
+activity column beside the shortcuts. The accent stays gold: this is the same
+product as the storefront, and a second accent would make the console look like a
+different application bolted on.
+
+**Two accessibility defects came out of the browser audit**, both of which jsdom
+could not see. The brand chart's secondary figure was `text-ink-300`, 2.84:1 on
+white — the exact class `AGENTS.md` calls "not a text token", reintroduced in new
+code — and the site-wide skip link pointed at `#main-content` while the admin
+layout wrapped its content in `#admin-content`, so the link did nothing on every
+`/admin` route. Both are fixed; axe now reports zero violations on the dashboard
+at 1440 and 390, and on `/admin/products` and the admin 404.
+
+**A mistyped admin URL rendered the storefront's 404.** `src/app/admin/not-found.tsx`
+only renders when a page calls `notFound()`, so `/admin/typo` — which matches no
+route at all — fell through to the root 404 and served the shop's header and
+footer. `src/app/admin/[...notFound]/page.tsx` now claims those addresses inside
+the admin segment: the guard runs, a signed-out visitor is redirected to sign in
+with the destination preserved, and a signed-in staff member gets the console
+shell with the existing admin 404 in place of the content.
+
 ### Every hero band on the site was a black rectangle, because the seed could not see the migrations
 
 **Date:** 2026-11-19

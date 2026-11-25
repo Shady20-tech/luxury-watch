@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -226,7 +227,10 @@ export function HeroCarousel({
       <div className="container-page relative grid gap-12 py-20 lg:grid-cols-[minmax(0,34rem)_1fr] lg:items-center lg:py-32">
         <div>
           {slide.eyebrow ? (
-            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
+            <p
+              className="text-gold-300 hero-in text-[0.75rem] font-semibold tracking-[0.28em] uppercase"
+              style={{ '--hero-delay': '0ms' } as CSSProperties}
+            >
               {slide.eyebrow}
             </p>
           ) : null}
@@ -236,25 +240,32 @@ export function HeroCarousel({
           {isFirst ? (
             <h1
               id={headingId}
-              className="text-on-night mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+              className="text-on-night hero-in mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+              style={{ '--hero-delay': '70ms' } as CSSProperties}
             >
               {slide.title}
             </h1>
           ) : (
             <p
               id={headingId}
-              className="text-on-night mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+              className="text-on-night hero-in mt-5 text-4xl leading-[1.05] sm:text-5xl lg:text-6xl"
+              style={{ '--hero-delay': '70ms' } as CSSProperties}
             >
               {slide.title}
             </p>
           )}
 
           {slide.body ? (
-            <p className="text-on-night-muted mt-6 max-w-prose text-lg">{slide.body}</p>
+            <p
+              className="text-on-night-muted hero-in mt-6 max-w-prose text-lg"
+              style={{ '--hero-delay': '150ms' } as CSSProperties}
+            >
+              {slide.body}
+            </p>
           ) : null}
 
           {slide.cta ? (
-            <div className="mt-9">
+            <div className="hero-in mt-9" style={{ '--hero-delay': '230ms' } as CSSProperties}>
               <Button asChild size="lg" className="bg-gold-300 text-night-950 hover:bg-gold-bright">
                 <Link href={slide.cta.href}>{slide.cta.label}</Link>
               </Button>

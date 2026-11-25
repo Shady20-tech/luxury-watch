@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
 
 import { AddToCartButton } from '@/components/cart/add-to-cart-button';
 import { WishlistToggle } from '@/components/product/wishlist-toggle';
@@ -261,14 +260,12 @@ export function CatalogueGrid({
           {label}
         </h2>
       ) : null}
-      <ul className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
+      <ul
+        className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}
+        data-reveal-stagger
+      >
         {products.map((product, index) => (
-          <li
-            key={product.id}
-            className="flex"
-            data-reveal
-            style={{ '--reveal-delay': `${Math.min(index, 5) * 70}ms` } as CSSProperties}
-          >
+          <li key={product.id} className="flex" data-reveal>
             <CatalogueCard
               product={product}
               // Only the first row is prioritised; everything below the fold is

@@ -19,6 +19,12 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const baseURL = process.env.LW_BASE_URL ?? 'http://127.0.0.1:12000';
 
+// Reuse a system Chromium where one is installed, the same way
+// `scripts/a11y-audit.mjs` does. Without this the suite demands Playwright's own
+// downloaded browser, so it cannot run in an environment that has Chromium but
+// no `npx playwright install`.
+const executablePath = process.env.CHROMIUM_PATH || undefined;
+
 export default defineConfig({
   testDir: './e2e',
   // Serial by default: several specs mutate the same database (publishing a
@@ -32,6 +38,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL,
+    launchOptions: executablePath ? { executablePath } : {},
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',

@@ -477,6 +477,110 @@ draft-only title matches nothing in `catalogue_search`. `npm run verify` green a
 migrations, including 0038, and every suite).
 
 
+**Fifth pass (2026-11-19) re-confirmed the phase on a 20-piece catalogue and
+found no defect in the catalogue itself.** Every acceptance criterion was checked
+against the live preview rather than against a fixture, and each one held:
+
+- **Filters change the result set, not just the URL.** `?condition=pre_owned`
+  narrows 40 product links to 26, `?brand=rolex` to 12, and the facet counts
+  agree with the returned rows.
+- **Sort reorders the real rows.** `title_asc` and `title_desc` are exact
+  reverses at the slug level, not merely different labels in the select.
+- **URL state survives a reload and a share.** Clicking a facet produces
+  `/shop?condition=pre_owned`, a reload keeps that URL and the same 26 cards, and
+  clear-all points at `/shop`.
+- **Canonical and robots match `docs/SEO.md` row for row.** `/shop` and
+  `?sort=price_asc` are `index, follow` with a canonical that drops the sort;
+  `?brand=rolex` and `/search?q=rolex` are `noindex, follow` canonicalised to
+  their clean listing; `?pageSize=12&page=2` is indexable and self-canonical in
+  the 24-per-page series; `?pageSize=12&page=3` is `noindex` onto `/shop`, which
+  is the soft-404 rule rather than a real page being suppressed.
+- **The sitemap is exactly consistent with what is indexable.** 57 URLs, of which
+  20 are products against 20 published rows, and not one carries a query string.
+  A `noindex` listing and a sitemap entry would contradict each other; neither
+  appears.
+- **Broken slugs 404 rather than rendering an empty grid.** `/collections/nope`
+  and `/brands/nope` answer `404`; an invented *filter* value does not 404, it
+  renders the unfiltered listing, which is the documented distinction between a
+  bad address and a bad facet.
+- **The mobile drawer is a real dialog.** At 390px the Filter button opens a
+  `role="dialog"` that is labelled, moves focus inside, and closes on `Escape`.
+  The browser audit reports no horizontal overflow at 320 or 390.
+
+The one thing this pass adds is the persistence check: the earlier passes
+verified the URL *after* a facet click, and this one verifies the same URL and the
+same result count survive a full reload, which is what "share the link" actually
+requires.
+
+`npm run verify` green at 1093 tests across 69 files; `db-verify.sh` green on a
+fresh database including the new `69_admin_dashboard_metrics.sql`.
+
+**Sixth pass (2026-11-19) fixed the browser suite's launch and its sort
+assertion; the catalogue itself still holds.** The suite had never actually run
+here: `playwright.config.ts` offered no way to use a system browser, so all 14
+`browse.spec.ts` tests died in 2–3 ms with a missing-executable error. The config
+now honours `CHROMIUM_PATH`, the same variable `scripts/a11y-audit.mjs` has used
+since G98.
+
+With a browser, the suite ran and *failed* the sort test — which turned out to be
+a defect in the assertion rather than in the page (G110). The card renders the
+brand as an eyebrow above a heading from which the brand has been stripped, while
+the database orders on the full title that begins with the brand; reading the
+heading alone compares the middle of one key against the start of another. The
+helper now composes the eyebrow and the heading — the name a visitor actually
+reads — before comparing. Measured, not assumed: composed, the list is exactly
+codepoint-sorted for `title_asc` and its exact reverse for `title_desc`; heading
+text alone matches neither.
+
+`browse.spec.ts` is now 14/14 on desktop and mobile. `commerce.spec.ts` initially
+failed its order-request test with a permanently disabled submit button; that was
+the documented missing fixture, not a defect — `db-reset.sh` leaves
+`payment_methods` and `delivery_options` empty by design (F1), and
+`./scripts/e2e-seed-checkout-fixtures.sh` restores them. After running it the
+whole suite is 20/20. `npm run verify` remains green at 1093 tests across 69
+files.
+
+**Seventh pass (2026-11-19) re-audited the phase end to end and found one defect —
+in the motion layer the card picked up in the sixth pass, not in the catalogue.**
+
+The browser audit failed `serious color-contrast` on `/collections/featured` at
+`tablet-768` and `desktop-1440`, naming the card's reference line, brand eyebrow,
+summary and price. A direct probe separated cause from coincidence: with no
+settle the violation appeared with 20 nodes, and after a 3-second settle it was
+gone. The cards were being measured **mid-fade**, because the grid was revealed as
+one observed group — every child started its transition when the parent entered
+the viewport, so a card several rows down was still partially transparent while
+the page was sampled. axe was reporting a real state: a half-faded card is
+genuinely below 4.5:1.
+
+The fix is in the reveal strategy, not the palette. Grids now put
+`data-reveal-stagger` on the parent and `data-reveal` on each child, so every card
+is observed individually and animates when *it* reaches the viewport; the parent
+supplies only `--reveal-delay` from the child's position (0/70/140/210ms, then a
+flat 280ms). The cascade is spent where it can be seen, and no card is ever
+mid-fade because a sibling far above it fired. `reveal.tsx` is back to the single
+`[data-reveal]` selector and the group branch is deleted rather than left dead.
+
+Verified in a real browser on the rebuilt preview: stagger delays resolve from CSS
+position (`0s, 70ms, .14s, .21s, .28s, .28s`), **0 of 16** below-fold cards were
+marked revealed before scrolling, and under `prefers-reduced-motion` every
+duration collapses to `1e-05s` with the content at `opacity: 1`.
+
+With the motion layer corrected, the phase's own acceptance criteria were
+re-checked against the live preview and all held:
+
+| Criterion | Evidence |
+| --- | --- |
+| Only real published data | 20 published pieces; 4098 drafts never appear |
+| Filters/sort/page/URL work together | `pageSize=12` → 12 + 8 unique, 0 overlap; A–Z, Z–A, price asc, newest each give a different first row |
+| Query cost bounded | `pageSize=1000` clamps; `pageSize=abc`, `page=-5`, `sort=hacked`, SQL-ish brand all return `200` with no leak and no 500 |
+| Canonical/robots consistent with sitemap | filtered/search/page-past-end `noindex, follow` → clean canonical; clean scopes `index, follow`; sitemap holds 57 URLs, none with a query string |
+| Broken slugs 404 | `/brands/nope`, `/collections/nope`, `/products/nope`, and a cross-brand `/brands/omega/models/milgauss` all `404` |
+| Mobile controls usable | audit green at 320 and 390 including the filter drawer |
+
+`npm run audit:a11y` green across 33 pages × 4 viewports; `npm run verify` green
+at 1099 tests.
+
 ---
 
 ## Phase 6 — Product detail page
