@@ -97,6 +97,17 @@ a local artefact, check `npm ls axe-core` against the lockfile: if the detector
 versions differ, the "passing" run is the one to distrust. A green audit is only
 as trustworthy as the version of the tool that produced it.
 
+**The audit only measures what it opens.** A control that is hidden at the
+viewport being audited is not in the document axe sees, so a pass over that page
+proves nothing about it. The mobile filter drawer is `lg:hidden`: every audit at
+320px and 390px rendered the catalogue and never opened the drawer, so the filter
+panel went unmeasured for as long as it existed. The audit now clicks the real
+trigger and asserts the dialog appeared before running axe, the same way the age
+gate pass does — a trigger that stops opening must fail, not pass silently. When
+you add an interactive surface that is only reachable by an interaction (a drawer,
+a tab panel, a popover, a step in a wizard), it needs its own pass; the page-level
+pass will not see it.
+
 **Never let an `aria-label` drop visible text.** An `aria-label` _replaces_ the
 name computed from an element's contents. If the element also shows text, the
 accessible name must still contain that text or WCAG 2.5.3 fails — a
@@ -605,6 +616,7 @@ block that does not appear is worse than a refusal that explains itself.
 
 ### Things that will bite you
 
+- **A sort branch that falls through to the default is a sort that is not applied.** `catalogue_search` builds one `row_number()` that switches on `p_sort`, and the featured branch is a `case` that applies whenever the sort is _not_ in an explicit list. `'newest'` was left off that list, so it fell into the featured branch and the editor's unique `sort_order` decided the order ahead of `published_at desc`. "Newest first" returned the catalogue oldest-first for as long as the seed's `sort_order` happened to match its dates — which it did, so every test and every manual check agreed with the bug. When you add a sort option, add it to **both** the explicit-ordering `case` terms and the direction term it needs; a `case` that returns `null` for the other branches silently yields to whatever comes next. Test sorts against a fixture where the competing orderings disagree, or the test proves only that the seed is sorted.
 - **A card that shows the brand twice passes every test that checks one field at a time.** The catalogue and homepage cards render `brandName` as their own line and then print `title`, and every seeded title already begins with the brand — so each card read "Patek Philippe / Patek Philippe Cubitus …" on every listing. Both components were individually correct, the seed was correct, and the tests asserted each field in isolation. It survived a visual pass because it reads like a deliberate caption-plus-title design. `titleWithoutBrand` (`src/lib/product/title.ts`) strips the prefix at a word boundary only, so `Rolexford 100` keeps its name, and both mappers call it. When a component prints two fields that can overlap, assert on the rendered text as a whole, not on each field.
 - **A validated parameter is not a stored value.** `submit_sell_trade_request`
   checked `p_transaction_type` against `('sell','trade')` and then inserted

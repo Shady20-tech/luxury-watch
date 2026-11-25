@@ -8,6 +8,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### "Newest first" sorted oldest first
+
+**Date:** 2026-11-19
+
+`catalogue_search` orders results with one `row_number()` that switches on
+`p_sort`. The featured branch is a pair of `case` terms that apply whenever the
+sort is *not* an explicit ordering, and its second term orders by the editor's
+manual `sort_order`. `'newest'` was missing from that exclusion list, so "Newest
+first" fell into the featured branch and `sort_order asc` decided the order before
+`published_at desc` was ever consulted. `sort_order` is unique per product, so the
+date term could not break the tie: the sort returned the catalogue oldest-first.
+
+It looked correct because the seed sets `sort_order` in publication order, so on
+seed data the broken and correct orderings produce the same list. Only a fixture
+whose `sort_order` and `published_at` agree in the *other* direction exposes it —
+and that is what the new suite uses.
+
+`0034_newest_sort_order.sql` adds `'newest'` to both exclusion lists. `'featured'`
+still follows the manual order, which is the one ordering an editor controls.
+`supabase/tests/35_catalogue_sort_order.sql` pins newest, oldest and featured
+against a fixture where the two orderings disagree; it was mutation-tested by
+re-applying the old body, which fails it.
+
+### The mobile filter drawer was never audited
+
+**Date:** 2026-11-19
+
+The drawer trigger is `lg:hidden`, so the browser audit's ordinary pass at a phone
+width rendered the catalogue but never opened the drawer. The filter panel's
+accessibility was therefore unmeasured at every viewport, even though "mobile
+controls are usable" is an acceptance criterion for the catalogue.
+
+`npm run audit:a11y` now opens the real trigger at 320px and 390px, asserts the
+dialog appeared, and runs axe with it open. The assertion is the point: a trigger
+that stopped opening would otherwise turn this into a green pass over the
+catalogue page. Verified by renaming the trigger match — both widths fail with
+"the mobile filter drawer did not open".
+
 ### A manager could walk into another manager's dashboard
 
 **Date:** 2026-11-19

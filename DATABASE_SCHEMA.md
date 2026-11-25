@@ -55,6 +55,7 @@ done
 | `0028_product_image_credits.sql`               | `product_images.credit`, `licence`, `licence_url`, `source_url` and `is_representative`, plus `product_images_licence_complete_check` and `product_images_representative_credited_check`, so a credited image cannot be written without everything its licence requires |
 | `0029_catalogue_card_image_credits.sql`        | `catalogue_search`, `catalogue_by_ids` and `catalogue_similar` return `image_credit`, `image_licence` and `image_licence_url` from the same lateral that selects the card's image, so every listing credits the photograph it shows                                     |
 | `0033_role_management_and_product_removal.sql` | `admin_grant_role`, `admin_revoke_role` (both refuse self-elevation and the removal of the last unexpired super administrator), `admin_remove_product` (a soft delete that archives the row) and the `admin_staff_roster` view                                          |
+| `0034_newest_sort_order.sql`                   | Redefines `catalogue_search` so `'newest'` is an explicit ordering. It was missing from the featured branch's exclusion list, so the editor's unique `sort_order` decided the order and "Newest first" returned the catalogue oldest-first                              |
 
 ### 1.2 Verify locally
 
