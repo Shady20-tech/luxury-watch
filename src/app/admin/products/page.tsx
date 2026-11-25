@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { CheckCircle2, CircleAlert, Package, Plus } from 'lucide-react';
 
 import {
+  AdminCard,
   AdminPageHeader,
   AdminPagination,
-  AdminTable,
+  AdminStatCard,
+  AdminStatGrid,
   AdminTd,
   AdminTh,
   EmptyState,
@@ -55,9 +57,22 @@ export default async function AdminProductsPage({
     pageSize: params.pageSize,
   });
 
+  // Figures are counted from the page that was actually fetched, so they always
+  // agree with the rows below them. `result.total` is the filtered total, which
+  // is the number the reader asked for; the per-status split only describes this
+  // page and is labelled as such.
+  const publishedOnPage = result.rows.filter((row) => row.status === 'published').length;
+  const lowStockOnPage = result.rows.filter(
+    (row) =>
+      row.quantity !== null &&
+      row.lowStockThreshold !== null &&
+      row.quantity <= row.lowStockThreshold,
+  ).length;
+
   return (
-    <div>
+    <div className="space-y-5">
       <AdminPageHeader
+        eyebrow="Catalogue"
         title="Products"
         description="Every watch in the catalogue, including drafts and archived pieces. Only published products appear in the storefront."
         actions={
@@ -73,72 +88,102 @@ export default async function AdminProductsPage({
         }
       />
 
-      <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <label htmlFor="product-search" className="text-ink-500 mb-1 block text-xs font-medium">
-            Search
-          </label>
-          <input
-            id="product-search"
-            name="q"
-            type="search"
-            defaultValue={params.q ?? ''}
-            placeholder="Title, reference or slug"
-            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+      <AdminStatGrid>
+        <li>
+          <AdminStatCard
+            label="Matching products"
+            value={result.total}
+            detail={params.q ? `Search: “${params.q}”` : 'Across all statuses'}
+            icon={Package}
           />
-        </div>
+        </li>
+        <li>
+          <AdminStatCard
+            label="Published on this page"
+            value={publishedOnPage}
+            detail={`Page ${result.page} of ${Math.max(result.pageCount, 1)}`}
+            icon={CheckCircle2}
+          />
+        </li>
+        <li>
+          <AdminStatCard
+            label="Low stock on this page"
+            value={lowStockOnPage}
+            detail="At or below threshold"
+            icon={CircleAlert}
+            href="/admin/products?stock=low"
+          />
+        </li>
+      </AdminStatGrid>
 
-        <div>
-          <label htmlFor="product-status" className="text-ink-500 mb-1 block text-xs font-medium">
-            Status
-          </label>
-          <select
-            id="product-status"
-            name="status"
-            defaultValue={params.status}
-            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+      <AdminCard title="Filters" description="Combine any of these; the URL keeps them">
+        <form method="get" className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="product-search" className="text-ink-500 mb-1 block text-xs font-medium">
+              Search
+            </label>
+            <input
+              id="product-search"
+              name="q"
+              type="search"
+              defaultValue={params.q ?? ''}
+              placeholder="Title, reference or slug"
+              className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-status" className="text-ink-500 mb-1 block text-xs font-medium">
+              Status
+            </label>
+            <select
+              id="product-status"
+              name="status"
+              defaultValue={params.status}
+              className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            >
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status === 'all' ? 'All statuses' : status}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="product-stock" className="text-ink-500 mb-1 block text-xs font-medium">
+              Stock
+            </label>
+            <select
+              id="product-stock"
+              name="stock"
+              defaultValue={params.stock ?? ''}
+              className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            >
+              <option value="">Any stock</option>
+              <option value="low">Low stock only</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="border-line-300 hover:border-line-400 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
           >
-            {STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {status === 'all' ? 'All statuses' : status}
-              </option>
-            ))}
-          </select>
-        </div>
+            Apply
+          </button>
 
-        <div>
-          <label htmlFor="product-stock" className="text-ink-500 mb-1 block text-xs font-medium">
-            Stock
-          </label>
-          <select
-            id="product-stock"
-            name="stock"
-            defaultValue={params.stock ?? ''}
-            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
-          >
-            <option value="">Any stock</option>
-            <option value="low">Low stock only</option>
-          </select>
-        </div>
+          {params.q || params.status !== 'all' || params.stock ? (
+            <Link
+              href="/admin/products"
+              className="text-foreground-muted hover:text-ink-900 px-2 py-2 text-sm underline-offset-4 hover:underline"
+            >
+              Clear
+            </Link>
+          ) : null}
+        </form>
+      </AdminCard>
 
-        <button
-          type="submit"
-          className="border-line-300 hover:border-line-400 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          Apply
-        </button>
-
-        {params.q || params.status !== 'all' || params.stock ? (
-          <Link
-            href="/admin/products"
-            className="text-foreground-muted hover:text-ink-900 px-2 py-2 text-sm underline-offset-4 hover:underline"
-          >
-            Clear
-          </Link>
-        ) : null}
-      </form>
-
-      <p className="text-foreground-muted mb-3 text-sm tabular-nums" role="status">
+      <p className="text-foreground-muted text-sm tabular-nums" role="status">
         {result.total} {result.total === 1 ? 'product' : 'products'}
         {params.q ? ` matching “${params.q}”` : ''}
       </p>
@@ -159,72 +204,79 @@ export default async function AdminProductsPage({
         </EmptyState>
       ) : (
         <>
-          <AdminTable caption="Products">
-            <thead>
-              <tr>
-                <AdminTh>Product</AdminTh>
-                <AdminTh>Status</AdminTh>
-                <AdminTh className="text-right">Price</AdminTh>
-                <AdminTh className="text-right">Stock</AdminTh>
-                <AdminTh>Updated</AdminTh>
-              </tr>
-            </thead>
-            <tbody>
-              {result.rows.map((row) => {
-                const lowStock =
-                  row.quantity !== null &&
-                  row.lowStockThreshold !== null &&
-                  row.quantity <= row.lowStockThreshold;
-
-                return (
-                  <tr key={row.id}>
-                    <AdminTd>
-                      <div className="flex flex-col">
-                        <Link
-                          href={`/admin/products/${row.id}`}
-                          className="text-ink-900 font-medium underline-offset-4 hover:underline"
-                        >
-                          {row.title}
-                        </Link>
-                        <span className="text-foreground-muted text-xs">
-                          {row.brandName ? `${row.brandName} · ` : ''}
-                          {row.referenceNumber ?? 'No reference'}
-                        </span>
-                      </div>
-                    </AdminTd>
-                    <AdminTd>
-                      <StatusPill status={row.status} />
-                      {row.isFeatured ? (
-                        <span className="text-gold-900 ml-2 text-xs font-medium">Featured</span>
-                      ) : null}
-                    </AdminTd>
-                    <AdminTd className="text-right tabular-nums">
-                      {row.priceOnRequest ? (
-                        <span className="text-foreground-muted">Enquiry</span>
-                      ) : row.priceCents !== null ? (
-                        formatMoney(row.priceCents, row.currency)
-                      ) : (
-                        <span className="text-foreground-muted">—</span>
-                      )}
-                    </AdminTd>
-                    <AdminTd className="text-right tabular-nums">
-                      {row.quantity === null ? (
-                        <span className="text-foreground-muted">—</span>
-                      ) : (
-                        <span className={lowStock ? 'text-danger-600 font-semibold' : undefined}>
-                          {row.quantity}
-                          {lowStock ? <span className="sr-only"> (low stock)</span> : null}
-                        </span>
-                      )}
-                    </AdminTd>
-                    <AdminTd className="text-foreground-muted text-xs whitespace-nowrap tabular-nums">
-                      {formatAdminDate(row.updatedAt)}
-                    </AdminTd>
+          <AdminCard title="Product list" description="Newest update first" flush>
+            <div className="border-line-200 overflow-x-auto">
+              <table className="w-full min-w-[40rem] border-collapse text-sm">
+                <caption className="sr-only">Products</caption>
+                <thead>
+                  <tr>
+                    <AdminTh>Product</AdminTh>
+                    <AdminTh>Status</AdminTh>
+                    <AdminTh className="text-right">Price</AdminTh>
+                    <AdminTh className="text-right">Stock</AdminTh>
+                    <AdminTh>Updated</AdminTh>
                   </tr>
-                );
-              })}
-            </tbody>
-          </AdminTable>
+                </thead>
+                <tbody>
+                  {result.rows.map((row) => {
+                    const lowStock =
+                      row.quantity !== null &&
+                      row.lowStockThreshold !== null &&
+                      row.quantity <= row.lowStockThreshold;
+
+                    return (
+                      <tr key={row.id}>
+                        <AdminTd>
+                          <div className="flex flex-col">
+                            <Link
+                              href={`/admin/products/${row.id}`}
+                              className="text-ink-900 font-medium underline-offset-4 hover:underline"
+                            >
+                              {row.title}
+                            </Link>
+                            <span className="text-foreground-muted text-xs">
+                              {row.brandName ? `${row.brandName} · ` : ''}
+                              {row.referenceNumber ?? 'No reference'}
+                            </span>
+                          </div>
+                        </AdminTd>
+                        <AdminTd>
+                          <StatusPill status={row.status} />
+                          {row.isFeatured ? (
+                            <span className="text-gold-900 ml-2 text-xs font-medium">Featured</span>
+                          ) : null}
+                        </AdminTd>
+                        <AdminTd className="text-right tabular-nums">
+                          {row.priceOnRequest ? (
+                            <span className="text-foreground-muted">Enquiry</span>
+                          ) : row.priceCents !== null ? (
+                            formatMoney(row.priceCents, row.currency)
+                          ) : (
+                            <span className="text-foreground-muted">—</span>
+                          )}
+                        </AdminTd>
+                        <AdminTd className="text-right tabular-nums">
+                          {row.quantity === null ? (
+                            <span className="text-foreground-muted">—</span>
+                          ) : (
+                            <span
+                              className={lowStock ? 'text-danger-600 font-semibold' : undefined}
+                            >
+                              {row.quantity}
+                              {lowStock ? <span className="sr-only"> (low stock)</span> : null}
+                            </span>
+                          )}
+                        </AdminTd>
+                        <AdminTd className="text-foreground-muted text-xs whitespace-nowrap tabular-nums">
+                          {formatAdminDate(row.updatedAt)}
+                        </AdminTd>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </AdminCard>
 
           <AdminPagination
             page={result.page}

@@ -84,7 +84,7 @@ export function HomepageEditor({ sections }: { sections: AdminHomepageSectionRow
   return (
     <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
       <nav aria-label="Homepage sections">
-        <ul className="divide-line-300 border-line-300 divide-y rounded-md border">
+        <ul className="divide-line-200 border-line-200 divide-y rounded-2xl border">
           {sections.map((section) => {
             const label =
               SECTION_LABELS[section.sectionKey as HomepageSectionKey] ?? section.sectionKey;
@@ -122,7 +122,7 @@ function SectionForm({ section }: { section: AdminHomepageSectionRow }) {
   return (
     <section
       aria-labelledby="section-form-heading"
-      className="border-line-300 rounded-md border p-6"
+      className="border-line-200 rounded-2xl border p-6"
     >
       <h2 id="section-form-heading" className="mb-1 text-lg">
         {label}

@@ -34,7 +34,7 @@ export function RemoveProductPanel({
     return (
       <section
         aria-labelledby="remove-heading"
-        className="border-line-300 bg-surface-0 rounded-md border p-4"
+        className="border-line-200 bg-surface-0 rounded-2xl border p-4"
       >
         <h2 id="remove-heading" className="text-ink-900 text-sm font-semibold">
           Removed from sale

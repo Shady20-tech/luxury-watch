@@ -1077,6 +1077,20 @@ isOneToOne: false
 "user_id": string | null
             }
                            },
+"admin_catalogue_by_brand":
+{ Args: { "p_limit"?: number }; Returns: {
+              "brand_id": string,
+"brand_name": string,
+"product_count": number,
+"published_count": number
+            }[]
+                           },
+"admin_inventory_by_state":
+{ Args: never; Returns: {
+              "item_count": number,
+"state": string
+            }[]
+                           },
 "admin_write_audit_log":
 { Args: { "p_action": string,"p_changes"?: Json,"p_entity_id": string,"p_entity_type": string }; Returns: string
                            },

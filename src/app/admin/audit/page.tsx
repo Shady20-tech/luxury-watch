@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { AdminPageHeader, AdminTable, AdminTd, AdminTh, EmptyState } from '@/components/admin/ui';
+import { AdminCard, AdminPageHeader, AdminTd, AdminTh, EmptyState } from '@/components/admin/ui';
 import { formatAdminDateTime } from '@/lib/admin/format';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { fetchRecentActivity } from '@/server/repositories/admin-dashboard-repository';
@@ -24,45 +24,58 @@ export default async function AdminAuditPage() {
   const rows = await fetchRecentActivity(100);
 
   return (
-    <div>
+    <div className="space-y-5">
       <AdminPageHeader
-        title="Audit trail"
+        eyebrow="Audit"
+        title="Trail of every change"
         description="Every administrative change, newest first. Entries cannot be edited or removed from the application."
+        actions={
+          <span className="text-ink-500 text-sm tabular-nums">
+            {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
+          </span>
+        }
       />
 
-      {rows.length === 0 ? (
-        <EmptyState title="Nothing recorded yet">
-          <p>Actions taken in the administration area appear here.</p>
-        </EmptyState>
-      ) : (
-        <AdminTable caption="Audit trail">
-          <thead>
-            <tr>
-              <AdminTh>When</AdminTh>
-              <AdminTh>Actor</AdminTh>
-              <AdminTh>Action</AdminTh>
-              <AdminTh>Entity</AdminTh>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <AdminTd className="text-foreground-muted text-xs whitespace-nowrap tabular-nums">
-                  {formatAdminDateTime(row.createdAt)}
-                </AdminTd>
-                <AdminTd className="text-xs">{row.actorEmail ?? 'Unknown'}</AdminTd>
-                <AdminTd className="font-medium">{row.action}</AdminTd>
-                <AdminTd className="text-foreground-muted text-xs">
-                  {row.entityType}
-                  {row.entityId ? (
-                    <span className="block font-mono">{row.entityId.slice(0, 8)}…</span>
-                  ) : null}
-                </AdminTd>
-              </tr>
-            ))}
-          </tbody>
-        </AdminTable>
-      )}
+      <AdminCard title="Recent activity" description="Newest first" flush>
+        {rows.length === 0 ? (
+          <div className="p-5 sm:p-6">
+            <EmptyState title="Nothing recorded yet">
+              <p>Actions taken in the administration area appear here.</p>
+            </EmptyState>
+          </div>
+        ) : (
+          <div className="border-line-200 overflow-x-auto">
+            <table className="w-full min-w-[40rem] border-collapse text-sm">
+              <caption className="sr-only">Audit trail</caption>
+              <thead>
+                <tr>
+                  <AdminTh>When</AdminTh>
+                  <AdminTh>Actor</AdminTh>
+                  <AdminTh>Action</AdminTh>
+                  <AdminTh>Entity</AdminTh>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <AdminTd className="text-foreground-muted text-xs whitespace-nowrap tabular-nums">
+                      {formatAdminDateTime(row.createdAt)}
+                    </AdminTd>
+                    <AdminTd className="text-xs">{row.actorEmail ?? 'Unknown'}</AdminTd>
+                    <AdminTd className="font-medium">{row.action}</AdminTd>
+                    <AdminTd className="text-foreground-muted text-xs">
+                      {row.entityType}
+                      {row.entityId ? (
+                        <span className="block font-mono">{row.entityId.slice(0, 8)}…</span>
+                      ) : null}
+                    </AdminTd>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminCard>
     </div>
   );
 }

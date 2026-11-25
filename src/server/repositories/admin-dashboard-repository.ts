@@ -2,6 +2,7 @@ import 'server-only';
 
 import { logger } from '@/lib/logger';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { createSupabaseServerClientWritable } from '@/lib/supabase/server';
 
 /**
  * Read queries for the admin dashboard.
@@ -184,6 +185,67 @@ export type ActivityRow = {
   entityId: string | null;
   createdAt: string;
 };
+
+/** One bar in the catalogue-by-brand chart. */
+export type BrandShare = {
+  brandId: string;
+  brandName: string;
+  productCount: number;
+  publishedCount: number;
+};
+
+/**
+ * Product totals per brand, largest first.
+ *
+ * An empty result is a legitimate answer (no brands, or no catalogue yet) and is
+ * reported as an empty list so the caller can render an honest empty state rather
+ * than a chart of zeroes.
+ *
+ * The permission is enforced inside `admin_catalogue_by_brand` as well as by the
+ * page. The RPC runs through the cookie-bearing client so `auth.uid()` resolves;
+ * the service-role client carries no user, and `has_permission()` would refuse it.
+ */
+export async function fetchCatalogueByBrand(limit = 8): Promise<BrandShare[]> {
+  const supabase = await createSupabaseServerClientWritable();
+
+  const { data, error } = await supabase.rpc('admin_catalogue_by_brand', { p_limit: limit });
+
+  if (error) {
+    logger.error('admin.brand_share_failed', { message: error.message, code: error.code });
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    brandId: row.brand_id,
+    brandName: row.brand_name,
+    productCount: Number(row.product_count),
+    publishedCount: Number(row.published_count),
+  }));
+}
+
+export type StockState = { state: 'healthy' | 'low' | 'out'; count: number };
+
+/** Stock rows grouped into healthy / low / out, in that reading order. */
+export async function fetchInventoryByState(): Promise<StockState[]> {
+  const supabase = await createSupabaseServerClientWritable();
+
+  const { data, error } = await supabase.rpc('admin_inventory_by_state');
+
+  if (error) {
+    logger.error('admin.stock_state_failed', { message: error.message, code: error.code });
+    return [];
+  }
+
+  const order: Array<StockState['state']> = ['healthy', 'low', 'out'];
+  const counts = new Map<string, number>(
+    (data ?? []).map((row) => [row.state, Number(row.item_count)]),
+  );
+
+  // Every bucket is reported, including the empty ones: a missing "out of stock"
+  // row would read as "not measured" rather than "none", and the legend has to
+  // match the chart.
+  return order.map((state) => ({ state, count: counts.get(state) ?? 0 }));
+}
 
 /** The most recent administrative changes, newest first. Bounded by the view. */
 export async function fetchRecentActivity(limit = 15): Promise<ActivityRow[]> {

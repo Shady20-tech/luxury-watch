@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { AvatarUploader } from '@/components/account/avatar-uploader';
+import { AdminCard, AdminPageHeader } from '@/components/admin/ui';
 import { ChangePasswordForm } from '@/components/account/change-password-form';
 import { ProfileForm } from '@/components/account/profile-form';
 import { fetchProfile } from '@/server/repositories/auth-repository';
@@ -47,54 +48,53 @@ export default async function AdminAccountPage() {
   const profile = await fetchProfile(identity.userId);
 
   return (
-    <div className="flex flex-col gap-10">
-      <div>
-        <h1 className="text-xl">Your account</h1>
-        <p className="text-foreground-muted mt-2 max-w-prose text-sm">
-          Your own details, photo and password. These are separate from the site&apos;s customer
-          accounts and are not visible in the storefront.
-        </p>
-        <p className="text-ink-500 mt-2 text-xs">
-          {identity.email ?? 'Signed in'}
-          {identity.roles.length > 0 ? ` · ${identity.roles.join(', ')}` : null}
-        </p>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        eyebrow="Your account"
+        title="Details, photo and password"
+        description="Your own details, photo and password. These are separate from the site's customer accounts and are not visible in the storefront."
+        actions={
+          <span className="text-ink-500 text-xs">
+            {identity.email ?? 'Signed in'}
+            {identity.roles.length > 0 ? ` · ${identity.roles.join(', ')}` : null}
+          </span>
+        }
+      />
 
       {profile ? (
-        <div className="flex flex-col gap-10">
-          <AvatarUploader initialUrl={profile.avatarUrl} name={profile.fullName} />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
+          <AdminCard title="Your photo" description="Shown beside your activity">
+            <AvatarUploader initialUrl={profile.avatarUrl} name={profile.fullName} />
+          </AdminCard>
 
-          <section aria-labelledby="details-heading" className="border-line-300 border-t pt-8">
-            <h2 id="details-heading" className="text-base font-semibold">
-              Your details
-            </h2>
-            <p className="text-foreground-muted mt-1 mb-5 max-w-prose text-sm">
-              Used when we contact you about an order or an enquiry.
-            </p>
-            <ProfileForm
-              email={profile.email}
-              fullName={profile.fullName}
-              phone={profile.phone}
-              marketingOptIn={profile.marketingOptIn}
-            />
-          </section>
+          <div className="flex flex-col gap-5">
+            <AdminCard
+              title="Your details"
+              description="Used when we contact you about an order or an enquiry"
+            >
+              <ProfileForm
+                email={profile.email}
+                fullName={profile.fullName}
+                phone={profile.phone}
+                marketingOptIn={profile.marketingOptIn}
+              />
+            </AdminCard>
 
-          <section aria-labelledby="password-heading" className="border-line-300 border-t pt-8">
-            <h2 id="password-heading" className="text-base font-semibold">
-              Change your password
-            </h2>
-            <p className="text-foreground-muted mt-1 mb-5 max-w-prose text-sm">
-              Enter your current password, then choose a new one. Changing it does not sign you out
-              on other devices.
-            </p>
-            <ChangePasswordForm />
-          </section>
+            <AdminCard
+              title="Change your password"
+              description="Changing it does not sign you out on other devices"
+            >
+              <ChangePasswordForm />
+            </AdminCard>
+          </div>
         </div>
       ) : (
-        <p role="alert" className="text-foreground-muted text-sm">
-          We could not load your details. Please refresh the page, or contact the site administrator
-          if this continues.
-        </p>
+        <AdminCard>
+          <p role="alert" className="text-foreground-muted text-sm">
+            We could not load your details. Please refresh the page, or contact the site
+            administrator if this continues.
+          </p>
+        </AdminCard>
       )}
     </div>
   );

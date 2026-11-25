@@ -122,7 +122,7 @@ export function StaffRoleManager({
         </p>
 
         {selected ? (
-          <div className="border-line-300 bg-surface-0 mt-4 rounded-md border p-4">
+          <div className="border-line-200 bg-surface-0 mt-4 rounded-2xl border p-4">
             <p className="text-ink-700 text-sm">
               Granting to{' '}
               <span className="text-ink-900 font-medium">
@@ -167,7 +167,7 @@ export function StaffRoleManager({
             </AdminForm>
           </div>
         ) : (
-          <p className="border-line-300 text-foreground-muted mt-4 rounded-md border border-dashed p-4 text-sm">
+          <p className="border-line-300 text-foreground-muted mt-4 rounded-2xl border border-dashed p-4 text-sm">
             Select an account from the list below to grant a role.
           </p>
         )}
@@ -182,7 +182,7 @@ export function StaffRoleManager({
         </p>
 
         {roster.length === 0 ? (
-          <p className="border-line-300 text-foreground-muted mt-4 rounded-md border border-dashed p-4 text-sm">
+          <p className="border-line-300 text-foreground-muted mt-4 rounded-2xl border border-dashed p-4 text-sm">
             No staff roles have been granted yet.
           </p>
         ) : (
@@ -190,7 +190,7 @@ export function StaffRoleManager({
             {accounts.map((account) => (
               <li
                 key={account.userId}
-                className="border-line-300 bg-surface-0 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+                className="border-line-200 bg-surface-0 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3"
               >
                 <div className="min-w-0">
                   <p className="text-ink-900 truncate text-sm font-medium">

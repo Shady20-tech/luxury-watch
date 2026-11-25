@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Boxes, CircleAlert, PackageCheck } from 'lucide-react';
 
 import {
+  AdminCard,
   AdminPageHeader,
   AdminPagination,
-  AdminTable,
+  AdminStatCard,
+  AdminStatGrid,
   AdminTd,
   AdminTh,
   EmptyState,
@@ -53,58 +56,98 @@ export default async function AdminInventoryPage({
     pageSize: params.pageSize,
   });
 
+  const lowStockOnPage = result.rows.filter((row) => row.isLowStock).length;
+  const availableOnPage = result.rows.reduce((sum, row) => sum + row.available, 0);
+
   return (
-    <div>
+    <div className="space-y-5">
       <AdminPageHeader
-        title="Inventory"
+        eyebrow="Inventory"
+        title="Stock and reservations"
         description="Physical stock and reservations. Adjustments are recorded in a ledger; the balance is never edited directly."
       />
 
-      <form method="get" className="mb-4 flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <label htmlFor="inventory-search" className="text-ink-500 mb-1 block text-xs font-medium">
-            Search
-          </label>
-          <input
-            id="inventory-search"
-            name="q"
-            type="search"
-            defaultValue={params.q ?? ''}
-            placeholder="Title or reference"
-            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+      <AdminStatGrid>
+        <li>
+          <AdminStatCard
+            label="Products tracked"
+            value={result.total}
+            detail={`Page ${result.page} of ${Math.max(result.pageCount, 1)}`}
+            icon={Boxes}
           />
-        </div>
-        <div>
-          <label htmlFor="inventory-filter" className="text-ink-500 mb-1 block text-xs font-medium">
-            Show
-          </label>
-          <select
-            id="inventory-filter"
-            name="filter"
-            defaultValue={params.filter ?? ''}
-            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
-          >
-            <option value="">All stock</option>
-            <option value="low">Low stock only</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="border-line-300 hover:border-line-400 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          Apply
-        </button>
-        {params.q || params.filter ? (
-          <Link
-            href="/admin/inventory"
-            className="text-foreground-muted hover:text-ink-900 px-2 py-2 text-sm underline-offset-4 hover:underline"
-          >
-            Clear
-          </Link>
-        ) : null}
-      </form>
+        </li>
+        <li>
+          <AdminStatCard
+            label="Low stock on this page"
+            value={lowStockOnPage}
+            detail="At or below threshold"
+            icon={CircleAlert}
+            href="/admin/inventory?filter=low"
+          />
+        </li>
+        <li>
+          <AdminStatCard
+            label="Available on this page"
+            value={availableOnPage}
+            detail="On hand minus reserved"
+            icon={PackageCheck}
+          />
+        </li>
+      </AdminStatGrid>
 
-      <p className="text-foreground-muted mb-3 text-sm tabular-nums" role="status">
+      <AdminCard title="Filters" description="The URL keeps them">
+        <form method="get" className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="inventory-search"
+              className="text-ink-500 mb-1 block text-xs font-medium"
+            >
+              Search
+            </label>
+            <input
+              id="inventory-search"
+              name="q"
+              type="search"
+              defaultValue={params.q ?? ''}
+              placeholder="Title or reference"
+              className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="inventory-filter"
+              className="text-ink-500 mb-1 block text-xs font-medium"
+            >
+              Show
+            </label>
+            <select
+              id="inventory-filter"
+              name="filter"
+              defaultValue={params.filter ?? ''}
+              className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            >
+              <option value="">All stock</option>
+              <option value="low">Low stock only</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="border-line-300 hover:border-line-400 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Apply
+          </button>
+          {params.q || params.filter ? (
+            <Link
+              href="/admin/inventory"
+              className="text-foreground-muted hover:text-ink-900 px-2 py-2 text-sm underline-offset-4 hover:underline"
+            >
+              Clear
+            </Link>
+          ) : null}
+        </form>
+      </AdminCard>
+
+      <p className="text-foreground-muted text-sm tabular-nums" role="status">
         {result.total} {result.total === 1 ? 'product' : 'products'} tracked
       </p>
 
@@ -124,59 +167,68 @@ export default async function AdminInventoryPage({
         </EmptyState>
       ) : (
         <>
-          <AdminTable caption="Inventory">
-            <thead>
-              <tr>
-                <AdminTh>Product</AdminTh>
-                <AdminTh className="text-right">On hand</AdminTh>
-                <AdminTh className="text-right">Reserved</AdminTh>
-                <AdminTh className="text-right">Available</AdminTh>
-                <AdminTh>Updated</AdminTh>
-                {mayWrite ? <AdminTh>Adjust</AdminTh> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {result.rows.map((row) => (
-                <tr key={row.productId}>
-                  <AdminTd>
-                    <div className="flex flex-col">
-                      <Link
-                        href={`/admin/products/${row.productId}`}
-                        className="text-ink-900 font-medium underline-offset-4 hover:underline"
-                      >
-                        {row.product.title}
-                      </Link>
-                      <span className="text-foreground-muted text-xs">
-                        {row.product.brandName ? `${row.product.brandName} · ` : ''}
-                        {row.product.referenceNumber ?? 'No reference'}
-                        {row.product.status !== 'published' ? ` · ${row.product.status}` : ''}
-                      </span>
-                    </div>
-                  </AdminTd>
-                  <AdminTd className="text-right tabular-nums">
-                    <span className={row.isLowStock ? 'text-danger-600 font-semibold' : undefined}>
-                      {row.quantity}
-                      {row.isLowStock ? <span className="sr-only"> (low stock)</span> : null}
-                    </span>
-                  </AdminTd>
-                  <AdminTd className="text-right tabular-nums">{row.reservedQuantity}</AdminTd>
-                  <AdminTd className="text-right font-medium tabular-nums">{row.available}</AdminTd>
-                  <AdminTd className="text-foreground-muted text-xs whitespace-nowrap tabular-nums">
-                    {formatAdminDateTime(row.updatedAt)}
-                  </AdminTd>
-                  {mayWrite ? (
-                    <AdminTd>
-                      <StockAdjustForm
-                        action={adjustStockAction}
-                        productId={row.productId}
-                        productTitle={row.product.title}
-                      />
-                    </AdminTd>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </AdminTable>
+          <AdminCard title="Stock ledger" description="On hand, reserved and available" flush>
+            <div className="border-line-200 overflow-x-auto">
+              <table className="w-full min-w-[40rem] border-collapse text-sm">
+                <caption className="sr-only">Inventory</caption>
+                <thead>
+                  <tr>
+                    <AdminTh>Product</AdminTh>
+                    <AdminTh className="text-right">On hand</AdminTh>
+                    <AdminTh className="text-right">Reserved</AdminTh>
+                    <AdminTh className="text-right">Available</AdminTh>
+                    <AdminTh>Updated</AdminTh>
+                    {mayWrite ? <AdminTh>Adjust</AdminTh> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.map((row) => (
+                    <tr key={row.productId}>
+                      <AdminTd>
+                        <div className="flex flex-col">
+                          <Link
+                            href={`/admin/products/${row.productId}`}
+                            className="text-ink-900 font-medium underline-offset-4 hover:underline"
+                          >
+                            {row.product.title}
+                          </Link>
+                          <span className="text-foreground-muted text-xs">
+                            {row.product.brandName ? `${row.product.brandName} · ` : ''}
+                            {row.product.referenceNumber ?? 'No reference'}
+                            {row.product.status !== 'published' ? ` · ${row.product.status}` : ''}
+                          </span>
+                        </div>
+                      </AdminTd>
+                      <AdminTd className="text-right tabular-nums">
+                        <span
+                          className={row.isLowStock ? 'text-danger-600 font-semibold' : undefined}
+                        >
+                          {row.quantity}
+                          {row.isLowStock ? <span className="sr-only"> (low stock)</span> : null}
+                        </span>
+                      </AdminTd>
+                      <AdminTd className="text-right tabular-nums">{row.reservedQuantity}</AdminTd>
+                      <AdminTd className="text-right font-medium tabular-nums">
+                        {row.available}
+                      </AdminTd>
+                      <AdminTd className="text-foreground-muted text-xs whitespace-nowrap tabular-nums">
+                        {formatAdminDateTime(row.updatedAt)}
+                      </AdminTd>
+                      {mayWrite ? (
+                        <AdminTd>
+                          <StockAdjustForm
+                            action={adjustStockAction}
+                            productId={row.productId}
+                            productTitle={row.product.title}
+                          />
+                        </AdminTd>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </AdminCard>
 
           <AdminPagination
             page={result.page}

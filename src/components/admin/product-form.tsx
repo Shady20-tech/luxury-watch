@@ -95,7 +95,7 @@ export function ProductForm({ action, product, brands, models }: Props) {
         </p>
       ) : null}
 
-      <fieldset className="border-line-300 rounded-md border p-4">
+      <fieldset className="border-line-200 rounded-2xl border p-4">
         <legend className="px-1 text-sm font-semibold">Identity</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -195,7 +195,7 @@ export function ProductForm({ action, product, brands, models }: Props) {
         </div>
       </fieldset>
 
-      <fieldset className="border-line-300 rounded-md border p-4">
+      <fieldset className="border-line-200 rounded-2xl border p-4">
         <legend className="px-1 text-sm font-semibold">Pricing</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -302,7 +302,7 @@ export function ProductForm({ action, product, brands, models }: Props) {
         </div>
       </fieldset>
 
-      <fieldset className="border-line-300 rounded-md border p-4">
+      <fieldset className="border-line-200 rounded-2xl border p-4">
         <legend className="px-1 text-sm font-semibold">Specification</legend>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
@@ -460,7 +460,7 @@ export function ProductForm({ action, product, brands, models }: Props) {
         </div>
       </fieldset>
 
-      <fieldset className="border-line-300 rounded-md border p-4">
+      <fieldset className="border-line-200 rounded-2xl border p-4">
         <legend className="px-1 text-sm font-semibold">Copy and search</legend>
         <div className="space-y-4">
           <div>
@@ -528,7 +528,7 @@ export function ProductForm({ action, product, brands, models }: Props) {
         </div>
       </fieldset>
 
-      <fieldset className="border-line-300 rounded-md border p-4">
+      <fieldset className="border-line-200 rounded-2xl border p-4">
         <legend className="px-1 text-sm font-semibold">Publication</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

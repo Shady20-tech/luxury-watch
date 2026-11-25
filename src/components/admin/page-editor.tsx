@@ -27,7 +27,7 @@ export function PageList({ pages }: { pages: AdminPageRow[] }) {
   }
 
   return (
-    <ul className="divide-line-300 border-line-300 divide-y rounded-md border">
+    <ul className="divide-line-200 border-line-200 divide-y rounded-2xl border">
       {pages.map((page) => (
         <li key={page.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
           <div className="min-w-0">

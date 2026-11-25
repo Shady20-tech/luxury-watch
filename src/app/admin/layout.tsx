@@ -138,7 +138,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     // guessed the URL.
     return (
       <main className="mx-auto w-full max-w-lg px-4 py-24">
-        <div className="border-line-300 rounded-md border p-8 text-center">
+        <div className="border-line-300 rounded-2xl border p-8 text-center">
           <ShieldAlert aria-hidden="true" className="text-ink-300 mx-auto mb-4 h-8 w-8" />
           <h1 className="text-xl">Not available</h1>
           <p className="text-foreground-muted mt-3 text-sm">
@@ -196,13 +196,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     requestedPath.startsWith('/admin') && !mayEnterSection(requestedPath, held);
 
   return (
-    <div className="bg-surface-page min-h-dvh lg:flex">
-      <a
-        href="#admin-content"
-        className="focus:bg-ink-900 focus:text-surface-0 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:px-3 focus:py-2"
-      >
-        Skip to content
-      </a>
+    <div className="bg-surface-admin min-h-dvh lg:flex">
+      {/* No skip link here. The root layout already renders one as the first
+          focusable element on every page, and it targets `#main-content` — which
+          the `<main>` below now carries, so it lands here. A second link here
+          would duplicate it, and until this was unified the root link pointed at
+          an id no admin page had, so the site-wide skip link did nothing on
+          every `/admin` route. */}
 
       {/* The rail is the shell's left edge on a wide viewport: full height and
           sticky, so the section list stays put while a long table scrolls. Below
@@ -219,7 +219,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
       <div className="min-w-0 flex-1">
         <header className="border-line-200 bg-surface-0/85 sticky top-0 z-30 border-b backdrop-blur-md">
-          <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+          <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2 sm:px-6">
             <div className="flex items-baseline gap-3">
               <Link
                 href="/admin"
@@ -304,9 +304,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           {/* `min-w-0` lets the content column shrink below its content width, so
               a wide table cannot force the page to scroll sideways on a narrow
               viewport. */}
-          <main id="admin-content" className="min-w-0">
+          <main id="main-content" className="min-w-0">
             {sectionRefused ? (
-              <div className="border-line-300 mx-auto max-w-lg rounded-md border p-8 text-center">
+              <div className="border-line-300 mx-auto max-w-lg rounded-2xl border p-8 text-center">
                 <ShieldAlert aria-hidden="true" className="text-ink-300 mx-auto mb-4 h-8 w-8" />
                 <h1 className="text-xl">Not available</h1>
                 <p className="text-foreground-muted mt-3 text-sm">

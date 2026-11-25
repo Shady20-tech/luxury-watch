@@ -40,7 +40,7 @@ export function PaymentMethodEditor({ methods }: { methods: AdminPaymentMethod[]
         <section
           key={method.id}
           aria-labelledby={`payment-${method.id}`}
-          className="border-line-300 rounded-md border p-6"
+          className="border-line-200 rounded-2xl border p-6"
         >
           <h2 id={`payment-${method.id}`} className="mb-1 text-lg">
             {method.label}
@@ -111,7 +111,7 @@ export function DeliveryOptionEditor({ options }: { options: AdminDeliveryOption
         <section
           key={option.id}
           aria-labelledby={`delivery-${option.id}`}
-          className="border-line-300 rounded-md border p-6"
+          className="border-line-200 rounded-2xl border p-6"
         >
           <h2 id={`delivery-${option.id}`} className="mb-1 text-lg">
             {option.label}
@@ -181,7 +181,7 @@ export function EmailSettingsEditor({
 }) {
   return (
     <AdminForm action={saveEmailSettingsAction} submitLabel="Save email settings">
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Sending identity</legend>
 
         <p className="text-ink-500 text-sm">
@@ -226,7 +226,7 @@ export function SiteSettingsEditor({ settings }: { settings: AdminSiteSettings |
 
   return (
     <AdminForm action={saveSiteSettingsAction} submitLabel="Save settings">
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Identity</legend>
         <TextField
           name="businessName"
@@ -244,7 +244,7 @@ export function SiteSettingsEditor({ settings }: { settings: AdminSiteSettings |
         />
       </fieldset>
 
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Contact</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
@@ -269,7 +269,7 @@ export function SiteSettingsEditor({ settings }: { settings: AdminSiteSettings |
         />
       </fieldset>
 
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Address</legend>
         <TextField
           name="addressLine1"
@@ -311,7 +311,7 @@ export function SiteSettingsEditor({ settings }: { settings: AdminSiteSettings |
         </div>
       </fieldset>
 
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Social</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
@@ -329,7 +329,7 @@ export function SiteSettingsEditor({ settings }: { settings: AdminSiteSettings |
         </div>
       </fieldset>
 
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Age gate</legend>
         <CheckboxField
           name="ageGateEnabled"
@@ -345,7 +345,7 @@ export function SiteSettingsEditor({ settings }: { settings: AdminSiteSettings |
         />
       </fieldset>
 
-      <fieldset className="border-line-300 space-y-4 rounded-md border p-6">
+      <fieldset className="border-line-200 space-y-4 rounded-2xl border p-6">
         <legend className="px-2 text-sm font-semibold">Order confirmation</legend>
         <TextAreaField
           name="orderConfirmationNote"

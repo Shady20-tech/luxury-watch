@@ -113,7 +113,7 @@ export function MediaLibrary({
 
   return (
     <div className="space-y-8">
-      <section aria-labelledby="upload-heading" className="border-line-300 rounded-md border p-6">
+      <section aria-labelledby="upload-heading" className="border-line-200 rounded-2xl border p-6">
         <h2 id="upload-heading" className="mb-4 text-lg">
           Upload images
         </h2>
@@ -229,7 +229,7 @@ function MediaCard({
   const url = resolveImageUrl(asset.storagePath, null);
 
   return (
-    <li className="border-line-300 overflow-hidden rounded-md border">
+    <li className="border-line-200 overflow-hidden rounded-2xl border">
       <div className="bg-surface-200 relative aspect-[4/3]">
         {url ? (
           // The library is admin-only and the images are small; `next/image`

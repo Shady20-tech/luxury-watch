@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { AdminPageHeader } from '@/components/admin/ui';
+import { AdminCard, AdminPageHeader } from '@/components/admin/ui';
 import { AddStaffByEmailForm, StaffRoleManager } from '@/components/admin/staff-role-manager';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import {
@@ -41,12 +41,13 @@ export default async function AdminStaffPage({
   if (!identity.roles.includes('SUPER_ADMIN')) {
     await requirePermission('customers.read');
     return (
-      <div>
+      <div className="space-y-5">
         <AdminPageHeader
-          title="Staff and roles"
+          eyebrow="Staff"
+          title="Roles and access"
           description="Changing roles is restricted to super administrators."
         />
-        <p className="border-line-300 text-foreground-muted rounded-md border border-dashed p-4 text-sm">
+        <p className="border-line-300 text-foreground-muted rounded-2xl border border-dashed p-4 text-sm">
           You do not have permission to manage staff roles. Granting and revoking a role requires
           the super administrator role.
         </p>
@@ -77,15 +78,16 @@ export default async function AdminStaffPage({
     (rawAccount && accounts.some((a) => a.userId === rawAccount) ? rawAccount : null);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <AdminPageHeader
-        title="Staff and roles"
+        eyebrow="Staff"
+        title="Roles and access"
         description="Who may use the admin platform, and what they may do. Appointing a person grants a role; the role decides every screen and every action they can reach."
       />
 
       {rawEmail && !emailAccount ? (
         <p
-          className="border-line-300 bg-surface-0 text-ink-700 rounded-md border p-3 text-sm"
+          className="border-line-300 bg-surface-0 text-ink-700 rounded-2xl border p-4 text-sm"
           role="status"
         >
           No account uses the address <span className="font-medium">{rawEmail}</span>. The person
@@ -93,7 +95,9 @@ export default async function AdminStaffPage({
         </p>
       ) : null}
 
-      <AddStaffByEmailForm />
+      <AdminCard title="Appoint by email" description="The account must already exist">
+        <AddStaffByEmailForm />
+      </AdminCard>
 
       <StaffRoleManager
         accounts={accountsWithCandidate}

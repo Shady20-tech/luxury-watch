@@ -117,7 +117,10 @@ export function FaqEditor({ faqs }: { faqs: AdminFaqRow[] }) {
 
   return (
     <div className="space-y-8">
-      <section aria-labelledby="faq-form-heading" className="border-line-300 rounded-md border p-6">
+      <section
+        aria-labelledby="faq-form-heading"
+        className="border-line-200 rounded-2xl border p-6"
+      >
         <h2 id="faq-form-heading" className="mb-4 text-lg">
           {editing ? 'Edit question' : 'Add a question'}
         </h2>
@@ -188,7 +191,7 @@ export function FaqEditor({ faqs }: { faqs: AdminFaqRow[] }) {
         {faqs.length === 0 ? (
           <p className="text-ink-500 text-sm">No questions yet. Add the first one above.</p>
         ) : (
-          <ul className="divide-line-300 border-line-300 divide-y rounded-md border">
+          <ul className="divide-line-200 border-line-200 divide-y rounded-2xl border">
             {faqs.map((faq) => (
               <li key={faq.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
                 <div className="min-w-0">
@@ -224,7 +227,7 @@ export function TestimonialEditor({ testimonials }: { testimonials: AdminTestimo
     <div className="space-y-8">
       <section
         aria-labelledby="testimonial-form-heading"
-        className="border-line-300 rounded-md border p-6"
+        className="border-line-200 rounded-2xl border p-6"
       >
         <h2 id="testimonial-form-heading" className="mb-4 text-lg">
           {editing ? 'Edit testimonial' : 'Add a testimonial'}
@@ -293,7 +296,7 @@ export function TestimonialEditor({ testimonials }: { testimonials: AdminTestimo
             them.
           </p>
         ) : (
-          <ul className="divide-line-300 border-line-300 divide-y rounded-md border">
+          <ul className="divide-line-200 border-line-200 divide-y rounded-2xl border">
             {testimonials.map((testimonial) => (
               <li
                 key={testimonial.id}
@@ -342,7 +345,10 @@ export function NavigationEditor({ items }: { items: AdminNavigationRow[] }) {
 
   return (
     <div className="space-y-8">
-      <section aria-labelledby="nav-form-heading" className="border-line-300 rounded-md border p-6">
+      <section
+        aria-labelledby="nav-form-heading"
+        className="border-line-200 rounded-2xl border p-6"
+      >
         <h2 id="nav-form-heading" className="mb-4 text-lg">
           {editing ? 'Edit link' : 'Add a link'}
         </h2>
@@ -408,7 +414,7 @@ export function NavigationEditor({ items }: { items: AdminNavigationRow[] }) {
           {group.items.length === 0 ? (
             <p className="text-ink-500 text-sm">No links in this area.</p>
           ) : (
-            <ul className="divide-line-300 border-line-300 divide-y rounded-md border">
+            <ul className="divide-line-200 border-line-200 divide-y rounded-2xl border">
               {group.items.map((item) => (
                 <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
@@ -449,7 +455,7 @@ export function AnnouncementEditor({ announcements }: { announcements: AdminAnno
     <div className="space-y-8">
       <section
         aria-labelledby="announcement-form-heading"
-        className="border-line-300 rounded-md border p-6"
+        className="border-line-200 rounded-2xl border p-6"
       >
         <h2 id="announcement-form-heading" className="mb-4 text-lg">
           {editing ? 'Edit announcement' : 'Add an announcement'}
@@ -517,7 +523,7 @@ export function AnnouncementEditor({ announcements }: { announcements: AdminAnno
         {announcements.length === 0 ? (
           <p className="text-ink-500 text-sm">No announcements. The message bar is not shown.</p>
         ) : (
-          <ul className="divide-line-300 border-line-300 divide-y rounded-md border">
+          <ul className="divide-line-200 border-line-200 divide-y rounded-2xl border">
             {announcements.map((announcement) => (
               <li
                 key={announcement.id}

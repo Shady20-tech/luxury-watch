@@ -47,8 +47,9 @@ export default async function AdminOrderDetailPage({
   const transitions = mayWrite ? availableTransitions(order.status, maySettle) : [];
 
   return (
-    <div>
+    <div className="space-y-5">
       <AdminPageHeader
+        eyebrow="Order request"
         title={order.reference}
         description={
           <span className="flex flex-wrap items-center gap-2">
@@ -67,15 +68,15 @@ export default async function AdminOrderDetailPage({
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+        <div className="min-w-0 space-y-5">
           <section
             aria-labelledby="items-heading"
-            className="border-line-300 bg-surface-0 rounded-md border"
+            className="border-line-200 bg-surface-0 overflow-hidden rounded-2xl border"
           >
             <h2
               id="items-heading"
-              className="border-line-300 border-b px-4 py-3 text-sm font-semibold"
+              className="border-line-200 border-b px-5 py-3.5 text-sm font-semibold"
             >
               Items
             </h2>
@@ -83,7 +84,7 @@ export default async function AdminOrderDetailPage({
               {order.items.map((item) => (
                 <li
                   key={item.id}
-                  className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm"
+                  className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-3 text-sm"
                 >
                   <div className="min-w-0">
                     <p className="font-medium">{item.productTitle}</p>
@@ -102,7 +103,7 @@ export default async function AdminOrderDetailPage({
               ))}
             </ul>
 
-            <dl className="border-line-300 space-y-1 border-t px-4 py-3 text-sm">
+            <dl className="border-line-200 space-y-1 border-t px-5 py-3.5 text-sm">
               <div className="flex justify-between">
                 <dt className="text-foreground-muted">Subtotal</dt>
                 <dd className="tabular-nums">{formatMoney(order.subtotalCents, order.currency)}</dd>
@@ -132,7 +133,7 @@ export default async function AdminOrderDetailPage({
 
           <section
             aria-labelledby="customer-heading"
-            className="border-line-300 bg-surface-0 rounded-md border p-4"
+            className="border-line-200 bg-surface-0 rounded-2xl border p-5"
           >
             <h2 id="customer-heading" className="mb-3 text-sm font-semibold">
               Customer
@@ -173,7 +174,7 @@ export default async function AdminOrderDetailPage({
 
           <section
             aria-labelledby="history-heading"
-            className="border-line-300 bg-surface-0 rounded-md border p-4"
+            className="border-line-200 bg-surface-0 rounded-2xl border p-5"
           >
             <h2 id="history-heading" className="mb-3 text-sm font-semibold">
               History
@@ -199,10 +200,10 @@ export default async function AdminOrderDetailPage({
           </section>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-5">
           <section
             aria-labelledby="actions-heading"
-            className="border-line-300 bg-surface-0 rounded-md border p-4"
+            className="border-line-200 bg-surface-0 rounded-2xl border p-5"
           >
             <h2 id="actions-heading" className="mb-3 text-sm font-semibold">
               Actions
@@ -222,7 +223,7 @@ export default async function AdminOrderDetailPage({
 
           <section
             aria-labelledby="settlement-heading"
-            className="border-line-300 bg-surface-0 rounded-md border p-4"
+            className="border-line-200 bg-surface-0 rounded-2xl border p-5"
           >
             <h2 id="settlement-heading" className="mb-2 text-sm font-semibold">
               Settlement
@@ -238,7 +239,7 @@ export default async function AdminOrderDetailPage({
 
           <section
             aria-labelledby="meta-heading"
-            className="border-line-300 bg-surface-0 rounded-md border p-4"
+            className="border-line-200 bg-surface-0 rounded-2xl border p-5"
           >
             <h2 id="meta-heading" className="mb-2 text-sm font-semibold">
               Record

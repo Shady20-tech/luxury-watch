@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 
-import { AdminPageHeader } from '@/components/admin/ui';
+import { AdminCard, AdminPageHeader } from '@/components/admin/ui';
 import { noIndexMetadata } from '@/lib/seo/metadata';
 import { requirePermission } from '@/server/services/admin-authorization';
 
@@ -101,30 +102,42 @@ export default async function AdminContentPage() {
   const visible = SECTIONS.filter((section) => identity.permissions.has(section.permission));
 
   return (
-    <div>
+    <div className="space-y-5">
       <AdminPageHeader
+        eyebrow="Content"
         title="Content & settings"
         description="Everything the storefront says, edited here rather than in the code."
       />
 
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((section) => (
-          <li key={section.href} className="border-line-300 bg-surface-0 rounded-md border p-4">
-            <h2 className="text-sm font-semibold">
-              <Link href={section.href} className="hover:underline">
-                {section.title}
-              </Link>
-            </h2>
-            <p className="text-foreground-muted mt-1 text-sm">{section.detail}</p>
+          <li key={section.href}>
+            <Link
+              href={section.href}
+              className="group border-line-200 bg-surface-0 hover:border-line-300 focus-visible:outline-gold-700 flex h-full flex-col rounded-2xl border p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgb(17_17_17/0.04),0_16px_32px_-18px_rgb(17_17_17/0.18)] focus-visible:outline-2 focus-visible:-outline-offset-2"
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="text-ink-950 text-sm font-semibold tracking-tight">
+                  {section.title}
+                </span>
+                <ArrowUpRight
+                  aria-hidden="true"
+                  className="text-ink-500 group-hover:text-ink-900 h-4 w-4 shrink-0 transition-colors"
+                />
+              </span>
+              <span className="text-foreground-muted mt-2 text-sm">{section.detail}</span>
+            </Link>
           </li>
         ))}
       </ul>
 
       {visible.length < SECTIONS.length ? (
-        <p className="text-ink-500 mt-6 text-sm">
-          Payment methods, delivery options and site settings require the settings permission and
-          are hidden from this account.
-        </p>
+        <AdminCard>
+          <p className="text-ink-500 text-sm">
+            Payment methods, delivery options and site settings require the settings permission and
+            are hidden from this account.
+          </p>
+        </AdminCard>
       ) : null}
     </div>
   );

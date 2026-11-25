@@ -7,17 +7,24 @@ import {
   Boxes,
   CalendarClock,
   CheckCircle2,
+  CircleAlert,
   MessageSquare,
   Package,
+  ScrollText,
+  Sparkles,
   Tag,
+  TrendingUp,
 } from 'lucide-react';
 
+import { BarList, StackedBar } from '@/components/admin/charts';
+import { formatAdminDateTime } from '@/lib/admin/format';
 import { landingSectionFor, maySeeOverview } from '@/lib/admin/sections';
 import { noIndexMetadata } from '@/lib/seo/metadata';
-import { formatAdminDateTime } from '@/lib/admin/format';
 import { cn } from '@/lib/utils';
 import {
+  fetchCatalogueByBrand,
   fetchDashboardCounts,
+  fetchInventoryByState,
   fetchRecentActivity,
 } from '@/server/repositories/admin-dashboard-repository';
 import { getAdminIdentity, type Permission } from '@/server/services/admin-authorization';
@@ -29,58 +36,71 @@ import { getAdminIdentity, type Permission } from '@/server/services/admin-autho
  * NO FABRICATED FIGURES
  * -----------------------------------------------------------------------------
  *
- * Every number here comes from `fetchDashboardCounts`, which runs one head-only
- * count per figure. Nothing is estimated, sampled, or carried over from a
- * previous visit. A dashboard that invents a number is worse than one that omits
- * it, because staff make decisions from it — "12 orders awaiting review" is a
- * claim about the business, and it has to be true.
+ * Every number here comes from the database. Nothing is estimated, sampled, or
+ * carried over from a previous visit. A dashboard that invents a number is worse
+ * than one that omits it, because staff make decisions from it — "12 orders
+ * awaiting review" is a claim about the business, and it has to be true.
  *
  * Where a count is not meaningful (a person without `orders.read` has no business
  * knowing how many orders are waiting) the tile is not rendered at all, rather
- * than rendered as a zero that reads like "none".
+ * than rendered as a zero that reads like "none". The same rule governs the two
+ * charts: `fetchCatalogueByBrand` and `fetchInventoryByState` are asked only when
+ * the caller holds the permission their figures belong to.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THE PAGE IS LAID OUT AS CARDS ON A PALE GROUND
+ * -----------------------------------------------------------------------------
+ *
+ * The console is read by glancing: what needs me, what is the catalogue doing,
+ * what changed. That is a scanning task, and scanning is helped by a small number
+ * of clearly separated blocks with one idea each — not by a dense list of
+ * everything the database contains. So the page is a light canvas, white rounded
+ * cards, and a consistent gutter between them, with the figures set large enough
+ * to read without leaning in.
+ *
+ * The accent stays gold rather than the blue such dashboards often use: this is
+ * the same product as the storefront, and a second accent colour would make the
+ * console look like a different application bolted on. The reference layout is
+ * matched in structure — sidebar, card grid, a chart row, an activity column —
+ * which is what makes a console feel modern; the palette is the brand's.
  */
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = noIndexMetadata('Administration');
 
+/** A soft tinted chip for a card's icon, keyed to the card's meaning. */
+const TONES = {
+  gold: 'bg-gold-100 text-gold-900',
+  warm: 'bg-surface-warm text-ink-700',
+  cool: 'bg-surface-100 text-ink-700',
+  attention: 'bg-gold-300/35 text-gold-900',
+} as const;
+
+type Tone = keyof typeof TONES;
+
 /**
  * A single figure, with the label and the page that explains it.
  *
- * The card is a link to the filtered list the figure came from, so a number is
- * always one click from the rows behind it. `tone` only changes the icon chip:
- * a queue that is waiting on somebody is worth distinguishing from a catalogue
- * total at a glance, and colour is the cheapest way to do that without adding a
- * badge that would need its own legend.
- *
- * -----------------------------------------------------------------------------
- * WHY THE VALUE IS THE LARGEST THING IN THE CARD
- * -----------------------------------------------------------------------------
- *
- * A dashboard is read by glancing, not by reading. The label says what the
- * number is; the number is what the person came for. So the figure is set at
- * display size in tabular figures, the label sits above it in small caps, and
- * the explanatory line sits below in the muted tone. Anything that competes
- * with the figure — a coloured panel, a border, a second badge — is left out.
- *
- * The attention state is a warm ground and a gold rule at the top edge rather
- * than a red one: these are queues to work through, not errors. Red is reserved
- * for a failure, and a dashboard where every tile is red teaches staff to
- * ignore red.
+ * The whole card is the link to the filtered list the figure came from, so a
+ * number is always one click from the rows behind it. `tone` distinguishes a
+ * queue that is waiting on somebody from a catalogue total; it changes only the
+ * icon chip, because a card whose entire ground is tinted competes with the
+ * figure the reader came for.
  */
-function MetricTile({
+function StatCard({
   href,
   label,
   value,
   detail,
   icon: Icon,
-  tone = 'neutral',
+  tone = 'cool',
 }: {
   href: string;
   label: string;
   value: number;
   detail?: string;
   icon: typeof Package;
-  tone?: 'neutral' | 'attention';
+  tone?: Tone;
 }) {
   const attention = tone === 'attention';
 
@@ -89,78 +109,66 @@ function MetricTile({
       <Link
         href={href}
         className={cn(
-          'group focus-visible:outline-gold-700 relative flex h-full flex-col overflow-hidden rounded-xl border p-5 transition-[border-color,box-shadow,transform] duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2',
-          'hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgb(17_17_17/0.05),0_16px_32px_-16px_rgb(17_17_17/0.16)]',
+          'group focus-visible:outline-gold-700 bg-surface-0 relative flex h-full flex-col rounded-2xl border p-5 transition-[border-color,box-shadow,transform] duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2',
+          'hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgb(17_17_17/0.04),0_16px_32px_-18px_rgb(17_17_17/0.18)]',
           attention
-            ? 'border-gold-300/60 bg-gold-100/50 hover:border-gold-300'
-            : 'border-line-200 bg-surface-0 hover:border-line-300',
+            ? 'border-gold-300/70 hover:border-gold-300'
+            : 'border-line-200 hover:border-line-300',
         )}
       >
-        {/* The top rule is the non-colour half of the attention signal: it
-            survives a monochrome screen and a colour-vision difference, and it
-            is the same device the sidebar uses for its active row. */}
-        {attention ? (
-          <span aria-hidden="true" className="bg-gold-500 absolute inset-x-0 top-0 h-[2px]" />
-        ) : null}
-
-        <span className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <span
-            className={cn(
-              'text-[0.7rem] font-semibold tracking-[0.12em] uppercase',
-              attention ? 'text-gold-900' : 'text-ink-500',
-            )}
+            className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-full', TONES[tone])}
           >
-            {label}
+            <Icon aria-hidden="true" className="h-[1.15rem] w-[1.15rem]" />
           </span>
-          <span
+          <ArrowUpRight
             aria-hidden="true"
-            className={cn(
-              'grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors',
-              attention
-                ? 'bg-gold-300/40 text-gold-900 group-hover:bg-gold-300/60'
-                : 'bg-surface-100 text-ink-700 group-hover:bg-surface-200',
-            )}
-          >
-            <Icon className="h-4 w-4" />
-          </span>
-        </span>
+            className="text-ink-500 group-hover:text-ink-900 h-4 w-4 shrink-0 transition-colors"
+          />
+        </div>
 
-        <span className="text-ink-950 mt-3 font-display text-[2.25rem] leading-none font-semibold tabular-nums">
+        <span className="text-ink-950 font-display mt-4 text-[2rem] leading-none font-semibold tabular-nums">
           {value.toLocaleString('en-GB')}
         </span>
-
-        {detail ? (
-          <span className="text-ink-500 mt-2 flex items-center gap-1 text-xs">
-            {detail}
-            <ArrowUpRight
-              aria-hidden="true"
-              className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100"
-            />
-          </span>
-        ) : null}
+        <span className="text-ink-900 mt-2 text-sm font-medium">{label}</span>
+        {detail ? <span className="text-ink-500 mt-1 text-xs">{detail}</span> : null}
       </Link>
     </li>
   );
 }
 
-/** A section wrapper, so every block on the dashboard has the same rhythm. */
-function Panel({
-  heading,
-  id,
+/** A titled card, so every block on the page shares one frame. */
+function Card({
+  title,
+  description,
   action,
+  id,
   children,
+  className,
 }: {
-  heading: string;
-  id: string;
+  title: string;
+  description?: string;
   action?: React.ReactNode;
+  id?: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section aria-labelledby={id} className="mt-8 first:mt-0">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 id={id} className="text-ink-950 text-base font-semibold tracking-tight">
-          {heading}
-        </h2>
+    <section
+      aria-labelledby={id}
+      className={cn(
+        'border-line-200 bg-surface-0 flex flex-col rounded-2xl border p-5 sm:p-6',
+        className,
+      )}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id={id} className="text-ink-950 text-sm font-semibold tracking-tight">
+            {title}
+          </h2>
+          {description ? <p className="text-ink-500 mt-1 text-xs">{description}</p> : null}
+        </div>
         {action}
       </div>
       {children}
@@ -193,14 +201,16 @@ export default async function AdminDashboardPage() {
   // through the service-role client, so an unasked question is one the caller
   // has no permission to have answered; running all eight regardless would
   // compute and discard six of them on every visit.
-  const [counts, activity] = await Promise.all([
+  const [counts, activity, brandShare, stockState] = await Promise.all([
     fetchDashboardCounts({
       catalogue: showCatalogue,
       orders: showOrders,
       inquiries: showInquiries,
       inventory: showInventory,
     }),
-    showAudit ? fetchRecentActivity(15) : Promise.resolve([]),
+    showAudit ? fetchRecentActivity(8) : Promise.resolve([]),
+    showCatalogue ? fetchCatalogueByBrand(7) : Promise.resolve([]),
+    showInventory ? fetchInventoryByState() : Promise.resolve([]),
   ]);
 
   // The single figure most worth acting on, if the caller may see any of them.
@@ -259,31 +269,32 @@ export default async function AdminDashboardPage() {
   const headline = attention.find((entry) => entry.count > 0) ?? null;
   const totalWaiting = attention.reduce((sum, entry) => sum + entry.count, 0);
 
+  const stockTotal = stockState.reduce((sum, bucket) => sum + bucket.count, 0);
+  const catalogueTotal = brandShare.reduce((sum, brand) => sum + brand.productCount, 0);
+  const publishedShare = brandShare.reduce((sum, brand) => sum + brand.publishedCount, 0);
+
   return (
-    <div>
-      {/* The console opens on a dark band, the way every storefront template
-          does. It is the one place in the admin where the site's own register —
-          near-black, serif title, gold rule — is used, and it exists so that
-          signing in feels like arriving somewhere rather than like opening a
-          spreadsheet. The figures stay on the light ground below, where they are
-          easier to read than light-on-black at small sizes. */}
-      <header className="bg-night-900 relative isolate mb-8 overflow-hidden rounded-2xl px-6 py-7 sm:px-8 sm:py-8">
-        {/* A soft gold corner glow, the same device `PageHero` uses. Purely
-            decorative, and kept to the right so it never sits under the text. */}
-        <div
-          aria-hidden="true"
-          className="from-gold-700/30 pointer-events-none absolute inset-0 bg-gradient-to-bl via-transparent to-transparent"
-        />
-        <div className="relative flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <div className="space-y-5">
+      {/* ------------------------------------------------------------------
+          The welcome card.
+
+          A pale gold wash rather than the near-black band this used to open
+          on: the console is a working surface, and a dark slab above a light
+          page made every visit start by adjusting to the contrast. The wash is
+          the brand's accent at low strength, so the page still opens with a
+          deliberate colour rather than a blank header.
+         ------------------------------------------------------------------ */}
+      <header className="border-line-200 from-gold-100/70 via-surface-0 to-surface-0 relative isolate overflow-hidden rounded-2xl border bg-gradient-to-br p-6 sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="min-w-0">
-            <p className="text-gold-300 flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.22em] uppercase">
-              <span aria-hidden="true" className="bg-gold-300/40 h-px w-6" />
+            <p className="text-gold-900 flex items-center gap-2 text-[0.7rem] font-semibold tracking-[0.18em] uppercase">
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
               Boutique console
             </p>
-            <h1 className="text-on-night font-display mt-3 text-3xl tracking-tight sm:text-4xl">
+            <h1 className="text-ink-950 font-display mt-2.5 text-3xl tracking-tight sm:text-[2rem]">
               Good to see you
             </h1>
-            <p className="text-on-night-muted mt-2 max-w-xl text-sm">
+            <p className="text-ink-500 mt-2 max-w-xl text-sm">
               {identity.roles.length > 0
                 ? `Signed in as ${identity.roles.join(', ').toLowerCase().replace(/_/g, ' ')}. `
                 : ''}
@@ -291,20 +302,20 @@ export default async function AdminDashboardPage() {
             </p>
           </div>
 
-          {/* The summary line is a sentence, not a badge, because it has to hold
-              both states: work waiting, and a genuinely clear desk. "All clear"
+          {/* The summary is a sentence, not a badge, because it has to hold both
+              states: work waiting, and a genuinely clear desk. "Nothing waiting"
               is a real answer and should not look like a missing figure. */}
           <p
             className={cn(
               'flex items-center gap-2 rounded-full border px-4 py-2 text-sm',
               totalWaiting > 0
-                ? 'border-gold-300/40 bg-gold-300/10 text-gold-300'
-                : 'border-white/15 bg-white/5 text-on-night-muted',
+                ? 'border-gold-300 bg-gold-100/80 text-gold-900'
+                : 'border-line-200 bg-surface-0 text-ink-500',
             )}
           >
             {totalWaiting > 0 ? (
               <>
-                <span aria-hidden="true" className="bg-gold-300 h-1.5 w-1.5 rounded-full" />
+                <span aria-hidden="true" className="bg-gold-700 h-1.5 w-1.5 rounded-full" />
                 <span className="tabular-nums">{totalWaiting.toLocaleString('en-GB')}</span>
                 <span>waiting on you</span>
               </>
@@ -318,73 +329,47 @@ export default async function AdminDashboardPage() {
         </div>
       </header>
 
-      {/* The featured row: the one queue that most needs a person today, beside
-          the catalogue's health. A dashboard that lists nine equal tiles makes
-          the reader find the urgent one; this puts it first, at double width. */}
-      {headline || showCatalogue ? (
-        <div className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-          {headline ? (
-            <Link
-              href={headline.href}
-              className="group border-line-200 bg-surface-0 hover:border-gold-300 focus-visible:outline-gold-700 relative flex flex-col justify-between overflow-hidden rounded-2xl border p-6 transition-[border-color,box-shadow] focus-visible:outline-2 focus-visible:-outline-offset-2 hover:shadow-[0_2px_4px_rgb(17_17_17/0.05),0_20px_40px_-20px_rgb(17_17_17/0.18)] sm:flex-row sm:items-center sm:gap-8"
-            >
-              <div className="min-w-0">
-                <p className="text-gold-900 text-[0.7rem] font-semibold tracking-[0.14em] uppercase">
-                  Needs a decision
-                </p>
-                <p className="text-ink-950 font-display mt-2 text-2xl leading-snug tracking-tight sm:text-[1.75rem]">
-                  <span className="tabular-nums">{headline.count.toLocaleString('en-GB')}</span>{' '}
-                  {headline.label}
-                </p>
-                <p className="text-ink-500 mt-2 text-sm">{headline.detail}</p>
-              </div>
-              <span className="text-gold-900 bg-gold-100 group-hover:bg-gold-300/50 mt-4 inline-flex shrink-0 items-center gap-2 self-start rounded-full px-4 py-2.5 text-sm font-medium transition-colors sm:mt-0 sm:self-auto">
-                Open the queue
-                <ArrowRight
-                  aria-hidden="true"
-                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                />
-              </span>
-            </Link>
-          ) : null}
-
-          {showCatalogue ? (
-            <Link
-              href="/admin/products?status=published"
-              className="group border-line-200 bg-surface-warm/60 hover:border-line-300 focus-visible:outline-gold-700 flex flex-col justify-between rounded-2xl border p-6 transition-[border-color] focus-visible:outline-2 focus-visible:-outline-offset-2"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-ink-500 text-[0.7rem] font-semibold tracking-[0.14em] uppercase">
-                  Catalogue
-                </p>
-                <Tag aria-hidden="true" className="text-ink-300 h-4 w-4 shrink-0" />
-              </div>
-              <div className="mt-4">
-                <p className="text-ink-950 font-display text-3xl leading-none font-semibold tabular-nums">
-                  {counts.productsPublished.toLocaleString('en-GB')}
-                </p>
-                <p className="text-ink-500 mt-2 text-sm">
-                  pieces live in the storefront
-                  {counts.productsDraft > 0 ? (
-                    <>
-                      {' · '}
-                      <span className="tabular-nums">
-                        {counts.productsDraft.toLocaleString('en-GB')}
-                      </span>{' '}
-                      in draft
-                    </>
-                  ) : null}
-                </p>
-              </div>
-            </Link>
-          ) : null}
-        </div>
+      {/* The headline queue, at full width and above the grid. A dashboard that
+          lists nine equal tiles makes the reader find the urgent one; this puts
+          it first. */}
+      {headline ? (
+        <Link
+          href={headline.href}
+          className="group border-gold-300 bg-gold-100/60 hover:bg-gold-100 focus-visible:outline-gold-700 relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border p-5 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 sm:flex-row sm:items-center sm:p-6"
+        >
+          <div className="flex items-start gap-4">
+            <span className="bg-gold-700 text-surface-0 grid h-10 w-10 shrink-0 place-items-center rounded-full">
+              <CircleAlert aria-hidden="true" className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-gold-900 text-[0.7rem] font-semibold tracking-[0.14em] uppercase">
+                Needs a decision
+              </p>
+              <p className="text-ink-950 mt-1.5 text-lg leading-snug font-semibold tracking-tight sm:text-xl">
+                <span className="tabular-nums">{headline.count.toLocaleString('en-GB')}</span>{' '}
+                {headline.label}
+              </p>
+              <p className="text-ink-500 mt-1 text-sm">{headline.detail}</p>
+            </div>
+          </div>
+          <span className="text-gold-900 bg-surface-0 group-hover:bg-gold-300/40 inline-flex shrink-0 items-center gap-2 self-start rounded-full px-4 py-2.5 text-sm font-medium shadow-sm transition-colors sm:self-auto">
+            Open the queue
+            <ArrowRight
+              aria-hidden="true"
+              className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+            />
+          </span>
+        </Link>
       ) : null}
 
-      <Panel heading="Waiting on you" id="work-heading">
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {/* The figures, four to a row on a wide screen. */}
+      <section aria-labelledby="work-heading">
+        <h2 id="work-heading" className="sr-only">
+          Waiting on you
+        </h2>
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {showOrders ? (
-            <MetricTile
+            <StatCard
               href="/admin/orders?status=submitted,under_review"
               label="Orders to review"
               tone="attention"
@@ -394,16 +379,16 @@ export default async function AdminDashboardPage() {
             />
           ) : null}
           {showOrders ? (
-            <MetricTile
+            <StatCard
               href="/admin/orders?status=confirmed"
               label="Confirmed orders"
               value={counts.ordersConfirmed}
-              detail="Awaiting offline settlement or fulfilment"
-              icon={Package}
+              detail="Awaiting offline settlement"
+              icon={TrendingUp}
             />
           ) : null}
           {showInquiries ? (
-            <MetricTile
+            <StatCard
               href="/admin/inquiries"
               label="Open enquiries"
               tone="attention"
@@ -413,7 +398,46 @@ export default async function AdminDashboardPage() {
             />
           ) : null}
           {showInquiries ? (
-            <MetricTile
+            <StatCard
+              href="/admin/appointments"
+              label="Appointments"
+              tone="attention"
+              value={counts.pendingAppointments}
+              detail="Requests to confirm"
+              icon={CalendarClock}
+            />
+          ) : null}
+          {showInventory ? (
+            <StatCard
+              href="/admin/inventory?filter=low"
+              label="Low stock"
+              tone="attention"
+              value={counts.lowStock}
+              detail="At or below the threshold"
+              icon={Boxes}
+            />
+          ) : null}
+          {showCatalogue ? (
+            <StatCard
+              href="/admin/products?status=published"
+              label="Published pieces"
+              tone="gold"
+              value={counts.productsPublished}
+              detail="Live in the storefront"
+              icon={Tag}
+            />
+          ) : null}
+          {showCatalogue ? (
+            <StatCard
+              href="/admin/products?status=draft"
+              label="Drafts"
+              value={counts.productsDraft}
+              detail="Not visible to customers"
+              icon={Tag}
+            />
+          ) : null}
+          {showInquiries ? (
+            <StatCard
               href="/admin/inquiries"
               label="Unanswered questions"
               tone="attention"
@@ -422,92 +446,193 @@ export default async function AdminDashboardPage() {
               icon={MessageSquare}
             />
           ) : null}
-          {showInquiries ? (
-            <MetricTile
-              href="/admin/appointments"
-              label="Appointment requests"
-              tone="attention"
-              value={counts.pendingAppointments}
-              detail="Not yet confirmed"
-              icon={CalendarClock}
-            />
-          ) : null}
-          {showInventory ? (
-            <MetricTile
-              href="/admin/inventory?filter=low"
-              label="Low stock"
-              tone="attention"
-              value={counts.lowStock}
-              detail="At or below the product threshold"
-              icon={Boxes}
-            />
-          ) : null}
         </ul>
-      </Panel>
+      </section>
 
-      <Panel heading="Catalogue" id="catalogue-heading">
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {/* The chart row. Both charts are drawn from aggregate functions in the
+          database, so neither reads the catalogue to draw a bar. */}
+      {showCatalogue || showInventory ? (
+        <div className="grid gap-4 lg:grid-cols-2">
           {showCatalogue ? (
-            <MetricTile
-              href="/admin/products?status=published"
-              label="Published"
-              value={counts.productsPublished}
-              detail="Visible in the storefront"
-              icon={Tag}
-            />
-          ) : null}
-          {showCatalogue ? (
-            <MetricTile
-              href="/admin/products?status=draft"
-              label="Drafts"
-              value={counts.productsDraft}
-              detail="Not visible to customers"
-              icon={Tag}
-            />
-          ) : null}
-        </ul>
-      </Panel>
-
-      {may('audit.read') ? (
-        <Panel
-          heading="Recent activity"
-          id="activity-heading"
-          action={
-            <Link
-              href="/admin/audit"
-              className="text-accent-text inline-flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Full trail
-              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
-            </Link>
-          }
-        >
-          {activity.length === 0 ? (
-            <p className="text-ink-500 border-line-200 bg-surface-0 rounded-xl border border-dashed p-6 text-sm">
-              No administrative changes have been recorded yet. Actions taken in this area appear
-              here.
-            </p>
-          ) : (
-            <ul className="bg-surface-0 border-line-200 divide-line-200 divide-y overflow-hidden rounded-xl border">
-              {activity.map((row) => (
-                <li
-                  key={row.id}
-                  className="hover:bg-surface-50 flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 py-3 text-sm transition-colors"
+            <Card
+              id="brand-chart-heading"
+              title="Catalogue by brand"
+              description={
+                catalogueTotal > 0
+                  ? `${publishedShare.toLocaleString('en-GB')} published of ${catalogueTotal.toLocaleString('en-GB')} in the top brands`
+                  : undefined
+              }
+              action={
+                <Link
+                  href="/admin/products"
+                  className="text-accent-text inline-flex shrink-0 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline"
                 >
-                  <span className="text-ink-900 font-medium">{row.action}</span>
-                  <span className="text-foreground-muted">{row.entityType}</span>
-                  <span className="text-foreground-muted ml-auto text-xs tabular-nums">
-                    {formatAdminDateTime(row.createdAt)}
-                  </span>
-                  <span className="text-ink-500 w-full text-xs">
-                    {row.actorEmail ?? 'Unknown actor'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+                  All products
+                  <ArrowRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              }
+            >
+              <BarList
+                secondaryLabel="Published"
+                emptyLabel="No products are attached to a brand yet."
+                data={brandShare.map((brand) => ({
+                  label: brand.brandName,
+                  value: brand.productCount,
+                  secondary: brand.publishedCount,
+                }))}
+              />
+            </Card>
+          ) : null}
+
+          {showInventory ? (
+            <Card
+              id="stock-chart-heading"
+              title="Stock health"
+              description={
+                stockTotal > 0
+                  ? `${stockTotal.toLocaleString('en-GB')} stock rows across the catalogue`
+                  : undefined
+              }
+              action={
+                <Link
+                  href="/admin/inventory"
+                  className="text-accent-text inline-flex shrink-0 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline"
+                >
+                  Inventory
+                  <ArrowRight aria-hidden="true" className="h-3 w-3" />
+                </Link>
+              }
+            >
+              <StackedBar
+                emptyLabel="No stock has been recorded yet."
+                segments={stockState.map((bucket) => ({
+                  label:
+                    bucket.state === 'healthy'
+                      ? 'Healthy'
+                      : bucket.state === 'low'
+                        ? 'Low'
+                        : 'Out of stock',
+                  value: bucket.count,
+                  className:
+                    bucket.state === 'healthy'
+                      ? 'bg-gold-500'
+                      : bucket.state === 'low'
+                        ? 'bg-gold-300'
+                        : 'bg-ink-300',
+                }))}
+              />
+              {stockTotal > 0 ? (
+                <p className="text-ink-500 mt-4 text-xs">
+                  A piece counts as low when its available quantity is at or below its own
+                  threshold, so a one-of-a-kind watch is low the moment it is listed. That is the
+                  table&rsquo;s definition, not this page&rsquo;s.
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
+        </div>
       ) : null}
+
+      {/* The activity column sits beside the shortcuts, so the page ends on
+          "what changed" and "where to go next" rather than a wall of tiles. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        {showAudit ? (
+          <Card
+            id="activity-heading"
+            title="Recent activity"
+            description="Administrative changes, newest first"
+            action={
+              <Link
+                href="/admin/audit"
+                className="text-accent-text inline-flex shrink-0 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline"
+              >
+                Full trail
+                <ArrowRight aria-hidden="true" className="h-3 w-3" />
+              </Link>
+            }
+          >
+            {activity.length === 0 ? (
+              <div className="border-line-200 flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
+                <ScrollText aria-hidden="true" className="text-ink-500 h-6 w-6" />
+                <p className="text-ink-500 mt-3 max-w-xs text-sm">
+                  No administrative changes have been recorded yet. Actions taken in this area
+                  appear here.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-line-200 divide-y">
+                {activity.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-baseline gap-x-2 gap-y-1 py-2.5 text-sm first:pt-0 last:pb-0"
+                  >
+                    <span className="text-ink-900 font-medium">{row.action}</span>
+                    <span className="text-ink-500 text-xs">{row.entityType}</span>
+                    <span className="text-ink-500 ml-auto text-xs tabular-nums">
+                      {formatAdminDateTime(row.createdAt)}
+                    </span>
+                    <span className="text-ink-500 w-full text-xs">
+                      {row.actorEmail ?? 'Unknown actor'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        ) : null}
+
+        <Card
+          id="shortcuts-heading"
+          title="Shortcuts"
+          description="Jump to the work you do most"
+          className={showAudit ? undefined : 'lg:col-span-2'}
+        >
+          <ul className="grid gap-2">
+            {showOrders ? (
+              <Shortcut href="/admin/orders" label="Order requests" icon={Package} />
+            ) : null}
+            {showCatalogue ? <Shortcut href="/admin/products" label="Products" icon={Tag} /> : null}
+            {showInventory ? (
+              <Shortcut href="/admin/inventory" label="Inventory" icon={Boxes} />
+            ) : null}
+            {showInquiries ? (
+              <Shortcut href="/admin/inquiries" label="Enquiries" icon={MessageSquare} />
+            ) : null}
+            {showAudit ? (
+              <Shortcut href="/admin/audit" label="Audit trail" icon={ScrollText} />
+            ) : null}
+          </ul>
+        </Card>
+      </div>
     </div>
+  );
+}
+
+/** One row in the shortcuts card. */
+function Shortcut({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Package;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="group border-line-200 hover:border-line-300 hover:bg-surface-50 focus-visible:outline-gold-700 flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2"
+      >
+        <span className="bg-surface-100 text-ink-700 grid h-8 w-8 shrink-0 place-items-center rounded-full">
+          <Icon aria-hidden="true" className="h-4 w-4" />
+        </span>
+        <span className="text-ink-900 min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
+        <ArrowRight
+          aria-hidden="true"
+          className="text-ink-500 group-hover:text-ink-900 h-4 w-4 shrink-0 transition-colors"
+        />
+      </Link>
+    </li>
   );
 }
