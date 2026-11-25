@@ -19,15 +19,21 @@
   --color-gold-100: #f7f1e4;
   --color-gold-300: #d9bc7a;
   --color-gold-500: #a18040;
-  --color-gold-700: #806428;
+  --color-gold-700: #755a20;
   --color-gold-900: #4d3c18;
   --color-gold-bright: #f8b858;
 
-  /* Neutrals */
+  /* Neutrals.
+     `ink-500` is the secondary-text token and is used far more than any other
+     muted value, usually at 12-13px. It was `#666666`, which clears AA at
+     5.08:1 on `surface-100` but reads as a grey wash on a bright screen and is
+     genuinely hard work for a short-sighted reader. It is now `#575757`
+     (6.39:1 on `surface-100`, 6.23:1 on the field fill), which is a visible
+     lift while staying clearly secondary to `ink-900`. */
   --color-ink-950: #111111;
   --color-ink-900: #222222;
   --color-ink-700: #444444;
-  --color-ink-500: #666666;
+  --color-ink-500: #575757;
   --color-ink-400: #767676;
   --color-ink-300: #999999;
   --color-line-200: #eeeeee;
@@ -194,6 +200,23 @@
   --font-body:
     var(--font-nunito), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Text scale.
+     The two smallest steps are raised. Tailwind's defaults put `text-xs` at
+     12px and `text-sm` at 14px, and this design leans on `text-xs` for every
+     caption, spec value, badge and helper line — 228 call sites. At 12px with
+     the tracking the eyebrows use, that is the size a short-sighted reader
+     struggles with first, and it is the size most of this site's secondary
+     information is set in.
+
+     `text-xs` is now 13px and `text-sm` 15px, with their line heights raised to
+     match. Body copy is unaffected: `text-base` stays 16px. Raising the token
+     rather than editing 228 class names keeps the scale consistent, and any
+     future `text-xs` inherits the legible value. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5rem;
 
   /* Spacing rhythm — 4px base */
   --spacing: 0.25rem;
@@ -432,7 +455,7 @@
    Used often enough to be worth one definition, so the tracking and size stay
    identical across every section on the site. */
 @utility eyebrow {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;

@@ -142,6 +142,7 @@ function productRow(values: ReturnType<typeof productFormSchema.parse>) {
     price_cents: values.priceOnRequest ? null : (values.priceCents ?? null),
     compare_at_cents: values.priceOnRequest ? null : (values.compareAtCents ?? null),
     cost_cents: values.costCents ?? null,
+    currency: values.currency ?? 'USD',
     price_on_request: values.priceOnRequest,
     is_featured: values.isFeatured,
     sort_order: values.sortOrder ?? 0,

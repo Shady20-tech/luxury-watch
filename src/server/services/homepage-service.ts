@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { unstable_rethrow } from 'next/navigation';
 import { cache } from 'react';
 
 import { isSupabaseConfigured } from '@/lib/env';
@@ -76,6 +77,10 @@ async function loadHomepage(): Promise<HomepageContent> {
       now: new Date().toISOString(),
     });
   } catch (error) {
+    // Next signals "this route is dynamic" by throwing; a catch that treats it
+    // as a data failure hides the signal and lets the route be cached as static.
+    unstable_rethrow(error);
+
     logger.warn('homepage.load_failed', {
       // The message only; a Supabase error can carry the query and row data.
       message: error instanceof Error ? error.message : 'unknown error',

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { unstable_rethrow } from 'next/navigation';
 import { cache } from 'react';
 
 import { isSupabaseConfigured } from '@/lib/env';
@@ -74,6 +75,12 @@ async function loadListing(params: CatalogueParams): Promise<CatalogueListing> {
       source: 'database',
     };
   } catch (error) {
+    // Next throws to signal "this route is dynamic", and to implement
+    // notFound()/redirect(). Swallowing those replaces the framework's own
+    // control flow with a fallback page, so rethrow anything Next owns before
+    // treating the error as a data failure.
+    unstable_rethrow(error);
+
     logger.warn('catalogue.load_failed', {
       // The message only. A Supabase error can carry the query and row data.
       message: error instanceof Error ? error.message : 'unknown error',

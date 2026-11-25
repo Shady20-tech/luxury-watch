@@ -141,7 +141,7 @@ export function CatalogueCard({
             caption over a photograph cannot promise a contrast ratio, and this
             must clear 4.5:1 whatever the photo behind it shows. */}
         {product.imageCredit && product.imageUrl ? (
-          <p className="text-ink-500 border-line-200 bg-surface-0 border-t px-3 py-1.5 text-[0.625rem] leading-snug">
+          <p className="text-ink-500 border-line-200 bg-surface-0 border-t px-3 py-1.5 text-[0.75rem] leading-snug">
             Photo: {product.imageCredit.credit} ({product.imageCredit.licence})
           </p>
         ) : null}

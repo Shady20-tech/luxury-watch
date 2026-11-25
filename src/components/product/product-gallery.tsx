@@ -323,7 +323,7 @@ export function ProductGallery({
               {image.url ? (
                 <Image src={image.url} alt="" fill sizes="120px" className="object-contain p-1.5" />
               ) : (
-                <span className="text-ink-500 absolute inset-0 flex items-center justify-center text-[10px] tracking-wide uppercase">
+                <span className="text-ink-500 absolute inset-0 flex items-center justify-center text-[0.75rem] tracking-wide uppercase">
                   —
                 </span>
               )}

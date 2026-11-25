@@ -115,7 +115,7 @@ export function AnnouncementBar({ announcements }: { announcements: Announcement
           // 3.4:1, which fails AA — the browser audit caught it on every page.
           // At 10px this is the smallest text on the site, so it gets the full
           // contrast rather than a decorative fade.
-          <span className="text-ink-950 hidden text-[0.625rem] tracking-widest sm:inline">
+          <span className="text-ink-950 hidden text-[0.75rem] tracking-widest sm:inline">
             {(index % visible.length) + 1}/{visible.length}
           </span>
         ) : null}

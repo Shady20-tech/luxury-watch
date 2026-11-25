@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils';
  * THREE MODES, ONE COMPONENT
  * -----------------------------------------------------------------------------
  *
- *   - Expanded rail (default)  A labelled column, 15rem wide, on a dark ground.
+ *   - Expanded rail (default)  A labelled column, 15rem wide, on a white ground.
  *   - Collapsed rail           Icons only, 4.5rem wide. The label is still the
  *                              accessible name (an `sr-only` span, plus a
  *                              `title` for a mouse), so collapsing hides the
@@ -104,11 +104,11 @@ function isActive(pathname: string, href: string): boolean {
 
 function navLinkClass(active: boolean, collapsed: boolean): string {
   return cn(
-    'focus-visible:outline-gold-300 group relative flex items-center rounded-lg transition-[background-color,color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2',
+    'focus-visible:outline-gold-700 group relative flex items-center rounded-lg transition-[background-color,color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2',
     collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5',
     active
-      ? 'text-on-night bg-gradient-to-r from-white/[0.14] to-white/[0.04] font-medium shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]'
-      : 'text-on-night-muted hover:text-on-night hover:bg-white/[0.055]',
+      ? 'text-gold-900 bg-gold-100 font-semibold shadow-[inset_0_0_0_1px_rgb(217_188_122/0.35)]'
+      : 'text-ink-700 hover:text-ink-950 hover:bg-surface-100',
   );
 }
 
@@ -130,9 +130,9 @@ function NavItems({
           {collapsed ? (
             /* A collapsed rail still needs its group boundaries, or eleven icons
                in a column read as one undifferentiated list. */
-            <div aria-hidden="true" className="mx-auto mb-2 h-px w-6 bg-white/10" />
+            <div aria-hidden="true" className="bg-line-300 mx-auto mb-2 h-px w-6" />
           ) : (
-            <h2 className="text-on-night-muted mb-1.5 px-3 text-[0.6875rem] font-semibold tracking-[0.14em] uppercase">
+            <h2 className="text-ink-500 mb-1.5 px-3 text-[0.7rem] font-semibold tracking-[0.16em] uppercase">
               {group.heading}
             </h2>
           )}
@@ -159,7 +159,7 @@ function NavItems({
                       <span
                         aria-hidden="true"
                         className={cn(
-                          'bg-gold-300 absolute top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full',
+                          'bg-gold-500 absolute top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full',
                           collapsed ? '-left-2' : '-left-3',
                         )}
                       />
@@ -168,7 +168,7 @@ function NavItems({
                       aria-hidden="true"
                       className={cn(
                         'h-[1.125rem] w-[1.125rem] shrink-0',
-                        active && 'text-gold-300',
+                        active && 'text-gold-700',
                       )}
                     />
                     <span className={cn('min-w-0 flex-1 truncate', collapsed && 'sr-only')}>
@@ -177,7 +177,7 @@ function NavItems({
                     {item.badge ? (
                       <span
                         className={cn(
-                          'bg-gold-300 text-night-950 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                          'bg-gold-700 text-surface-0 rounded-full px-1.5 py-0.5 text-[0.75rem] font-semibold tabular-nums',
                           collapsed && 'sr-only',
                         )}
                       >
@@ -203,7 +203,7 @@ function StoreLink({ collapsed }: { collapsed: boolean }) {
       href="/"
       title={collapsed ? 'View the storefront' : undefined}
       className={cn(
-        'focus-visible:outline-gold-300 text-on-night flex items-center rounded-md border border-white/15 transition-colors hover:border-white/40 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2',
+        'focus-visible:outline-gold-700 text-ink-700 hover:border-line-300 hover:bg-surface-100 flex items-center rounded-lg border border-line-200 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
         collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2.5',
       )}
     >
@@ -212,7 +212,7 @@ function StoreLink({ collapsed }: { collapsed: boolean }) {
         View the storefront
       </span>
       {collapsed ? null : (
-        <ArrowUpRight aria-hidden="true" className="text-on-night-muted h-3.5 w-3.5 shrink-0" />
+        <ArrowUpRight aria-hidden="true" className="text-ink-500 h-3.5 w-3.5 shrink-0" />
       )}
     </Link>
   );
@@ -249,35 +249,27 @@ export function AdminNav({ groups }: { groups: AdminNavGroup[] }) {
     <nav
       aria-label="Administration"
       className={cn(
-        'relative flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-gradient-to-b from-night-800 to-night-900 p-3 shadow-[0_1px_0_rgb(255_255_255/0.05)_inset,0_24px_48px_-24px_rgb(0_0_0/0.6)] transition-[width] duration-300 ease-[var(--ease-standard)]',
+        'bg-surface-0 border-line-200 relative flex h-full flex-col overflow-hidden rounded-xl border p-3 shadow-[0_1px_2px_rgb(17_17_17/0.04),0_12px_32px_-16px_rgb(17_17_17/0.10)] transition-[width] duration-300 ease-[var(--ease-standard)]',
         collapsed ? 'w-[4.5rem]' : 'w-[15.5rem]',
       )}
     >
-      {/* A gold bloom in the top corner. Subtle enough that it reads as the rail
-          being lit from one side rather than as a coloured panel, and it is the
-          only saturated thing in the admin shell. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-gold-500/10 blur-3xl"
-      />
-
       <div
         className={cn(
-          'relative mb-4 flex items-center gap-2.5 border-b border-white/[0.07] pb-4',
+          'border-line-200 relative mb-4 flex items-center gap-2.5 border-b pb-4',
           collapsed ? 'justify-center' : 'px-1',
         )}
       >
         <span
           aria-hidden="true"
-          className="bg-gold-300/90 grid h-8 w-8 shrink-0 place-items-center rounded-lg font-display text-sm font-bold text-night-950 shadow-[0_0_0_1px_rgb(217_188_122/0.3)]"
+          className="bg-night-900 font-display text-gold-300 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold"
         >
           C
         </span>
         <span className={cn('min-w-0', collapsed && 'sr-only')}>
-          <span className="text-on-night block text-sm font-semibold tracking-tight">
+          <span className="text-ink-950 block text-sm font-semibold tracking-tight">
             Administration
           </span>
-          <span className="text-on-night-muted block text-[0.6875rem] tracking-[0.1em] uppercase">
+          <span className="text-ink-500 block text-[0.7rem] tracking-[0.12em] uppercase">
             Boutique console
           </span>
         </span>
@@ -291,14 +283,14 @@ export function AdminNav({ groups }: { groups: AdminNavGroup[] }) {
         <NavItems groups={groups} pathname={pathname} collapsed={collapsed} />
       </div>
 
-      <div className="mt-4 border-t border-white/[0.07] pt-3">
+      <div className="border-line-200 mt-4 border-t pt-3">
         <button
           type="button"
           onClick={toggleCollapsed}
           aria-pressed={collapsed}
           title={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
           className={cn(
-            'focus-visible:outline-gold-300 text-on-night-muted hover:text-on-night flex w-full items-center rounded-lg transition-colors hover:bg-white/[0.055] focus-visible:outline-2 focus-visible:outline-offset-2',
+            'focus-visible:outline-gold-700 text-ink-500 hover:text-ink-950 hover:bg-surface-100 flex w-full items-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
             collapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2.5',
           )}
         >
@@ -369,14 +361,14 @@ export function AdminMobileNav({ groups }: { groups: AdminNavGroup[] }) {
             role="dialog"
             aria-modal="true"
             aria-label="Administration"
-            className="bg-night-900 shadow-lg absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col overflow-y-auto p-3"
+            className="bg-surface-0 border-line-200 absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col overflow-y-auto border-r p-3 shadow-xl"
           >
             <div className="mb-4 flex items-center justify-between px-1">
-              <span className="text-on-night text-sm font-semibold">Administration</span>
+              <span className="text-ink-950 text-sm font-semibold">Administration</span>
               <button
                 type="button"
                 onClick={close}
-                className="text-on-night-muted hover:text-on-night focus-visible:outline-gold-300 rounded-sm p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="text-ink-500 hover:text-ink-950 hover:bg-surface-100 focus-visible:outline-gold-700 rounded-sm p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <X aria-hidden="true" className="h-4 w-4" />
                 <span className="sr-only">Close navigation</span>

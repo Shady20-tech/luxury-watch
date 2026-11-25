@@ -77,7 +77,7 @@ export function PromoBanner({ section }: { section: CopySection }) {
       <div className="container-page relative grid gap-10 py-16 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-24">
         <div>
           {section.eyebrow ? (
-            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
               {section.eyebrow}
             </p>
           ) : null}
@@ -129,7 +129,7 @@ export function CommunityPanel({ section }: { section: CopySection }) {
       <div className="container-page grid gap-10 py-16 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-20">
         <div>
           {section.eyebrow ? (
-            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
               {section.eyebrow}
             </p>
           ) : null}
@@ -201,7 +201,7 @@ export function SocialPanel({
     <section className="bg-night-950">
       <div className="container-page py-16 text-center lg:py-20">
         {section.eyebrow ? (
-          <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+          <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
             {section.eyebrow}
           </p>
         ) : null}

@@ -40,7 +40,10 @@ export const metadata: Metadata = {
   },
   applicationName: getPublicEnv().siteName,
   formatDetection: { telephone: true, address: true, email: true },
-  icons: { icon: '/icon.svg' },
+  // The file convention in `src/app/` supplies the icon and apple-touch icon, so
+  // this only needs to name the browser-tab asset for clients that ask for it
+  // explicitly. Replacing the crest means replacing those two PNGs, not this.
+  icons: { icon: '/icon.png', apple: '/apple-icon.png' },
 };
 
 export const viewport: Viewport = {

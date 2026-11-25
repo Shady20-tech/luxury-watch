@@ -67,22 +67,22 @@ export type PageHeroTone = 'gold' | 'emerald' | 'burgundy' | 'sapphire';
 const ACCENTS: Record<PageHeroTone, { eyebrow: string; glow: string; rule: string }> = {
   gold: {
     eyebrow: 'text-gold-300',
-    glow: 'from-gold-900/55',
+    glow: 'from-gold-700/35',
     rule: 'bg-gold-300/30',
   },
   emerald: {
     eyebrow: 'text-emerald-300',
-    glow: 'from-emerald-900/60',
+    glow: 'from-emerald-700/35',
     rule: 'bg-emerald-300/30',
   },
   burgundy: {
     eyebrow: 'text-burgundy-300',
-    glow: 'from-burgundy-900/60',
+    glow: 'from-burgundy-700/35',
     rule: 'bg-burgundy-300/30',
   },
   sapphire: {
     eyebrow: 'text-sapphire-300',
-    glow: 'from-sapphire-900/60',
+    glow: 'from-sapphire-700/35',
     rule: 'bg-sapphire-300/30',
   },
 };
@@ -138,14 +138,24 @@ export function PageHero({
               fill
               loading="lazy"
               sizes="100vw"
-              className="object-cover object-center opacity-60"
+              className="object-cover object-center"
             />
-            {/* Fades the picture out under the headline rather than tinting the
-                whole band, so the text never sits on a half-lit photograph. On a
-                narrow viewport the photograph fills the band, so this gradient
-                does the legibility work rather than the layout. */}
-            <div className="from-night-900 via-night-900/85 to-night-900/15 absolute inset-0 bg-gradient-to-r" />
-            <div className="from-night-900/90 absolute inset-0 bg-gradient-to-t via-transparent to-transparent" />
+            {/* One wash, and only one.
+
+                The photograph is a plain picture; legibility of the `h1` is this
+                component's job, not the picture's. The wash is therefore opaque
+                under the headline column on the left and clears by mid-band so
+                the subject on the right is actually visible.
+
+                Three stacked gradients used to sit here and multiplied to almost
+                black: the photograph was in the DOM and invisible, which is the
+                defect this band exists to avoid. Raising the image's opacity
+                instead would lighten the ground under the `h1` at the same time,
+                so the wash is tuned here and the pictures stay untouched.
+
+                The browser audit measures the composed hero, which is the only
+                check that can see this — jsdom cannot composite a gradient. */}
+            <div className="from-night-900 via-night-900/75 to-night-900/5 absolute inset-0 bg-gradient-to-r" />
           </div>
         ) : null}
 

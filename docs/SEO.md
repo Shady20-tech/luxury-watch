@@ -202,6 +202,17 @@ path where the scope does not imply it, and is `null` everywhere else so the
 scope-derived routes are unaffected. **If you add a listing route whose address
 is not derivable from its scope, set `basePath` or it will link into `/shop`.**
 
+The facet URL space is finite because facet values are canonicalised in the
+database, not in the link. Every facet link is built from a value
+`catalogue_facets` returned, and that function groups by the column after
+`catalogue_normalise_facet_value` has run on write, so `?bracelet=Stainless+Steel`
+is the only spelling a crawler can reach. When one material was stored two ways
+(G100) the site offered two live filter URLs for one result set — a duplicate
+introduced by data rather than by routing, and one that no canonical rule here
+would have caught, because each URL was legitimately a filtered listing. Keep
+new values folding to an existing key; the alternative is a filter surface that
+grows with the spelling mistakes of whoever writes the seed.
+
 ### Why `robots.txt` does not disallow query strings
 
 An earlier version disallowed `/*?*sort=`, `/*?*filter=` and `/*?*page=`. That

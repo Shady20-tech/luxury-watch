@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { LogOut, ShieldAlert } from 'lucide-react';
+import { LogOut, Search, ShieldAlert } from 'lucide-react';
 
 import { AdminMobileNav, AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
 import { UserAvatar } from '@/components/account/user-avatar';
@@ -204,18 +204,22 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         Skip to content
       </a>
 
-      {/* The rail is the shell's left edge on a wide viewport: full height, dark,
-          and sticky, so the section list stays put while a long table scrolls.
-          Below `lg` it collapses to a toggle inside the header area and becomes a
-          drawer. The dark ground is what makes the admin read as a different
-          place from the storefront rather than a page of it. */}
-      <aside className="bg-night-950 hidden w-auto shrink-0 p-3 lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-auto">
+      {/* The rail is the shell's left edge on a wide viewport: full height and
+          sticky, so the section list stays put while a long table scrolls. Below
+          `lg` it collapses to a toggle in the content flow and becomes a drawer.
+
+          It is a white card on the page ground rather than a dark slab. The dark
+          rail was the previous design and it made the console read as a separate
+          product from the storefront; a pale rail with a tinted active row keeps
+          the same "you are somewhere else" signal — the admin has its own header
+          and its own navigation — without a second colour scheme to maintain. */}
+      <aside className="hidden w-auto shrink-0 p-3 lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-auto">
         <AdminNav groups={buildNav(identity)} />
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="border-line-200 bg-surface-0/80 sticky top-0 z-30 border-b backdrop-blur-md">
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <header className="border-line-200 bg-surface-0/85 sticky top-0 z-30 border-b backdrop-blur-md">
+          <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
             <div className="flex items-baseline gap-3">
               <Link
                 href="/admin"
@@ -225,19 +229,48 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               </Link>
               <Link
                 href="/"
-                className="text-foreground-muted hover:text-ink-900 text-xs underline-offset-4 hover:underline"
+                className="text-ink-500 hover:text-ink-900 hidden text-xs underline-offset-4 hover:underline sm:inline"
               >
                 View store
               </Link>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* A GET form, not a client component: the catalogue and order lists
+                already read `?q=`, so the browser can submit this and the result
+                is a real, linkable, shareable URL with no JavaScript involved.
+                It is scoped to the catalogue because that is the only section
+                every staff member can search; a customer search would be an
+                offer to a manager who cannot open that page. */}
+            <form
+              role="search"
+              action="/admin/products"
+              method="get"
+              className="relative order-last w-full sm:order-none sm:ml-6 sm:w-auto sm:max-w-sm sm:flex-1"
+            >
+              <label htmlFor="admin-search" className="sr-only">
+                Search the catalogue
+              </label>
+              <Search
+                aria-hidden="true"
+                className="text-ink-500 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+              />
+              <input
+                id="admin-search"
+                type="search"
+                name="q"
+                placeholder="Search products by name, reference or SKU"
+                autoComplete="off"
+                className="border-line-300 bg-surface-50 text-ink-900 placeholder:text-ink-500 focus-visible:border-gold-700 focus-visible:outline-gold-700 h-10 w-full rounded-lg border pr-3 pl-9 text-sm focus-visible:outline-2 focus-visible:-outline-offset-2"
+              />
+            </form>
+
+            <div className="ml-auto flex items-center gap-3">
               <Link
                 href="/admin/account"
-                className="focus-visible:outline-gold-700 flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="border-line-200 hover:border-line-300 hover:bg-surface-50 focus-visible:outline-gold-700 flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <UserAvatar url={avatarUrl} name={identity.email} size="sm" />
-                <span className="text-foreground-muted hidden text-xs sm:block">
+                <span className="text-ink-700 hidden text-xs sm:block">
                   {identity.email ?? 'Signed in'}
                   {identity.roles.length > 0 ? (
                     <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
@@ -250,7 +283,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="text-ink-700 hover:text-ink-900 focus-visible:outline-gold-700 inline-flex items-center gap-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="border-line-200 text-ink-700 hover:border-line-300 hover:bg-surface-50 focus-visible:outline-gold-700 inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                   <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
                   Sign out
@@ -260,7 +293,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </div>
         </header>
 
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+        <div className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {/* The mobile section toggle lives here, above the page content, so it
               is the first thing above a table on a phone. On desktop the rail is
               already visible and the component renders nothing at `lg`. */}

@@ -76,7 +76,7 @@ export function ProductCard({
 
       <div className="border-line-200 flex flex-1 flex-col border-t pt-4">
         {product.brandName ? (
-          <p className="text-ink-500 text-[0.6875rem] font-semibold tracking-[0.16em] uppercase">
+          <p className="text-ink-500 text-[0.75rem] font-semibold tracking-[0.16em] uppercase">
             {product.brandName}
           </p>
         ) : null}

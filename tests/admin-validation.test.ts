@@ -26,7 +26,7 @@ function validProduct(overrides: Record<string, string> = {}): Record<string, st
     slug: 'submariner-date',
     sku: 'SKU-1',
     status: 'draft',
-    priceCents: '1200000',
+    priceCents: '12000.00',
     priceOnRequest: '',
     isFeatured: '',
     boxAndPapers: 'unknown',
@@ -49,7 +49,7 @@ describe('productFormSchema', () => {
       slug: 'submariner-date',
       sku: 'SKU-1',
       status: 'draft',
-      priceCents: '1200000',
+      priceCents: '12000',
       boxAndPapers: 'unknown',
     });
     expect(parsed.success).toBe(true);
@@ -67,7 +67,7 @@ describe('productFormSchema', () => {
       slug: 'submariner-date',
       sku: 'SKU-1',
       status: 'draft',
-      priceCents: '1200000',
+      priceCents: '12000',
       boxAndPapers: 'unknown',
     };
 
@@ -78,15 +78,56 @@ describe('productFormSchema', () => {
     expect(present.success && present.data.isFeatured).toBe(true);
   });
 
-  it('accepts a priced product', () => {
+  it('accepts a priced product and converts the amount to minor units', () => {
+    // The field takes the amount a person would write, not raw cents. An
+    // administrator typing 12000 means twelve thousand, and the stored value is
+    // 1_200_000. This is the defect the money parser exists to prevent: the old
+    // field took cents, so the same keystrokes published the watch at $120.
     const parsed = productFormSchema.safeParse(validProduct());
     expect(parsed.success).toBe(true);
     if (parsed.success) expect(parsed.data.priceCents).toBe(1_200_000);
   });
 
+  it.each([
+    ['12000', 1_200_000],
+    ['12000.5', 1_200_050],
+    ['12000.50', 1_200_050],
+    ['12,000.50', 1_200_050],
+    ['$12,000.50', 1_200_050],
+    ['12.000,50', 1_200_050],
+    ['1.250', 125_000],
+    ['  900  ', 90_000],
+    ['0.99', 99],
+  ])('parses the amount %s as %i minor units', (input, expected) => {
+    const parsed = productFormSchema.safeParse(validProduct({ priceCents: input }));
+    expect(parsed.success, input).toBe(true);
+    if (parsed.success) expect(parsed.data.priceCents).toBe(expected);
+  });
+
+  it.each(['12000.555', '12,00.5.5', 'abc', '-500', '1e9'])(
+    'refuses the ambiguous or invalid amount %s rather than rounding it',
+    (input) => {
+      // Rounding someone's price without telling them is worse than refusing it,
+      // and `Number('1e9')` is a valid number that is not a price anyone typed.
+      const parsed = productFormSchema.safeParse(validProduct({ priceCents: input }));
+      expect(parsed.success, input).toBe(false);
+    },
+  );
+
+  it('accepts a currency code and normalises its case', () => {
+    const parsed = productFormSchema.safeParse(validProduct({ currency: 'gbp' }));
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.currency).toBe('GBP');
+  });
+
+  it('refuses a currency that is not a three-letter code', () => {
+    const parsed = productFormSchema.safeParse(validProduct({ currency: 'pounds' }));
+    expect(parsed.success).toBe(false);
+  });
+
   it('treats an empty numeric field as absent, not as zero', () => {
     const parsed = productFormSchema.safeParse(
-      validProduct({ priceCents: '1200000', productionYear: '' }),
+      validProduct({ priceCents: '12000', productionYear: '' }),
     );
     expect(parsed.success).toBe(true);
     if (parsed.success) expect(parsed.data.productionYear).toBeUndefined();
@@ -98,13 +139,13 @@ describe('productFormSchema', () => {
   });
 
   it('rejects a non-integer price', () => {
-    const parsed = productFormSchema.safeParse(validProduct({ priceCents: '1200000.5' }));
+    const parsed = productFormSchema.safeParse(validProduct({ priceCents: '12000.555' }));
     expect(parsed.success).toBe(false);
   });
 
-  it('rejects exponent notation in a numeric field', () => {
+  it('rejects exponent notation in the price field', () => {
     // `Number('1e9')` is a perfectly good number, which is exactly why the
-    // schema checks the *string* before converting it.
+    // parser reads the *string* rather than coercing it.
     const parsed = productFormSchema.safeParse(validProduct({ priceCents: '1e9' }));
     expect(parsed.success).toBe(false);
   });
@@ -129,7 +170,7 @@ describe('productFormSchema', () => {
     // The two would disagree on the storefront, so the form refuses the
     // combination rather than letting a template pick one.
     const parsed = productFormSchema.safeParse(
-      validProduct({ priceCents: '1200000', priceOnRequest: 'on' }),
+      validProduct({ priceCents: '12000', priceOnRequest: 'on' }),
     );
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
@@ -139,7 +180,7 @@ describe('productFormSchema', () => {
 
   it('requires a compare-at price to be higher than the price', () => {
     const parsed = productFormSchema.safeParse(
-      validProduct({ priceCents: '1200000', compareAtCents: '1000000' }),
+      validProduct({ priceCents: '12000', compareAtCents: '10000' }),
     );
     expect(parsed.success).toBe(false);
     if (!parsed.success) {

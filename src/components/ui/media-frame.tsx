@@ -83,7 +83,7 @@ export function MediaFrame({
               caption says what it is. `text-ink-500` rather than `ink-400`: this
               sits on `surface-100`, where `ink-400` is only 4.17:1 and fails
               WCAG AA for normal text, while `ink-500` reaches 5.27:1. */}
-          <p className="text-ink-500 absolute inset-x-0 bottom-0 bg-surface-0/85 px-2 py-1 text-center text-[0.625rem] tracking-[0.12em] uppercase">
+          <p className="text-ink-500 absolute inset-x-0 bottom-0 bg-surface-0/85 px-2 py-1 text-center text-[0.75rem] tracking-[0.12em] uppercase">
             Illustration &middot; photography to follow
           </p>
         </div>

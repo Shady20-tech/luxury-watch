@@ -234,7 +234,7 @@ export function BrandShowcase({ brands }: { brands: BrandTile[] }) {
               </span>
             ) : null}
             {brand.productCount !== null ? (
-              <span className="text-ink-500 mt-4 text-[0.6875rem] font-semibold tracking-[0.14em] uppercase">
+              <span className="text-ink-500 mt-4 text-[0.75rem] font-semibold tracking-[0.14em] uppercase">
                 {brand.productCount === 1
                   ? '1 watch'
                   : `${brand.productCount.toLocaleString('en-US')} watches`}

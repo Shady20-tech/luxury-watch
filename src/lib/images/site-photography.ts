@@ -55,8 +55,10 @@ export type SitePhotograph = {
 
 export type SitePhotographLicence =
   | 'CC BY 2.0'
+  | 'CC BY 2.5'
   | 'CC BY 4.0'
   | 'CC BY-SA 2.0'
+  | 'CC BY-SA 3.0'
   | 'CC BY-SA 4.0'
   | 'CC0';
 
@@ -201,6 +203,121 @@ export const SITE_PHOTOGRAPHY = {
     licenceUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
     sourceUrl:
       'https://commons.wikimedia.org/wiki/File:Warsaw_Gold_pocket_watch_of_Fryderyk_Chopin_01.jpg',
+    width: 2000,
+    height: 1125,
+  },
+  /**
+   * Per-brand hero plates.
+   *
+   * These are the *same* photographs as the brand's seed product images, recomposed
+   * rather than reused as-is: the watch sits right of centre on a dark ground with
+   * a left-to-right wash, so the headline column stays clear and the band reads as
+   * a brand page rather than a product page.
+   *
+   * They exist because the brand heroes were previously pointed at whichever
+   * editorial plate happened to be free, which put a Rolex Submariner on the
+   * Audemars Piguet page and a Corum coin watch on Richard Mille. Showing one
+   * maker's watch to introduce another is a misdescription, so each brand now has
+   * a plate of a piece that brand actually made. The credit is the product image's
+   * credit, because it is that photograph.
+   */
+  brandRolex: {
+    src: '/site-photography/brand-rolex.webp',
+    alt: 'A Rolex Milgauss with a black dial on a dark ground.',
+    credit: 'Defiancekofb',
+    licence: 'CC BY-SA 3.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Milgaussnew.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandAudemarsPiguet: {
+    src: '/site-photography/brand-audemars-piguet.webp',
+    alt: 'An Audemars Piguet Royal Oak perpetual calendar with a gold case and blue dial.',
+    credit: 'Clyde94',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:Audemars_Piguet_Royal_Oak_in_oro_con_calendario_perpetuo,_met%C3%A0_anni_Novanta.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandPatekPhilippe: {
+    src: '/site-photography/brand-patek-philippe.webp',
+    alt: 'A Patek Philippe Cubitus with a blue dial and integrated bracelet.',
+    credit: 'Partynia',
+    licence: 'CC BY 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Patek_Cubitus1.png',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandOmega: {
+    src: '/site-photography/brand-omega.webp',
+    alt: 'An Omega Speedmaster chronograph with a black dial and steel bezel.',
+    credit: 'Unknown (Wikimedia Commons)',
+    licence: 'CC BY 2.5',
+    licenceUrl: 'https://creativecommons.org/licenses/by/2.5',
+    sourceUrl:
+      'https://commons.wikimedia.org/wiki/File:OMEGA_Speedmaster_CK2915_(cropped_to_watch_case).JPG',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandCartier: {
+    src: '/site-photography/brand-cartier.webp',
+    alt: 'A Cartier Santos with a square steel case and exposed bezel screws.',
+    credit: 'Pittigrilli',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Cartier_Santos_wristwatch.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandGrandSeiko: {
+    src: '/site-photography/brand-grand-seiko.webp',
+    alt: 'A Grand Seiko automatic with a black dial and a steel bracelet.',
+    credit: 'STSPP',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Grand_Seiko_Caliber_9S65_Automatic.JPG',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandJaegerLeCoultre: {
+    src: '/site-photography/brand-jaeger-lecoultre.webp',
+    alt: 'A Jaeger-LeCoultre Reverso with its reversible rectangular case.',
+    credit: 'Tiberido',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Jaeger-LeCoultre-Reverso.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  brandBreitling: {
+    src: '/site-photography/brand-breitling.webp',
+    alt: 'A Breitling Navitimer chronograph with a circular slide rule bezel.',
+    credit: 'Torsten Bolten',
+    licence: 'CC BY-SA 3.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/3.0',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Breitling_Navitimer_chronograph_watch.jpg',
+    width: 2000,
+    height: 1125,
+  },
+
+  richardMilleRm030: {
+    src: '/site-photography/richard-mille-rm030.webp',
+    alt: 'A Richard Mille RM 030 with a skeletonised dial and a tonneau case.',
+    credit: 'Y.Leclercq',
+    licence: 'CC BY-SA 4.0',
+    licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:RM_030_Automatic.jpg',
     width: 2000,
     height: 1125,
   },

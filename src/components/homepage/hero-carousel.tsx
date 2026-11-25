@@ -226,7 +226,7 @@ export function HeroCarousel({
       <div className="container-page relative grid gap-12 py-20 lg:grid-cols-[minmax(0,34rem)_1fr] lg:items-center lg:py-32">
         <div>
           {slide.eyebrow ? (
-            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
               {slide.eyebrow}
             </p>
           ) : null}

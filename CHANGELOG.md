@@ -8,6 +8,66 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The bracelet filter split one material into two, and each half hid the other
+
+**Date:** 2026-11-19
+
+The Phase 5 acceptance audit found the bracelet/strap facet listing
+`Stainless Steel (5)` and `Stainless steel (5)` as two separate filters on the
+same catalogue. Choosing either returned five of the ten stainless pieces, so
+the catalogue appeared to hold half of what it does.
+
+The cause was a gap in `catalogue_normalise_facet_value`, the write-time
+normaliser added in `0027_catalogue_facet_value_normalisation.sql`. It mapped
+`case_material`'s lowercase `'stainless steel'` to the canonical spelling but had
+no equivalent row for `bracelet_material`, because no product held that spelling
+when 0027 was written. The extended catalogue introduced one.
+
+`0038_bracelet_facet_normalisation.sql` adds the missing pair and backfills the
+rows that already hold it. The rule goes in the map rather than in the seed on
+purpose: correcting the seed would fix one database and leave the next writer
+free to reintroduce the duplicate, and 0027's own reasoning says the map is the
+single place that decides what a material is called.
+
+`28_facet_values.sql` already caught this, which is the point of how it is
+written. Its assertion is the invariant — "no column holds two spellings that
+fold to the same key" — rather than a list of expected strings, so a new
+duplicate fails it without anybody having to think to add a case. A hand-checked
+value list would have been updated alongside the bug.
+
+Verified live against the seeded database: the sidebar now shows one
+`Stainless Steel` row with 10, and `?bracelet=Stainless+Steel` returns
+`Showing 1–10 of 10`.
+
+### The site 404 page lost the chrome, and then rendered it twice
+
+**Date:** 2026-11-19
+
+An unmatched public route such as `/this-page-does-not-exist` returned a bare
+page with no header and no footer, because the root `not-found.tsx` sits outside
+the `(site)` group and replaces the whole layout. A visitor who mistyped a URL
+then lost every way back into the site.
+
+Adding `src/app/(site)/not-found.tsx` fixed that, and introduced two follow-on
+defects that only a browser could see. The new file rendered
+`SiteHeader`/`SiteFooter` itself, inside a layout that already renders both, so
+every unmatched route served two headers and two footers. It also used `<main>`
+inside the layout's `<main>`, a duplicate landmark a screen reader announces
+twice. Both are now gone: the boundary renders content only.
+
+The build also warned that `/_not-found` could not be prerendered, because the
+page reads cookies through `getChrome()`. The real fault was in
+`chrome-service.ts`: its `catch` treated Next's own "this route is dynamic"
+signal as a data error and replaced it with the fallback fixture, which hid the
+signal and would have let the route be cached as static — the same
+static-to-dynamic failure `AGENTS.md` documents for the product page.
+`unstable_rethrow(error)` now runs first, so Next handles anything it owns and
+only a genuine data error reaches the fallback.
+
+Verified with a browser across fourteen routes: one header, one footer, one
+`main`, one `h1` on each, and the correct `404` status on all three not-found
+paths.
+
 ### The homepage photography was in the migrations but not in the database
 
 **Date:** 2026-11-19
@@ -833,6 +893,28 @@ an error — for what is, from the customer's side, a no-op. A collision now mea
 the same image is already in the caller's own folder, so the route confirms the
 object exists and points the profile at it. The name is the hash precisely so
 this collision is provably harmless.
+
+### A control-flow error treated as a data failure, in five places rather than one
+
+**Date:** 2026-11-19
+
+Next signals "this route must be dynamic" by throwing, and implements
+`notFound()` and `redirect()` the same way. A `catch` that degrades to a fallback
+page cannot tell those from a database outage, so it logs a data failure and
+renders the fallback — which is how a dynamic route ends up classified as static
+and fails at request time in a production build (the `Page changed from static to
+dynamic` 500 documented for the product page).
+
+`getChrome()` already called `unstable_rethrow` first. During the Phase 5 audit
+the same swallow was still present one layer out, in `catalogue-service`,
+`homepage-service`, and the `brands` and `collections` index pages, where it
+surfaced only as build warnings — `catalogue.load_failed`, `homepage.load_failed`,
+`brands.index_load_failed` — naming a failure that had not happened. All five now
+rethrow Next's errors before handling their own, and a build of the same tree
+prints no `Dynamic server usage` line and logs no spurious load failure. Every
+route remains correctly dynamic (`ƒ`), so this was a latent trap rather than a
+live defect; the reason to fix it now is that the misleading log is exactly what
+would send someone looking at the database during an outage that is not there.
 
 ---
 

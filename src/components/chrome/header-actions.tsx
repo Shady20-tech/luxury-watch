@@ -112,7 +112,7 @@ export function HeaderActions({
           {count > 0 ? (
             <span
               aria-hidden="true"
-              className="bg-gold-300 text-night-950 absolute top-1.5 right-1 min-w-4 rounded-full px-1 text-[0.625rem] leading-4 font-semibold"
+              className="bg-gold-300 text-night-950 absolute top-1.5 right-1 min-w-4 rounded-full px-1 text-[0.75rem] leading-4 font-semibold"
             >
               {count > 99 ? '99+' : count}
             </span>

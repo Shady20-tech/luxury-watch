@@ -73,7 +73,7 @@ export function PhotoBand({
 
   const creditLine =
     credit && photograph.credit ? (
-      <p className="text-on-night-muted/80 mt-4 text-[0.6875rem]">
+      <p className="text-on-night-muted/80 mt-4 text-[0.75rem]">
         Photograph: {photograph.credit} ({photograph.licence})
       </p>
     ) : null;
@@ -107,7 +107,7 @@ export function PhotoBand({
                 </Link>
               </p>
             ) : null}
-            <p className="text-ink-500 mt-4 text-[0.6875rem]">
+            <p className="text-ink-500 mt-4 text-[0.75rem]">
               Photograph: {photograph.credit} ({photograph.licence})
             </p>
           </div>
@@ -143,10 +143,7 @@ export function PhotoBand({
         >
           {eyebrow ? (
             <p
-              className={cn(
-                'text-[0.6875rem] font-semibold tracking-[0.28em] uppercase',
-                accentText,
-              )}
+              className={cn('text-[0.75rem] font-semibold tracking-[0.28em] uppercase', accentText)}
             >
               {eyebrow}
             </p>
@@ -197,7 +194,7 @@ export function PhotoStrip({
             sizes="(min-width: 640px) 33vw, 100vw"
             className="object-cover"
           />
-          <figcaption className="text-ink-500 mt-2 text-[0.625rem]">
+          <figcaption className="text-ink-500 mt-2 text-[0.75rem]">
             {photo.credit} ({photo.licence})
           </figcaption>
         </figure>

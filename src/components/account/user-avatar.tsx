@@ -46,7 +46,7 @@ export function UserAvatar({
     .join('');
 
   const dimensions = {
-    sm: 'h-7 w-7 text-[10px]',
+    sm: 'h-7 w-7 text-[0.75rem]',
     md: 'h-10 w-10 text-xs',
     lg: 'h-20 w-20 text-xl',
   }[size];
