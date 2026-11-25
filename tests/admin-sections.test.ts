@@ -38,10 +38,38 @@ describe('requirementForSection', () => {
 
   it('matches nested paths against their section root', () => {
     expect(requirementForSection('/admin/orders/abc-123')).toEqual({ permission: 'orders.read' });
-    expect(requirementForSection('/admin/settings/pages/new')).toEqual({
-      permission: 'content.read',
+  });
+
+  it('applies a page rule narrower than the section that contains it', () => {
+    // A content manager holds `content.read` but not `settings.write`, so the
+    // section check alone admitted them to the layout and the page's own guard
+    // then threw — a 500 for an ordinary refusal. These entries are what let the
+    // layout refuse cleanly instead.
+    expect(requirementForSection('/admin/settings/site')).toEqual({
+      permission: 'settings.write',
     });
-    expect(requirementForSection('/admin/products/new')).toEqual({ permission: 'catalog.read' });
+    expect(requirementForSection('/admin/settings/email')).toEqual({
+      permission: 'settings.write',
+    });
+    expect(requirementForSection('/admin/settings/delivery')).toEqual({
+      permission: 'settings.write',
+    });
+    expect(requirementForSection('/admin/settings/payments')).toEqual({
+      permission: 'settings.write',
+    });
+    expect(requirementForSection('/admin/products/new')).toEqual({ permission: 'catalog.write' });
+  });
+
+  it('keeps the page index at the section permission but gates its editors higher', () => {
+    // Listing pages needs only `content.read`; opening one, or starting a new
+    // one, writes and needs `content.write`.
+    expect(requirementForSection('/admin/settings/pages')).toEqual({ permission: 'content.read' });
+    expect(requirementForSection('/admin/settings/pages/new')).toEqual({
+      permission: 'content.write',
+    });
+    expect(requirementForSection('/admin/settings/pages/abc-123')).toEqual({
+      permission: 'content.write',
+    });
   });
 
   it('does not match a sibling that merely shares a prefix', () => {
@@ -86,6 +114,82 @@ describe('mayEnterSection', () => {
     const contentManager = held('content.read', 'content.write');
     expect(mayEnterSection('/admin/inventory', contentManager)).toBe(false);
     expect(mayEnterSection('/admin/settings', contentManager)).toBe(true);
+  });
+
+  it('refuses a content manager the settings editors that need settings.write', () => {
+    // The regression this pins: the section is open on `content.read`, so only a
+    // page-level rule stops the layout rendering a page whose own guard throws.
+    const contentManager = held('content.read', 'content.write');
+    expect(mayEnterSection('/admin/settings/site', contentManager)).toBe(false);
+    expect(mayEnterSection('/admin/settings/email', contentManager)).toBe(false);
+    expect(mayEnterSection('/admin/settings/delivery', contentManager)).toBe(false);
+    expect(mayEnterSection('/admin/settings/payments', contentManager)).toBe(false);
+    // The content editors themselves stay reachable.
+    expect(mayEnterSection('/admin/settings/pages', contentManager)).toBe(true);
+    expect(mayEnterSection('/admin/settings/pages/new', contentManager)).toBe(true);
+  });
+
+  it('refuses a sales manager a new product, which needs catalog.write', () => {
+    const salesManager = held(
+      'catalog.read',
+      'inventory.read',
+      'orders.read',
+      'orders.write',
+      'orders.settle',
+      'inquiries.read',
+      'inquiries.write',
+      'content.read',
+      'customers.read',
+    );
+    expect(mayEnterSection('/admin/products/new', salesManager)).toBe(false);
+    expect(mayEnterSection('/admin/products', salesManager)).toBe(true);
+  });
+
+  it('admits a super administrator everywhere', () => {
+    // `role_permissions('SUPER_ADMIN')` expands to every permission, which is
+    // what `current_admin_permissions` reports to the app. A super administrator
+    // must reach every screen a narrower role can, plus the staff screen.
+    const superAdmin = held(
+      'catalog.read',
+      'catalog.write',
+      'inventory.read',
+      'inventory.write',
+      'orders.read',
+      'orders.write',
+      'orders.settle',
+      'inquiries.read',
+      'inquiries.write',
+      'customers.read',
+      'content.read',
+      'content.write',
+      'settings.read',
+      'settings.write',
+      'audit.read',
+      'SUPER_ADMIN',
+    );
+    for (const path of [
+      '/admin',
+      '/admin/orders',
+      '/admin/products',
+      '/admin/products/new',
+      '/admin/inventory',
+      '/admin/inquiries',
+      '/admin/appointments',
+      '/admin/customers',
+      '/admin/settings',
+      '/admin/settings/site',
+      '/admin/settings/email',
+      '/admin/settings/delivery',
+      '/admin/settings/payments',
+      '/admin/settings/pages',
+      '/admin/settings/pages/new',
+      '/admin/settings/pages/abc-123',
+      '/admin/audit',
+      '/admin/staff',
+      '/admin/account',
+    ]) {
+      expect(mayEnterSection(path, superAdmin), path).toBe(true);
+    }
   });
 
   it('refuses an ADMIN the staff screen, because only SUPER_ADMIN opens it', () => {

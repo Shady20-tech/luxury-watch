@@ -44,6 +44,36 @@ import type { Permission, StaffRole } from '@/server/services/admin-authorizatio
 type SectionRequirement = { permission: Permission } | { role: StaffRole };
 
 /**
+ * Pages that need a *narrower* permission than the section that contains them.
+ *
+ * A section is "may you enter this area at all". Some pages inside an area are
+ * more restricted than the area itself: `/admin/settings` is open to anyone who
+ * may read content, but `/admin/settings/site` writes site-wide settings and
+ * needs `settings.write`. Without an entry here the layout lets the caller in on
+ * the section permission, the page's own `requirePermission` throws, and Next.js
+ * renders the generic 500 error page — a server error for an ordinary refusal.
+ *
+ * The layout cannot catch that throw: it renders concurrently with the page
+ * segment, so the page function runs whether or not `children` is placed in the
+ * tree. Naming the narrower requirement here is what lets the layout refuse with
+ * the same in-shell panel it uses for a whole section, before the page runs.
+ *
+ * Longest prefix wins. A root ending in `/` matches only paths *beneath* it, which
+ * is how `/admin/settings/pages/` (every editor) is distinguished from
+ * `/admin/settings/pages` (the index, which needs only `content.read`).
+ */
+const ROUTE_REQUIREMENTS: ReadonlyArray<readonly [string, SectionRequirement]> = [
+  ['/admin/products/new', { permission: 'catalog.write' }],
+  ['/admin/settings/site', { permission: 'settings.write' }],
+  ['/admin/settings/email', { permission: 'settings.write' }],
+  ['/admin/settings/delivery', { permission: 'settings.write' }],
+  ['/admin/settings/payments', { permission: 'settings.write' }],
+  // The page editor and its "new" route. The index at `/admin/settings/pages`
+  // is deliberately excluded: listing pages needs only `content.read`.
+  ['/admin/settings/pages/', { permission: 'content.write' }],
+];
+
+/**
  * Section roots, matched on a path boundary so `/admin/settings/pages` matches
  * `/admin/settings` and `/admin/ordersomething` matches nothing.
  */
@@ -60,15 +90,38 @@ const SECTION_REQUIREMENTS: ReadonlyArray<readonly [string, SectionRequirement]>
 ];
 
 /**
+ * Whether `pathname` is `root` or lies beneath it.
+ *
+ * A root ending in `/` matches only its descendants, never itself, so the page
+ * editor rule can cover `/admin/settings/pages/<id>` without swallowing the index
+ * at `/admin/settings/pages`.
+ */
+function matchesRoot(pathname: string, root: string): boolean {
+  if (root.endsWith('/')) return pathname.startsWith(root);
+  return pathname === root || pathname.startsWith(`${root}/`);
+}
+
+/**
  * The requirement that opens `pathname`, or `null` when any staff member may
  * enter it.
+ *
+ * Route requirements are consulted first, so a narrower page rule beats the
+ * broader section that contains it. Within each list the longest matching root
+ * wins, so specificity is a property of the paths rather than of their order in
+ * the source — reordering the array cannot silently change which rule applies.
  *
  * Paths outside `/admin` return `null`, because this map only governs the
  * administration area.
  */
 export function requirementForSection(pathname: string): SectionRequirement | null {
-  for (const [root, requirement] of SECTION_REQUIREMENTS) {
-    if (pathname === root || pathname.startsWith(`${root}/`)) return requirement;
+  for (const table of [ROUTE_REQUIREMENTS, SECTION_REQUIREMENTS]) {
+    let best: readonly [string, SectionRequirement] | null = null;
+    for (const entry of table) {
+      if (matchesRoot(pathname, entry[0]) && (!best || entry[0].length > best[0].length)) {
+        best = entry;
+      }
+    }
+    if (best) return best[1];
   }
   return null;
 }
