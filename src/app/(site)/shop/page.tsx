@@ -2,12 +2,8 @@ import type { Metadata } from 'next';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
 import { PageHero } from '@/components/layout/page-hero';
-import {
-  canonicalListingPath,
-  isIndexableListing,
-  parseCatalogueParams,
-  type RawSearchParams,
-} from '@/lib/catalogue/params';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
+import { listingSeo, parseCatalogueParams, type RawSearchParams } from '@/lib/catalogue/params';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { getListing } from '@/server/services/catalogue-service';
 import { getViewerState } from '@/server/services/viewer-service';
@@ -33,7 +29,9 @@ import { getViewerState } from '@/server/services/viewer-service';
  * A clean listing is indexable. A filtered, searched or sorted listing is
  * `noindex, follow`, because a page whose content is defined by query
  * parameters is a thin duplicate of the clean listing. The decision comes from
- * `isIndexableListing`, the single source of truth for it.
+ * `listingSeo`, the single source of truth for it, which also knows whether the
+ * requested page exists — a page number past the end is a soft 404 and must not
+ * be indexed either.
  *
  * This route reads `searchParams`, which opts it into dynamic rendering. That is
  * correct: the page's whole purpose is to reflect the query string, and
@@ -45,6 +43,13 @@ export async function generateMetadata({
   searchParams: Promise<RawSearchParams>;
 }): Promise<Metadata> {
   const params = parseCatalogueParams(await searchParams);
+  // The listing is needed for the canonical decision: a page number past the
+  // end of the result set is a soft 404 and must not be indexed. `getListing`
+  // is wrapped in React `cache()`, so this is the same query the page below
+  // runs rather than a second one.
+  const listing = await getListing(params);
+  const seo = listingSeo(params, listing.total);
+  const hero = SITE_PHOTOGRAPHY.rolexGmtBatgirl;
 
   return buildMetadata({
     title: params.query !== '' ? `Search: ${params.query}` : 'The Collection',
@@ -52,12 +57,22 @@ export async function generateMetadata({
       'Browse every timepiece in our catalogue. Filter by brand, model, condition, case size and price, or request pricing and availability on any piece.',
     // The canonical is the clean listing, so every filtered permutation points
     // a crawler at one address instead of competing with itself.
-    path: canonicalListingPath(params),
-    // A clean listing is indexable; any filter, search term or sort makes this
-    // page a parameter-defined duplicate of it, so it is not. This must use
-    // `isIndexableListing` rather than comparing the canonical path to `/shop`:
-    // filtering keeps the base path, so that comparison would be true either way.
-    robots: { index: isIndexableListing(params), follow: true },
+    path: seo.path,
+    // The page's own hero, so a shared link previews the collection rather than
+    // a bare title card.
+    images: [{ url: hero.src, alt: hero.alt, width: hero.width, height: hero.height }],
+    // A clean listing is indexable; any filter or search term makes this page a
+    // parameter-defined duplicate of it, so it is not. This must use `listingSeo`
+    // rather than comparing the canonical path to `/shop`: filtering keeps the
+    // base path, so that comparison would be true either way.
+    //
+    // `sort` is the deliberate exception and it is not an oversight. Sorting
+    // reorders the same result set rather than narrowing it, so the page is not a
+    // duplicate of the clean listing — but it must not become its own canonical
+    // address either, or `?sort=price_asc` would compete with `/shop` for the
+    // same products. `canonicalListingPath` therefore resets the sort while
+    // leaving the page indexable, which keeps one address per result set.
+    robots: { index: seo.index, follow: true },
   });
 }
 
@@ -73,6 +88,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
         eyebrow="Shop"
         title={params.query !== '' ? `Search results for “${params.query}”` : 'The Collection'}
         intro="Every piece is sourced and inspected by us. Prices are shown where a figure is published; otherwise request pricing and availability and we will respond directly."
+        photograph={SITE_PHOTOGRAPHY.rolexGmtBatgirl}
+        eyebrowTone="gold"
+        tone="deep"
       />
 
       <div className="container-page py-10 sm:py-14">

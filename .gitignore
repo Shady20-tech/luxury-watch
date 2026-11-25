@@ -59,3 +59,6 @@ tmp/
 # Python tooling (the verification scripts under scripts/)
 __pycache__/
 *.py[cod]
+
+# Lighthouse report artefacts from scripts/lighthouse-audit.mjs and audit:a11y
+.lighthouse*/

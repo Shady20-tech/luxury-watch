@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
 
 import { PageBlocks } from '@/components/content/page-blocks';
+import { PageHero, type PageHeroTone } from '@/components/layout/page-hero';
 import { PlannedPage } from '@/components/chrome/planned-page';
 import { ErrorState } from '@/components/ui/states';
+import type { SitePhotograph } from '@/lib/images/site-photography';
 import { getPageBySlug } from '@/server/services/content-service';
 
 /**
@@ -50,22 +52,33 @@ export async function CmsPage({
   slug,
   fallback,
   children,
+  photograph,
+  eyebrowTone = 'emerald',
 }: {
   slug: string;
   /** Shown when the page has no published row. Omit to 404 instead. */
   fallback?: { eyebrow: string; title: string; intro: string };
   children?: React.ReactNode;
+  /**
+   * The band's photography. The policy and story pages share one template, so
+   * the image is passed in by whichever route is rendering rather than looked up
+   * from the slug: a route knows what kind of page it is, and a lookup would
+   * couple this component to the content table's taxonomy.
+   */
+  photograph?: SitePhotograph;
+  /** The section's accent, so the journal reads differently from the catalogue. */
+  eyebrowTone?: PageHeroTone;
 }) {
   const result = await getPageBySlug(slug);
 
   if (result.status === 'unavailable') {
     return (
-      <main id="main-content" className="container-page py-16 lg:py-24">
+      <div className="container-page py-16 lg:py-24">
         <ErrorState
           title="This page is temporarily unavailable"
           description="We could not reach our content just now. This is a problem at our end, not a missing page — please try again shortly."
         />
-      </main>
+      </div>
     );
   }
 
@@ -84,15 +97,16 @@ export async function CmsPage({
   const page = result.page;
 
   return (
-    <main id="main-content" className="container-page py-10 lg:py-14">
-      <header className="max-w-prose">
-        <h1 className="text-3xl sm:text-4xl">{page.title}</h1>
-        {page.excerpt ? (
-          <p className="text-foreground-muted mt-3 text-base">{page.excerpt}</p>
-        ) : null}
-      </header>
+    <div>
+      <PageHero
+        eyebrow="The journal"
+        title={page.title}
+        intro={page.excerpt}
+        photograph={photograph}
+        eyebrowTone={eyebrowTone}
+      />
 
-      <div className="mt-8 max-w-3xl">
+      <div className="container-page max-w-3xl py-10 lg:py-14">
         {page.blocks.length > 0 ? (
           <PageBlocks blocks={page.blocks} />
         ) : children ? null : (
@@ -100,6 +114,6 @@ export async function CmsPage({
         )}
         {children}
       </div>
-    </main>
+    </div>
   );
 }

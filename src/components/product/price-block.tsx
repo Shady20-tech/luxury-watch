@@ -15,6 +15,25 @@ import type { ProductDetail } from '@/lib/product/types';
  * facts: a watch can be priced and reserved, or priced on request and available.
  * Collapsing them into one badge would lose that.
  */
+
+/**
+ * The identifying facts the price block states, in reading order.
+ *
+ * Exported because `SpecTable` must not print the same row again further down
+ * the page — the page showed `Reference: 116400` twice. Keeping the conditions
+ * here means the block and the omission list cannot disagree: whatever this
+ * returns is exactly what the block renders.
+ */
+export function priceBlockRows(product: ProductDetail): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+
+  if (product.reference) rows.push({ label: 'Reference', value: product.reference });
+  if (product.conditionLabel) rows.push({ label: 'Condition', value: product.conditionLabel });
+  if (product.year) rows.push({ label: 'Year', value: String(product.year) });
+
+  return rows;
+}
+
 export function PriceBlock({ product, className }: { product: ProductDetail; className?: string }) {
   return (
     <div className={cn('border-line-200 border-y py-5', className)}>
@@ -49,24 +68,12 @@ export function PriceBlock({ product, className }: { product: ProductDetail; cla
       </div>
 
       <dl className="text-foreground-muted mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        {product.reference ? (
-          <div className="flex gap-2">
-            <dt className="font-medium">Reference</dt>
-            <dd>{product.reference}</dd>
+        {priceBlockRows(product).map((row) => (
+          <div key={row.label} className="flex gap-2">
+            <dt className="font-medium">{row.label}</dt>
+            <dd>{row.value}</dd>
           </div>
-        ) : null}
-        {product.conditionLabel ? (
-          <div className="flex gap-2">
-            <dt className="font-medium">Condition</dt>
-            <dd>{product.conditionLabel}</dd>
-          </div>
-        ) : null}
-        {product.year ? (
-          <div className="flex gap-2">
-            <dt className="font-medium">Year</dt>
-            <dd>{product.year}</dd>
-          </div>
-        ) : null}
+        ))}
       </dl>
     </div>
   );

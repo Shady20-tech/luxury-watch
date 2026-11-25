@@ -117,7 +117,7 @@ export default function DesignSystemPage() {
                 <div className={`border-line-200 h-20 rounded-sm border ${swatch.className}`} />
                 <p className="mt-3 text-sm font-semibold">{swatch.name}</p>
                 <p className="text-foreground-muted text-xs">{swatch.note}</p>
-                <code className="text-ink-500 mt-1 block font-mono text-[0.625rem]">
+                <code className="text-ink-500 mt-1 block font-mono text-[0.75rem]">
                   {swatch.token}
                 </code>
               </li>
@@ -330,7 +330,7 @@ export default function DesignSystemPage() {
                 <dt className="text-sm font-semibold">{term}</dt>
                 <dd className="text-foreground-muted mt-1 text-sm">{note}</dd>
                 <dd>
-                  <code className="text-ink-500 font-mono text-[0.625rem]">{token}</code>
+                  <code className="text-ink-500 font-mono text-[0.75rem]">{token}</code>
                 </dd>
               </div>
             ))}

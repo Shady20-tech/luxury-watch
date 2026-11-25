@@ -323,13 +323,70 @@ export function ProductGallery({
               {image.url ? (
                 <Image src={image.url} alt="" fill sizes="120px" className="object-contain p-1.5" />
               ) : (
-                <span className="text-ink-500 absolute inset-0 flex items-center justify-center text-[10px] tracking-wide uppercase">
+                <span className="text-ink-500 absolute inset-0 flex items-center justify-center text-[0.75rem] tracking-wide uppercase">
                   —
                 </span>
               )}
             </button>
           ))}
         </div>
+      ) : null}
+
+      {/*
+        Provenance, in the two parts that are obligations rather than decoration.
+
+        The representative line comes first because it is the more important of
+        the two: a visitor deciding what to buy needs to know the picture is a
+        model example, before they read who took it. It is rendered only when a
+        photograph actually is one, so a dealer's own shot of the actual piece
+        carries no caveat.
+
+        The credit follows, and only when both halves are present. `rel="noopener
+        noreferrer"` on the outbound links: `noreferrer` also keeps the Commons
+        page from learning which product page a visitor came from.
+      */}
+      {current?.isRepresentative ? (
+        <p className="text-ink-500 mt-3 text-xs leading-relaxed">
+          Photograph of a model example, not the exact piece offered here. Condition, engravings and
+          serials may differ.
+        </p>
+      ) : null}
+
+      {current?.credit && current.licence ? (
+        <p className="text-ink-500 mt-2 text-xs leading-relaxed">
+          Photo:{' '}
+          {current.sourceUrl ? (
+            <a
+              href={current.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-line-300 underline-offset-2 hover:text-foreground"
+            >
+              {current.credit}
+            </a>
+          ) : (
+            current.credit
+          )}
+          {current.licenceUrl ? (
+            <>
+              {' '}
+              (
+              <a
+                href={current.licenceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-line-300 underline-offset-2 hover:text-foreground"
+              >
+                {current.licence}
+              </a>
+              )
+            </>
+          ) : (
+            <> ({current.licence})</>
+          )}
+          {current.sourceUrl?.includes('wikimedia.org') ? ', via Wikimedia Commons' : ''}. Cropped
+          to a portrait ratio.
+        </p>
       ) : null}
 
       <DialogPrimitive.Root open={zoomOpen} onOpenChange={setZoomOpen}>

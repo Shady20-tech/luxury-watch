@@ -8,6 +8,718 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Every hero band on the site was a black rectangle, because the seed could not see the migrations
+
+**Date:** 2026-11-19
+
+The homepage carousel, all nine brand pages and all three collection pages opened
+on an empty dark panel with no photograph. Measured with Playwright at 1440×900,
+right-side pixel brightness: `/` 0 (standard deviation 0, pure black),
+`/brands/rolex` 14, `/collections/featured` 15 — against `/shop` at 123, which was
+the only page that looked right. So the defect was not a styling problem on one
+template; it was that three of the four hero surfaces had no image to render.
+
+The cause was ordering, not code. `db-verify.sh` applies **every migration, then
+every seed**. The photography migrations (`0031`, `0032`, `0036`, `0037`) assign
+their images with statements shaped like
+
+```sql
+update public.brands set hero_image_url = '/site-photography/brand-rolex.webp'
+ where slug = 'rolex';
+```
+
+and on a fresh database `brands`, `collections` and `homepage_sections` are all
+empty at that point, so every one of those `update`s matched zero rows. SQL does
+not treat "matched nothing" as an error, so the migration suite stayed green while
+the site shipped without photography. `0039_hero_photography_after_seed.sql` had
+been written to re-apply the mapping, but it is a migration too — it ran before
+the seed for exactly the same reason, and was equally empty-handed.
+
+The fix is to put the image on the row that creates it. `01_catalogue.sql`,
+`05_extended_catalogue.sql` and `03_homepage_demo.sql` now carry `hero_image_url`
+and `image_url` in their inserts. Their conflict clauses use
+`coalesce(existing, excluded)` rather than overwriting, which preserves both
+properties at once: an administrator's chosen image survives a re-seed, and a
+database built from the seed alone is no longer blank. `0039` stays, so an
+existing deployment is repaired on the next migrate.
+
+`supabase/tests/68_hero_photography.sql` proves it. It asserts that every active
+brand, every active collection and every photograph-rendering homepage section
+has a path, and that each path names a file in `public/site-photography/`. It was
+mutation-tested: nulling one brand's hero makes it fail with
+`1 active brand(s) have no hero image`, and restoring it passes.
+
+The general lesson is the one worth keeping: **a migration that `update`s a row
+another migration will create must run after it, and "matched zero rows" is a
+silent success.** Anything that points at seed-created rows belongs in the seed,
+or needs an assertion that the update it performed was not empty.
+
+Verified after the fix on a database built by `db-verify.sh` from nothing: 9 of 9
+brands, 3 of 3 collections and 7 of 7 photographed sections carry an image, all
+from the seed alone, and the same brightness probe reads 77–130 on the right side
+of every hero with the copy column still dark at 13–22.
+
+### The administration dashboard was three rows of identical white cards
+
+**Date:** 2026-11-19
+
+The console's landing page was an `h1`, one line of role text, and every figure
+rendered as the same white rectangle in an even grid. Nothing was wrong with it —
+the counts are real, each tile links to the rows behind it, and the permission
+scoping is careful — but it gave a visitor no idea where to start, and it looked
+nothing like the storefront it administers.
+
+It now opens on a dark `night-900` band with a serif title and a gold rule, the
+same register every public template uses, and a single summary line that reads
+either "N waiting on you" or "Nothing is waiting". Below it, the one queue that
+most needs a person today is promoted to a full-width card — chosen in the order
+work arrives (orders, then enquiries, then appointments, then stock) — beside the
+catalogue's health. The remaining figures keep the tile grid, three across rather
+than four, with the number set in the display face at 2.25rem.
+
+The attention treatment is a warm `gold-100` ground and a 2px gold rule at the top
+edge, not red. These are queues to work through, not errors, and a dashboard where
+every tile is red teaches staff to ignore red. The rule is also the non-colour half
+of the signal, so it survives a monochrome screen.
+
+Checked rather than assumed: one `h1` in the content region, no horizontal
+overflow at 320, 375, 768, 1024 or 1440, and every new colour pair measured —
+`on-night` on `night-900` 18.4:1, `on-night-muted` 9.2:1, `gold-300` 10.9:1,
+`gold-900` on `gold-100` 9.5:1. `npm run verify` is green at 1084 tests and the
+browser audit is clean across 33 pages × 4 viewports.
+
+### Catalogue listings now emit an Open Graph image
+
+**Date:** 2026-11-19
+
+`/shop`, every brand page, every collection page and every model page built their
+metadata through `buildMetadata`, which supports an `images` array — and none of
+them passed one. So a shared link previewed as a title card with no picture, on
+pages that have a hero photograph sitting at the top of the document.
+
+Each route now passes the same registered photograph its hero renders, with its
+alt text and intrinsic dimensions, so the preview is the image the visitor lands
+on. Only a path in `src/lib/images/site-photography.ts` is used: an unregistered
+path has no credit or dimensions, and an Open Graph image we cannot attribute is
+worse than none. `twitter:card` consequently upgrades from `summary` to
+`summary_large_image` on those routes.
+
+`/search` is deliberately left without one — it is `noindex`, and a page that
+should not be indexed does not need a social card.
+
+
+### The bracelet filter split one material into two, and each half hid the other
+
+**Date:** 2026-11-19
+
+The Phase 5 acceptance audit found the bracelet/strap facet listing
+`Stainless Steel (5)` and `Stainless steel (5)` as two separate filters on the
+same catalogue. Choosing either returned five of the ten stainless pieces, so
+the catalogue appeared to hold half of what it does.
+
+The cause was a gap in `catalogue_normalise_facet_value`, the write-time
+normaliser added in `0027_catalogue_facet_value_normalisation.sql`. It mapped
+`case_material`'s lowercase `'stainless steel'` to the canonical spelling but had
+no equivalent row for `bracelet_material`, because no product held that spelling
+when 0027 was written. The extended catalogue introduced one.
+
+`0038_bracelet_facet_normalisation.sql` adds the missing pair and backfills the
+rows that already hold it. The rule goes in the map rather than in the seed on
+purpose: correcting the seed would fix one database and leave the next writer
+free to reintroduce the duplicate, and 0027's own reasoning says the map is the
+single place that decides what a material is called.
+
+`28_facet_values.sql` already caught this, which is the point of how it is
+written. Its assertion is the invariant — "no column holds two spellings that
+fold to the same key" — rather than a list of expected strings, so a new
+duplicate fails it without anybody having to think to add a case. A hand-checked
+value list would have been updated alongside the bug.
+
+Verified live against the seeded database: the sidebar now shows one
+`Stainless Steel` row with 10, and `?bracelet=Stainless+Steel` returns
+`Showing 1–10 of 10`.
+
+### The site 404 page lost the chrome, and then rendered it twice
+
+**Date:** 2026-11-19
+
+An unmatched public route such as `/this-page-does-not-exist` returned a bare
+page with no header and no footer, because the root `not-found.tsx` sits outside
+the `(site)` group and replaces the whole layout. A visitor who mistyped a URL
+then lost every way back into the site.
+
+Adding `src/app/(site)/not-found.tsx` fixed that, and introduced two follow-on
+defects that only a browser could see. The new file rendered
+`SiteHeader`/`SiteFooter` itself, inside a layout that already renders both, so
+every unmatched route served two headers and two footers. It also used `<main>`
+inside the layout's `<main>`, a duplicate landmark a screen reader announces
+twice. Both are now gone: the boundary renders content only.
+
+The build also warned that `/_not-found` could not be prerendered, because the
+page reads cookies through `getChrome()`. The real fault was in
+`chrome-service.ts`: its `catch` treated Next's own "this route is dynamic"
+signal as a data error and replaced it with the fallback fixture, which hid the
+signal and would have let the route be cached as static — the same
+static-to-dynamic failure `AGENTS.md` documents for the product page.
+`unstable_rethrow(error)` now runs first, so Next handles anything it owns and
+only a genuine data error reaches the fallback.
+
+Verified with a browser across fourteen routes: one header, one footer, one
+`main`, one `h1` on each, and the correct `404` status on all three not-found
+paths.
+
+### The homepage photography was in the migrations but not in the database
+
+**Date:** 2026-11-19
+
+The hero rendered as a flat black band, the brand and collection tiles were blank,
+and the sell-and-trade promo had no picture. Nothing was wrong with the components:
+they were reading `site_photography.image_url`, and every row of it was `null`.
+
+Two independent causes, both now closed.
+
+The first was deployment. Migrations `0031_site_photography.sql` through
+`0034_newest_sort_order.sql` were authored after the preview database was last
+migrated, so they had never run against it. Applying them seeded all seven
+photography slots and gave the four brands and three collections their hero
+images. A preview database is only as current as the last migrate run against it;
+a migration existing in the tree proves nothing about the data.
+
+The second was the seed. `supabase/seed/03_homepage_demo.sql` re-asserted
+`image_url = excluded.image_url` on conflict, and the demo values are `NULL`. Every
+re-seed therefore wiped the photography the migration had just set, so the fix
+above would have un-done itself on the next seed. The conflict clause now preserves
+an existing `image_url`, which keeps the seed idempotent without letting it
+overwrite content that came from somewhere else.
+
+With photographs present the hero scrim was still too heavy — the image loaded but
+read as a dark rectangle. The scrim opacity in `hero-carousel.tsx` is reduced so
+the photograph shows through while the headline keeps its contrast.
+
+### The site had no motion, and the auth pages opened on a photograph they did not need
+
+**Date:** 2026-11-19
+
+The storefront had four `transition` declarations and no animation at all. Sections
+appeared fully formed as the page painted, which is what made a long editorial
+homepage feel like a static document rather than a storefront.
+
+`globals.css` now carries a small motion layer: an `--ease-out-soft` token, the
+keyframes the hero drift needs, and a `[data-reveal]` utility that starts an element
+translated and transparent and settles it when `is-revealed` is added. A single
+`RevealOnScroll` client component, mounted once in the root layout, observes every
+`[data-reveal]` element and reveals it on intersection. `prefers-reduced-motion`
+disables the whole layer, so the reduced-motion contract is unchanged rather than
+re-established per component.
+
+Reveals and staggered delays are applied to the homepage brand rail, trust row and
+product grid, and to the catalogue grid, where the delay is capped at six items so a
+long result set does not queue up off-screen.
+
+The four auth pages (sign in, register, forgot, reset) opened on the same
+photographic band as the marketing pages, which framed a form as editorial content
+and pushed the panel below the fold on a phone. They now use an `AuthShell` that is
+centred, quiet and photographic-free, and `AuthPanel` is restyled to match: a softer
+shadow, a larger serif title and a single gold hairline along the top edge.
+`auth-band.tsx` is deleted — nothing referenced it afterwards.
+
+The admin rail was also rebuilt: a gradient surface, a wordmark badge, an active
+gold rule that now shows at every width rather than only when collapsed, and a
+matching treatment in the shell header.
+
+### The page ground was pure white, and every form field was outlined in a hairline
+
+**Date:** 2026-11-19
+
+Two related defects in the light palette, both reported as "the theme is too
+bright".
+
+The page ground was `#ffffff`. A full-viewport pure white is the brightest thing
+a light theme can render, and at normal screen brightness it reads as glare
+rather than as space. Cards were also white, so there was no hierarchy: the whole
+viewport was one value. The ground is now `--color-surface-page: #faf9f5`, a warm
+off-white, while `surface-0` stays white for cards and panels — so a panel still
+sits visibly forward of the page. `--color-background` points at the new ground;
+nothing referenced it directly, so the change is contained to that one alias.
+The warm and cool section tints were deepened slightly at the same time, because
+against the new ground their old values were only 1.05:1 away and stopped reading
+as separate bands.
+
+Form fields were `border-line-300 bg-surface-0` — a 1.36:1 hairline around a white
+box, on a white page. That is below the 3:1 that WCAG 1.4.11 requires of a
+user-interface component boundary, and it is why the forms looked washed out. The
+two roles had been served by one token: a hairline is a divider, not a control
+outline. Fields now use `--color-field` (`#f1eee6`, a filled well) and
+`--color-field-border` (`#8f8672`, 3.1:1 against the fill), with
+`--color-field-disabled` for the disabled state. The change is applied at the two
+shared primitives — `ui/input.tsx` and `form-kit.tsx`'s `inputClass` — plus the
+hand-written selects and number inputs in the catalogue, cart, checkout and
+service forms.
+
+**One real contrast failure was exposed by the ground change.** `success-600`
+(`#1f7a4d`) is used as text on a 10% tint of itself, which is how every success
+banner in the app is built. Against a white page that banner composited to
+4.66:1 — passing, but with almost no margin. Over the tinted ground it composited
+to **4.41:1** and failed AA. The Chromium audit caught it at all four viewports;
+the token tests could not, because they compared a text colour with a solid
+background and never composited the tint. The token is now `#17603c`, and
+`tests/design-tokens.test.ts` composites the real banner tint for success, danger
+and warning rather than assuming a backdrop.
+
+`tests/form-field-tokens.test.tsx` renders the two field primitives and asserts
+the classes, and was mutation-tested against the old styling. An earlier attempt
+at the same guard as a source scan passed vacuously — it could not tell a class on
+an `input` from the same class on a panel — which is why the guard renders the
+component instead of reading it.
+
+Verified with `npm run verify` (1062 tests) and `npm run audit:a11y` against the
+preview: 33 pages × 4 viewports, no critical or serious issues, no horizontal
+overflow.
+
+### "Newest first" sorted oldest first
+
+**Date:** 2026-11-19
+
+`catalogue_search` orders results with one `row_number()` that switches on
+`p_sort`. The featured branch is a pair of `case` terms that apply whenever the
+sort is *not* an explicit ordering, and its second term orders by the editor's
+manual `sort_order`. `'newest'` was missing from that exclusion list, so "Newest
+first" fell into the featured branch and `sort_order asc` decided the order before
+`published_at desc` was ever consulted. `sort_order` is unique per product, so the
+date term could not break the tie: the sort returned the catalogue oldest-first.
+
+It looked correct because the seed sets `sort_order` in publication order, so on
+seed data the broken and correct orderings produce the same list. Only a fixture
+whose `sort_order` and `published_at` agree in the *other* direction exposes it —
+and that is what the new suite uses.
+
+`0034_newest_sort_order.sql` adds `'newest'` to both exclusion lists. `'featured'`
+still follows the manual order, which is the one ordering an editor controls.
+`supabase/tests/35_catalogue_sort_order.sql` pins newest, oldest and featured
+against a fixture where the two orderings disagree; it was mutation-tested by
+re-applying the old body, which fails it.
+
+### The mobile filter drawer was never audited
+
+**Date:** 2026-11-19
+
+The drawer trigger is `lg:hidden`, so the browser audit's ordinary pass at a phone
+width rendered the catalogue but never opened the drawer. The filter panel's
+accessibility was therefore unmeasured at every viewport, even though "mobile
+controls are usable" is an acceptance criterion for the catalogue.
+
+`npm run audit:a11y` now opens the real trigger at 320px and 390px, asserts the
+dialog appeared, and runs axe with it open. The assertion is the point: a trigger
+that stopped opening would otherwise turn this into a green pass over the
+catalogue page. Verified by renaming the trigger match — both widths fail with
+"the mobile filter drawer did not open".
+
+### A manager could walk into another manager's dashboard
+
+**Date:** 2026-11-19
+
+A staff member holds one role, and each admin page asserts the permission that
+role grants. What no page asserted was the *section*: the layout admitted any
+staff member, so a `CONTENT_MANAGER` who typed `/admin/inventory` reached the
+inventory page's own `requirePermission('inventory.read')`, which **throws** —
+and an uncaught throw in a Server Component is the generic error page with a 500.
+A perfectly ordinary refusal was being reported as a server fault.
+
+Worse, the sidebar offered every staff member a "Dashboard" link, and `/admin`
+itself had no section requirement at all. The overview reports across the whole
+business — orders, enquiries, stock, catalogue, the audit trail — so a manager
+could sit on a page aggregating sections they do not run.
+
+`src/lib/admin/sections.ts` is now the single answer, used by the layout (to
+refuse), the sidebar (to filter) and the overview (to choose where a role lands).
+A refused section renders a clean in-shell "not available" panel with the
+caller's own navigation, not a 500. A manager is redirected from `/admin` to
+their own section, preferring the section's _write_ permission so an inventory
+manager lands on Inventory rather than the order queue they may merely read. The
+Dashboard nav entry and the dashboard's own count queries are scoped by the same
+rule.
+
+The map expresses a requirement as a permission **or** a role, because
+`/admin/staff` is gated on `SUPER_ADMIN` — it is the screen that grants
+permissions, so a `customers.read` check there would be circular and would let an
+`ADMIN` promote themselves. That distinction is pinned by a test that admits a
+`SUPER_ADMIN` and refuses an `ADMIN` holding `customers.read`.
+
+A note for the next person: the layout's refusal is **presentation, not the
+security boundary**. Next.js renders a layout and its page segment concurrently,
+so omitting `children` does not stop the page function running. Each page's own
+`requirePermission`, called before it reads a row, is what denies access; the
+layout only decides what the caller sees. Verified against the real build as
+`CONTENT_MANAGER`, `INVENTORY_MANAGER`, `ADMIN`, `SUPER_ADMIN` and a plain
+customer.
+
+### Every card printed the brand twice
+
+**Date:** 2026-11-19
+
+`CatalogueCard` and the homepage `ProductCard` both render the brand as their
+own line above the product name, and every seeded title already begins with the
+brand. Each card therefore read "Patek Philippe / Patek Philippe Cubitus …", on
+`/shop`, the homepage, every brand, collection, model and search page. It read as
+a caption-plus-title design rather than a duplication, which is why a visual pass
+did not flag it.
+
+`titleWithoutBrand` strips the brand from the card's name, at a word boundary
+only — `Rolexford 100` keeps its name, and a title that is nothing but the brand
+stays as it is. Both mappers use it, so the two cards cannot diverge. The detail
+page keeps its full `h1`, where the brand line above it is an eyebrow rather than
+a repeated fact. `tests/product-title.test.ts` pins the separators, the
+case-insensitive match, the prefix-word trap and the brand-only title.
+
+### A search page's filters walked the visitor out of search
+
+**Date:** 2026-11-19
+
+`/search` is a listing with scope `all`: it calls the same RPC as `/shop` with no
+scope restriction, so the parser described it accurately and still produced the
+wrong links. Every address the page emitted was rebuilt from the *scope*, and
+scope `all` means `/shop`. So filtering a search navigated to `/shop?q=…`, a sort
+submission left the search page, page 2 of a search was page 2 of the shop, and
+the canonical pointed at `/shop` while `docs/SEO.md` says a search result page is
+`noindex` and canonicalises to itself.
+
+`CatalogueParams` now carries `basePath`, the listing's own path where the scope
+does not imply it. It is `null` on every scope-derived route — `/shop`, a brand,
+a collection, a model — so those keep deriving their address exactly as before,
+and `/search` passes `/search`. One value, read by `buildCatalogueHref`, the sort
+form, the pagination links and `listingSeo`, so the four cannot disagree again.
+
+Verified live against a production build on real rows: `/search?q=rolex` now
+emits facet links as `/search?q=rolex&condition=pre_owned`, paginates to
+`/search?q=rolex&page=2&pageSize=12`, and carries a self-referencing canonical
+with `noindex, follow`.
+
+### Facet values the database produces were rejected by the parser
+
+**Date:** 2026-11-19
+
+The facet-value allowlist was `[\p{L}\p{N} .&/+()-]`. Two values the catalogue
+itself emits did not match it: `gender` holds `Men's`, and `condition` is an enum
+whose values are `pre_owned` and `unworn`. A rejected value is not an error — it
+is *silently dropped* — so clicking "Men's" rendered the unfiltered catalogue.
+That is the worst shape a filter bug can take: twelve results of twelve looks
+like a working filter that matched everything, not like a filter that was ignored.
+
+The allowlist now admits apostrophes (straight and typographic) and underscores.
+It is still an allowlist, so the protection against control characters and quotes
+is unchanged; the change is that it now contains everything the database can
+legitimately produce. Verified live: `gender=Men's` returns 5 of 5, matching the
+database exactly, and `condition=pre_owned` returns 5.
+
+`tests/catalogue-params.test.ts` now parses every value the seed stores, so the
+allowlist cannot drift behind the schema again.
+
+### A "disabled" filter row was still a working link for a keyboard user
+
+**Date:** 2026-11-19
+
+A facet with a zero count was rendered as an `<a>` with `pointer-events-none`
+and `opacity-60`. The pointer could not click it, which is the intended
+behaviour, and the row stayed in the list so the panel did not jump as filters
+changed. But `pointer-events-none` is a mouse-only declaration: the anchor stayed
+in the tab order, announced itself as a link, and `Enter` navigated to an empty
+grid. A keyboard user could reach a destination a mouse user could not.
+
+`FilterRow` now renders a `<span aria-disabled="true">` when the count is zero.
+It is not focusable, it announces itself as unavailable, and it keeps its place.
+The current selection is exempt, because it is the way back out of a filter.
+`aria-pressed` is still absent — these are links, and the audit rejects that
+attribute on one.
+
+`tests/catalogue-params.test.ts` asserts the markup, because jsdom does not run
+the rule that would otherwise catch it: it checks that a zero-count row is not an
+anchor, carries `aria-disabled`, and that a selected row carries `aria-current`.
+
+### A model page's breadcrumb failed the browser audit, and only with real rows
+
+**Date:** 2026-11-19
+
+`/brands/[slug]/models/[model]` hand-rolled its trail: three `<a>`/`<span>`
+elements separated by bare `/` characters inside a `<nav>`. axe reported
+`link-in-text-block` — WCAG 1.4.1, "links must be distinguishable without
+relying on colour" — at all four viewports.
+
+It had never been seen because the seed publishes twelve products and none of
+them belonged to a model page, so the route was audited empty and axe had no
+text block to measure. Publishing 72 rows to exercise pagination made the page
+render cards, and the defect appeared. The shared `Breadcrumbs` component renders
+an `<ol>` with one crumb per `<li>`, so no link shares a text block with prose;
+the model page now uses it instead of its own markup.
+
+`tests/breadcrumbs.test.tsx` pins the structure — an ordered list, links on every
+crumb but the last, `aria-current="page"` on the final one — because jsdom cannot
+lay out a document and the axe rule that caught this never runs there.
+
+The audit is now clean across 33 pages × 4 viewports **with 72 published rows**,
+which is the configuration that exposed it. That is the point worth keeping: a
+green audit on a nearly empty database says very little about the pages it
+audited.
+
+### Roles had no way to be changed, and a product had no way to be removed
+
+**Date:** 2026-11-19
+
+The admin platform could read `user_roles` and could not write one. `user_roles`
+had an `ALL` policy for `SUPER_ADMIN` since 0007, so a table write would have
+passed RLS — and would still have been wrong, because a row policy cannot
+guarantee the four things a grant must: that `granted_by` is the actor, that the
+actor still holds `SUPER_ADMIN` at the moment of the grant, that the change is in
+the audit trail, and that the system cannot be locked out of its own role
+administration.
+
+Migration `0033` adds `admin_grant_role` and `admin_revoke_role`, both
+`SECURITY DEFINER` and both re-checking `has_role('SUPER_ADMIN')` inside the
+database rather than trusting the session's cached permission set. A self-grant is
+refused; a self-revocation is allowed, because a step-down is a legitimate thing
+to want and refusing it would mean the only way out of a role was to ask somebody
+else. The last unexpired `SUPER_ADMIN` cannot be removed, and an expired grant does
+not count as cover for that guard.
+
+The first version of `admin_revoke_role` deleted the row and then wrote the audit
+record. The test caught it immediately: `admin_write_audit_log` refuses a caller
+who is not staff, so a super administrator stepping down from their last staff
+role made themselves non-staff before the audit row was written, and the whole
+revocation failed. Writing the audit first fixes it and both statements still share
+the transaction.
+
+`admin_remove_product` is the other half. It is a soft delete — the row is
+archived, not deleted — because `order_request_items`, `cart_items`,
+`wishlist_items`, `inventory` and the service tables all reference a product, and a
+hard `DELETE` would cascade a customer's order history away with it. Archiving is
+what the storefront already treats as "not for sale", so removal reuses that one
+definition instead of inventing a second.
+
+The admin screen is `/admin/staff`, gated on `SUPER_ADMIN` in the page itself and
+reachable only from a super administrator's sidebar. Appointing a new person
+resolves their exact email to an account rather than browsing `profiles` by
+substring, so the field cannot enumerate customers. `supabase/tests/67_role_management.sql`
+proves the six properties, including that a revoked super administrator can no
+longer grant in the same session.
+
+Also in this pass: the storefront header's staff-only dashboard link was hidden
+below `lg`, so staff running the shop from a phone reached it only through their
+account page. It now shows a compact icon-only form at every width and expands to
+the full label at `md`.
+
+### Interior pages opened on a bare black band; the site had no photography of its own
+
+**Date:** 2026-11-19
+
+Every interior template opened with the same black rectangle. The band itself is
+right — it is the reference's rhythm, and `PageHero` implements it — but a site
+whose every page opens identically reads as unfinished, and the seed's product
+photography is a catalogue shot on white, which is the wrong register for an
+editorial band.
+
+Ten photographs were curated from Wikimedia Commons, chosen for a dark, moody
+register rather than the white-background catalogue look, and recompressed to
+webp at the size they are displayed. `src/lib/images/site-photography.ts` is now
+the single registry of what was used: dimensions, author, licence and licence
+URL for each, plus a resolver that maps a database-stored root-relative path to
+its registry entry. Anything not in the registry — an administrator's upload, an
+external URL — falls through untouched, so the registry constrains the seed
+without constraining the product.
+
+The images are wired through the database, not hardcoded into components:
+migration `0031_site_photography.sql` populates `homepage_sections.image_url`
+and `brands`/`collections`/`models.hero_image_url`, and the repositories return
+them. A model with no picture of its own borrows its brand's, so the more
+specific page is the one that can differ.
+
+Two licence traps cost time and are worth recording. The seed-photography test
+enforces an allowlist of licence strings, and it rejected `CC BY-SA 3.0 fr` and
+`CC0`; one image was dropped rather than the test widened. And a 512 KB original
+became 138 KB once resized to its display size, which is the whole argument for
+compressing at the target dimensions rather than shipping the download.
+
+**The defect this work introduced, and its fix.** `PageHero` hides the
+photograph below `lg` — on a narrow viewport the band is short and the image
+would sit behind the text. But the image was marked `priority`, and `priority`
+emits `<link rel="preload">`, which a browser fetches regardless of CSS. At
+320px every interior page downloaded a hero photograph it never painted:
+measured at 14.7 KB per pageview, and competing with the real LCP element, which
+is the `h1` text. Switching to `loading="lazy"` with no preload fixes both ends
+at once — a `display: none` lazy image is never fetched, while on desktop the
+image is inside the initial viewport so the loader fetches it immediately.
+`tests/page-hero.test.tsx` now asserts the image is lazy, is not
+`fetchpriority="high"`, and carries an empty `alt` in an `aria-hidden` wrapper.
+Re-measured after the fix: 0 bytes at 320px, 55 KB at 1440px.
+
+`MediaFrame` was deliberately not reused for these images. It letterboxes a
+product shot on a white panel with `object-contain`, which is right for a card
+and wrong for an editorial hero — the hero fills its frame with `object-cover`
+and fades its left edge into the band so the picture and the copy read as one
+surface.
+
+### There was no way back to the dashboard
+
+**Date:** 2026-11-19
+
+The admin area had a "View store" link, but it was a small muted label in a busy
+top bar, and the account sidebar pointed only further inward. Staff moving
+between the storefront and `/admin` had no labelled route in either direction.
+
+Three links were added, each at the place the person is already looking:
+`HeaderActions` draws a "Dashboard" pill for staff (hidden below `lg`, where the
+row has no space for it), `AccountNav` draws "Back to the shop" and "Admin
+dashboard" above its groups, and `AdminNav` leads with "View the storefront".
+Whether the visitor is staff comes from `readHeaderCounts`, which now calls the
+same `isStaff()` helper the `/admin` guard uses — so the link and the guard
+cannot disagree. The link is an affordance and never a grant: `/admin` re-checks
+the role on the server when the link is followed.
+
+### Listing cards showed licensed photographs with no attribution
+
+**Date:** 2026-11-19
+
+Migration 0028 gave `product_images` a `credit`, a `licence` and a
+`licence_url`, and the product detail gallery rendered all three. Every listing
+did not, because the RPCs behind them returned only the image path and alt
+text — so `/shop`, each collection page, each brand and model page, `/search`,
+`/wishlist` and the product page's own "Related timepieces" rail showed the
+seed's Wikimedia Commons photography with no photographer named.
+
+That is a licence defect rather than a cosmetic one. The seed photographs are
+CC BY 4.0 and CC BY-SA 4.0, and both require the author to be credited wherever
+the work is displayed; CC BY-SA additionally requires the licence to be named. A
+card is a display, and the busiest surface on the site was the one that never
+credited anything.
+
+The three functions that feed a `CatalogueCard` — `catalogue_search`,
+`catalogue_by_ids` and `catalogue_similar` — now return the credit columns of
+the row their image lateral already selects, so the attribution is always the
+photograph the card actually shows rather than whichever image happened to join.
+A credit was added rather than a second query for the visible page: two places
+deciding which image is primary is exactly how a card ends up crediting one
+photograph and displaying another.
+
+The card renders `Photo: <author> (<licence>)` as plain text on a solid surface,
+not a link and not an overlay. A link would add one outbound tab stop per card,
+and the licences require attribution, not a clickable one — the product page
+still carries the same credit linked to its source. A solid background is what
+lets the caption promise 4.5:1 contrast whatever the photograph behind it shows;
+the token rule in AGENTS.md already forbids `ink-400` for text.
+
+`supabase/tests/65_catalogue_image_attribution.sql` proves the RPCs return the
+primary image's credit and that a piece with no photograph reports none.
+`tests/catalogue-card-attribution.test.ts` pins the mapper's rule that a credit
+needs both an author and a licence — half an attribution does not satisfy
+CC BY-SA. Both were mutation-tested: dropping the columns from the RPCs, and
+accepting a licence with no author, each make the corresponding test fail.
+
+### An out-of-range page number was an indexable, self-canonical 200
+
+**Date:** 2026-11-19
+
+`/shop?page=999` answered `200` with an empty grid, `robots: index, follow` and a
+canonical pointing at **itself**. The empty state was honest — it said the
+results run to one page and offered page one — so nothing looked broken. But the
+parser accepts any page up to 10 000, and each of those URLs declared itself a
+distinct indexable page of the series. An invented or mistyped page number
+competed with the real listing instead of consolidating onto it, and the site had
+an unbounded family of empty 200s for a crawler to discover.
+
+The root cause was that the indexability decision and the canonical were made
+without knowing whether the page exists. `isIndexableListing()` reads only the
+query string, so it correctly said "pagination is a genuine series" — it simply
+could not see that this particular page was past the end.
+
+Both answers now come from one function, `listingSeo(params, total, scopeIsEligible)`,
+which adds the missing fact. A soft-404 page is `noindex, follow` and
+canonicalises onto page one; a real deeper page stays indexable and
+self-canonical, which is what the existing pagination rule intends. All four
+listing routes call it, so `/shop`, a brand, a collection and a model cannot
+drift apart on this — they previously each assembled the same two rules by hand.
+
+Verified live against a production build, on a database temporarily grown to two
+pages: `/shop?pageSize=12&page=2` stayed `index, follow` with a self-canonical,
+while `page=3` became `noindex, follow` canonicalised to `/shop`. The same
+boundary holds on `/brands/rolex`, `/collections/featured` and
+`/brands/rolex/models/milgauss`. `tests/catalogue-params.test.ts` pins it, and
+was mutation-tested by making `isPageOutOfRange` return `false` — the new test
+failed, so it is not vacuous. `docs/SEO.md` now carries the missing row in the
+crawl-trap table.
+
+### The sort test asserted a sort that does not exist
+
+**Date:** 2026-11-19
+
+`e2e/browse.spec.ts` claimed to prove that "filters and sort persist in the URL
+and survive a reload". It navigated to `/shop?sort=price-asc` and asserted the
+URL still contained that string. The enum value is `price_asc`; `price-asc` is
+not a value the parser accepts, so it fell back to `featured` and the page
+rendered the default ordering. The URL round-trips whatever it was given, so the
+assertion held — and the test proved nothing about sorting at all.
+
+The rewrite asserts the thing that was actually in doubt: it reads `#listing-sort`
+back, compares the rendered titles to a sorted copy of themselves, checks the
+descending sort is the exact reverse, confirms the state survives a reload, and
+pins the fallback for an invalid value. It was then run against a deliberately
+broken `parseSort` to confirm it fails — a test for a defect that has never been
+seen to fail is only a guess.
+
+Two unit tests were added for the same gap at a cheaper level: every value in
+`SORT_OPTIONS` must survive parsing, so a rename applied to the option list alone
+can no longer pass both suites. The lesson is in the spelling. A hyphen where an
+underscore belongs is enough to turn a real test into a vacuous one, because the
+parser's fallback is silent by design — an unknown sort must render the default
+listing rather than a 400.
+
+### Facet counting recorded as a measured cost, not a defect
+
+**Date:** 2026-11-19
+
+`catalogue_facets` calls `catalogue_filtered` once per dimension so each facet
+list can exclude its own filter (G27). With all 4110 rows published, one page
+fetch measured 93 ms and the facet document 1314 ms. That is the correct
+behaviour priced honestly rather than a bug, so it is recorded as G86 with the
+numbers and the single-pass alternative instead of being rewritten blind in an
+acceptance pass. With the seed's 12 published rows it is invisible, which is why
+it had not been noticed.
+
+### Payment guard now covers the E2E suite
+
+`e2e/commerce.spec.ts` counts the card selectors on `/checkout` and expects zero.
+The guard flagged the file because it names the fields to assert their absence;
+it is now in `ALLOWED_FILES` with that reasoning, the same treatment the email
+tests already had. Verified that the guard still fails on a card field planted in
+ordinary source.
+
+
+### Accessibility: heading order skipped a level on mobile catalogue pages
+
+**Date:** 2026-11-19
+
+The browser audit failed `heading-order` on `/shop`, `/collections/[slug]`,
+`/brands/[slug]/models/[model]` and the homepage, but only at the mobile
+viewport. The cause was the same in both places: a level was skipped because the
+heading that carried it was hidden.
+
+On the catalogue, the cards are `h3` and the only `h2` above them was the filter
+sidebar's "Filter" heading. That sidebar is `hidden lg:block`, so on a wide
+screen the order was `h1 → h2 → h3` and the audit passed, while on a narrow
+screen the sidebar is `display:none` and absent from the accessibility tree —
+leaving the cards to follow the `h1` directly. On the homepage, `TrustRow`'s
+items were `h3` sitting immediately beneath the hero `h1` with no section heading
+between them.
+
+`CatalogueGrid` now renders its own `sr-only` `h2`, labelled from the scope
+("Rolex watches" on a brand page) and opt-out-able with `headingId={null}` where
+a caller already renders a heading above the grid, as the product page's related
+pieces do. `TrustRow`'s items are promoted to `h2`. The browser audit now reports
+`accessibility: 100` on all 24 viewport/route pairs with no contrast or
+target-size regression.
+
+`tests/catalogue-heading-order.test.tsx` asserts the heading level and its
+document position directly. axe cannot check `heading-order` under jsdom —
+the rule depends on which headings are actually in the accessibility tree — so
+this test covers the invariant in a place that runs on every commit.
+
 ### Inventory: a product created through the admin could never be stocked
 
 **Date:** 2026-11-19
@@ -281,6 +993,28 @@ an error — for what is, from the customer's side, a no-op. A collision now mea
 the same image is already in the caller's own folder, so the route confirms the
 object exists and points the profile at it. The name is the hash precisely so
 this collision is provably harmless.
+
+### A control-flow error treated as a data failure, in five places rather than one
+
+**Date:** 2026-11-19
+
+Next signals "this route must be dynamic" by throwing, and implements
+`notFound()` and `redirect()` the same way. A `catch` that degrades to a fallback
+page cannot tell those from a database outage, so it logs a data failure and
+renders the fallback — which is how a dynamic route ends up classified as static
+and fails at request time in a production build (the `Page changed from static to
+dynamic` 500 documented for the product page).
+
+`getChrome()` already called `unstable_rethrow` first. During the Phase 5 audit
+the same swallow was still present one layer out, in `catalogue-service`,
+`homepage-service`, and the `brands` and `collections` index pages, where it
+surfaced only as build warnings — `catalogue.load_failed`, `homepage.load_failed`,
+`brands.index_load_failed` — naming a failure that had not happened. All five now
+rethrow Next's errors before handling their own, and a build of the same tree
+prints no `Dynamic server usage` line and logs no spurious load failure. Every
+route remains correctly dynamic (`ƒ`), so this was a latent trap rather than a
+live defect; the reason to fix it now is that the misleading log is exactly what
+would send someone looking at the database during an outage that is not there.
 
 ---
 

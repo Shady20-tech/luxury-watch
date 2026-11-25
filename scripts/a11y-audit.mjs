@@ -29,6 +29,11 @@ const BASE = process.argv[2] ?? 'http://localhost:3000';
 const PAGES = [
   '/',
   '/collections/all',
+  // The collection directory. It is its own template (a grid of editorial
+  // tiles, not a listing) with its own hero, and it was absent from this list
+  // until the heroes gained photography — which is exactly the change that can
+  // fail contrast on a card's overlay text.
+  '/collections',
   '/brands',
   '/brands/rolex',
   // The catalogue surfaces. These are the densest pages on the site — a filter
@@ -395,6 +400,80 @@ async function auditGuards(browser) {
   return problems;
 }
 
+/**
+ * Audit the mobile filter drawer while it is open.
+ *
+ * The drawer trigger is `lg:hidden`, so the ordinary pass at a phone width never
+ * opens it and axe never sees its contents — the filter panel, its `fieldset`
+ * legends and its links are measured only in the desktop sidebar's markup, which
+ * is a different element. "Mobile controls are usable" is not something a pass
+ * that never opened the control can support.
+ *
+ * The pass refuses to be vacuous: it asserts the dialog actually appeared, the
+ * same way the age-gate pass does, because a trigger that stopped opening would
+ * otherwise turn this into a green pass over the catalogue page.
+ */
+async function auditFilterDrawer(browser, path, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    colorScheme: 'light',
+  });
+  await context.addInitScript(() => {
+    try {
+      window.localStorage.setItem('lw:age-verified', 'yes');
+    } catch {
+      // Storage unavailable; the gate will cover the page and the assertion
+      // below will report that the drawer never opened, which is honest.
+    }
+  });
+
+  const page = await context.newPage();
+  const problems = [];
+  try {
+    await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle', timeout: 30_000 });
+
+    // The trigger's visible text is "Filter"; the accessible name also carries
+    // the active-filter count, so match on the start of the name.
+    const trigger = page.getByRole('button', { name: /^Filter/ });
+    await trigger.click({ timeout: 5_000 }).catch(() => {});
+
+    const dialog = page.locator('[role="dialog"]');
+    await dialog.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+    if ((await dialog.count()) === 0) {
+      problems.push({
+        kind: 'missing-drawer',
+        path,
+        viewport: viewport.name,
+        detail: 'the mobile filter drawer did not open, so this pass proved nothing',
+      });
+      return problems;
+    }
+
+    await page.addScriptTag({ path: axePath });
+    const results = await page.evaluate(async () => {
+      return await window.axe.run(document, { resultTypes: ['violations'] });
+    });
+
+    for (const violation of results.violations) {
+      if (SEVERITIES.includes(violation.impact)) {
+        problems.push({
+          kind: 'axe',
+          path: `${path} (filter drawer)`,
+          viewport: viewport.name,
+          id: violation.id,
+          impact: violation.impact,
+          help: violation.help,
+          nodes: violation.nodes.slice(0, 3).map((node) => node.target.join(' ')),
+        });
+      }
+    }
+  } finally {
+    await context.close();
+  }
+
+  return problems;
+}
+
 try {
   for (const viewport of VIEWPORTS) {
     for (const path of PAGES) {
@@ -417,6 +496,16 @@ try {
     console.log(`  [${status}] ${gateViewport.name.padEnd(11)} ${path} (age gate open)`);
     allProblems.push(...problems);
   }
+
+  // The mobile filter drawer hides the page behind it while open, so it cannot
+  // be measured by the pass above. It gets its own pass on the two phone widths,
+  // where the trigger is the only way to reach the filters at all.
+  for (const viewport of VIEWPORTS.filter((v) => v.name.startsWith('mobile'))) {
+    const problems = await auditFilterDrawer(browser, '/shop', viewport);
+    const status = problems.length === 0 ? 'ok  ' : 'FAIL';
+    console.log(`  [${status}] ${viewport.name.padEnd(11)} /shop (filter drawer open)`);
+    allProblems.push(...problems);
+  }
 } finally {
   await browser.close();
 }
@@ -424,7 +513,7 @@ try {
 console.log('');
 if (allProblems.length === 0) {
   console.log(
-    `No critical or serious issues, and no horizontal overflow, across ${PAGES.length} pages x ${VIEWPORTS.length} viewports.`,
+    `No critical or serious issues, and no horizontal overflow, across ${PAGES.length} pages x ${VIEWPORTS.length} viewports, plus the mobile filter drawer.`,
   );
   process.exit(0);
 }
@@ -436,7 +525,7 @@ for (const problem of allProblems) {
       `  ${problem.viewport} ${problem.path}: [${problem.impact}] ${problem.id} — ${problem.help}`,
     );
     for (const node of problem.nodes) console.error(`      ${node}`);
-  } else if (problem.kind === 'missing-gate') {
+  } else if (problem.kind === 'missing-gate' || problem.kind === 'missing-drawer') {
     console.error(`  ${problem.viewport} ${problem.path}: ${problem.detail}`);
   } else if (problem.kind === 'guard') {
     console.error(`  guard ${problem.path}: ${problem.detail}`);

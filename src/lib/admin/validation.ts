@@ -78,6 +78,134 @@ const optionalInt = (min: number, max: number, label: string) =>
   );
 
 /**
+ * A price typed the way a person writes money.
+ *
+ * The field used to take minor units — "Price (minor units, e.g. cents)" — and
+ * an administrator entering `12500` for a twelve-and-a-half-thousand dollar
+ * watch published it at $125. The label was accurate and the mistake was still
+ * the obvious one to make, which makes it a design defect rather than an
+ * operator error.
+ *
+ * So the input takes a normal amount and this parses it. Accepted:
+ * `12500`, `12500.5`, `12,500.50`, `$12,500.50`, `12500,50`. Rejected rather
+ * than silently coerced: anything with more than two decimal places (rounding
+ * someone's price without telling them is worse than refusing it), a negative
+ * amount, and scientific notation.
+ *
+ * Thousands separators are ambiguous between `.` and `,`, so the rule is: the
+ * *last* separator is the decimal point only when exactly two digits follow it,
+ * otherwise both are grouping. That resolves `1.250,00` and `1,250.00` to the
+ * same number and leaves `1.250` as one thousand two hundred fifty.
+ */
+function parseMoneyToCents(input: string): number | undefined {
+  const trimmed = input.trim();
+  if (trimmed === '') return undefined;
+
+  // Allow a currency prefix — `$`, `£`, `€` or a three-letter code — and nothing
+  // else. Rejecting the rest of the string here is what stops `1e9` being read
+  // as `19`: a numeric coercion would accept it, a price is not that.
+  const stripped = trimmed.replace(/^[$£€¥]\s*/, '').replace(/^[A-Za-z]{2,3}\s*/, '');
+  if (!/^[\d.,]+$/.test(stripped)) {
+    throw new Error('Enter an amount, for example 12500 or 12500.50');
+  }
+
+  const hasDot = stripped.includes('.');
+  const hasComma = stripped.includes(',');
+  let whole: string;
+  let fraction = '';
+
+  const checkGroups = (groups: string[]) => {
+    const head = groups[0] ?? '';
+    if (head === '' || head.length > 3 || groups.slice(1).some((g) => g.length !== 3)) {
+      throw new Error('Enter an amount, for example 12500 or 12500.50');
+    }
+    return groups.join('');
+  };
+
+  if (hasDot && hasComma) {
+    // Both separators are present, so the rightmost one is the decimal point and
+    // the other is grouping. This resolves `1,250.50` and `1.250,50` alike.
+    const decimal = stripped.lastIndexOf('.') > stripped.lastIndexOf(',') ? '.' : ',';
+    const grouping = decimal === '.' ? ',' : '.';
+    const parts = stripped.split(decimal);
+    const tail = parts[1] ?? '';
+    if (parts.length !== 2 || tail.length === 0 || tail.length > 2) {
+      throw new Error('Enter at most two decimal places');
+    }
+    whole = checkGroups((parts[0] ?? '').split(grouping));
+    fraction = tail;
+  } else if (hasDot || hasComma) {
+    const separator = hasDot ? '.' : ',';
+    const parts = stripped.split(separator);
+
+    if (parts.length === 2) {
+      const [left, right] = parts as [string, string];
+      if (right === '') throw new Error('Enter an amount, for example 12500 or 12500.50');
+
+      if (right.length <= 2) {
+        whole = left;
+        fraction = right;
+      } else if (right.length === 3 && left.length <= 3) {
+        // `1.250` is one thousand two hundred fifty, not 1.25: a three-digit
+        // tail with a short head is a thousands group, the European convention.
+        whole = left + right;
+      } else {
+        throw new Error('Enter at most two decimal places');
+      }
+      if (whole === '') throw new Error('Enter an amount, for example 12500 or 12500.50');
+    } else {
+      // Several separators and no other kind: they are all grouping.
+      whole = checkGroups(parts);
+    }
+  } else {
+    whole = stripped;
+  }
+
+  const digits = whole.replace(/[.,]/g, '');
+  if (!/^\d+$/.test(digits)) {
+    throw new Error('Enter an amount, for example 12500 or 12500.50');
+  }
+
+  const cents = Number(digits) * 100 + Number(fraction.padEnd(2, '0') || 0);
+  if (!Number.isSafeInteger(cents)) throw new Error('That amount is too large');
+  return cents;
+}
+
+const moneyField = (label: string) =>
+  z
+    .preprocess((value) => {
+      if (value === undefined || value === null) return undefined;
+      const trimmed = String(value).trim();
+      return trimmed === '' ? undefined : trimmed;
+    }, z.string().optional())
+    .transform((value, ctx): number | undefined => {
+      if (value === undefined) return undefined;
+      let cents: number | undefined;
+      try {
+        cents = parseMoneyToCents(value);
+      } catch (error) {
+        // `ctx.addIssue` keeps the parser's own sentence — "Enter at most two
+        // decimal places" — attached to this field. Returning the message as a
+        // value instead would replace it with the schema's generic one, and
+        // throwing would surface as a 500 rather than a field error.
+        ctx.addIssue({
+          code: 'custom',
+          message: error instanceof Error ? error.message : `Enter a valid ${label.toLowerCase()}`,
+        });
+        return z.NEVER;
+      }
+      if (cents === undefined) return undefined;
+      if (cents < 0) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `The ${label.toLowerCase()} cannot be negative`,
+        });
+        return z.NEVER;
+      }
+      return cents;
+    });
+
+/**
  * A price in minor units.
  *
  * `priceOnRequest` wins over a price: if a product is sold by enquiry it must not
@@ -85,7 +213,7 @@ const optionalInt = (min: number, max: number, label: string) =>
  * reached first and the two would disagree. That rule is enforced here rather than
  * in the template.
  */
-const priceCents = optionalInt(0, 1_000_000_000, 'Price').refine(
+const priceCents = moneyField('Price').refine(
   (value) => value === undefined || value > 0,
   'A price must be greater than zero',
 );
@@ -131,8 +259,14 @@ export const productFormSchema = z
       .or(z.literal('').transform(() => undefined)),
     status: z.enum(PRODUCT_STATUSES),
     priceCents,
-    compareAtCents: optionalInt(0, 1_000_000_000, 'Compare-at price'),
-    costCents: optionalInt(0, 1_000_000_000, 'Cost'),
+    compareAtCents: moneyField('Compare-at price'),
+    costCents: moneyField('Cost'),
+    currency: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{3}$/, 'Use a three-letter currency code, for example USD')
+      .optional(),
     priceOnRequest: checkbox,
     isFeatured: checkbox,
     sortOrder: optionalInt(-100_000, 100_000, 'Sort order'),

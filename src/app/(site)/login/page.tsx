@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { AuthShell } from '@/components/auth/auth-shell';
 import { LoginForm } from '@/components/auth/login-form';
 import { FormAlert } from '@/components/auth/auth-form';
 import { buildMetadata } from '@/lib/seo/metadata';
@@ -58,14 +59,16 @@ export default async function LoginPage({
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
-      {reasonState ? (
-        <div className="mb-6">
-          <FormAlert state={reasonState} />
-        </div>
-      ) : null}
+    <AuthShell>
+      <div className="w-full">
+        {reasonState ? (
+          <div className="mb-6">
+            <FormAlert state={reasonState} />
+          </div>
+        ) : null}
 
-      <LoginForm next={safeRedirectPath(typeof params.next === 'string' ? params.next : null)} />
-    </div>
+        <LoginForm next={safeRedirectPath(typeof params.next === 'string' ? params.next : null)} />
+      </div>
+    </AuthShell>
   );
 }

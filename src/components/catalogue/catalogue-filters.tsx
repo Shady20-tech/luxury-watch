@@ -189,7 +189,7 @@ function RangeFilter({
               inputMode="numeric"
               defaultValue={toDisplay(currentMin)}
               placeholder={range.min === null ? '—' : String(range.min)}
-              className="border-line-300 bg-surface-0 h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
+              className="border-field-border bg-field h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
             />
           </div>
           <div className="flex-1">
@@ -203,7 +203,7 @@ function RangeFilter({
               inputMode="numeric"
               defaultValue={toDisplay(currentMax)}
               placeholder={range.max === null ? '—' : String(range.max)}
-              className="border-line-300 bg-surface-0 h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
+              className="border-field-border bg-field h-10 w-full rounded-sm border px-2 text-sm tabular-nums"
             />
           </div>
           <button
@@ -249,22 +249,8 @@ function FilterRow({
   /** `circle` marks a single-choice group; `square` a multi-choice one. */
   shape?: 'square' | 'circle';
 }) {
-  return (
-    <Link
-      href={href}
-      aria-current={selected ? 'true' : undefined}
-      scroll={false}
-      className={cn(
-        'group flex items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm',
-        'focus-visible:outline-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1',
-        selected
-          ? 'bg-surface-100 text-foreground font-medium'
-          : 'text-foreground-muted hover:bg-surface-50 hover:text-foreground',
-        // A value that would yield nothing stays visible but is not clickable,
-        // so the list does not jump around as filters change.
-        disabled && 'text-ink-500 pointer-events-none opacity-60',
-      )}
-    >
+  const content = (
+    <>
       <span className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden="true"
@@ -292,6 +278,39 @@ function FilterRow({
         <span className="truncate">{label}</span>
       </span>
       <span className="text-ink-500 shrink-0 text-xs tabular-nums">{count}</span>
+    </>
+  );
+
+  const base = 'group flex items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm';
+
+  // A value that would yield nothing is not a link at all. `pointer-events-none`
+  // on an anchor only stops the mouse: the row stays in the tab order and
+  // `Enter` still navigates, so a keyboard user was sent to an empty grid the
+  // pointer user could not reach. Rendering a `span` is the honest state — it is
+  // not focusable, it announces itself as unavailable, and it keeps its place in
+  // the list so the panel does not jump as filters change.
+  if (disabled) {
+    return (
+      <span aria-disabled="true" className={cn(base, 'text-ink-500 opacity-60')}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      aria-current={selected ? 'true' : undefined}
+      scroll={false}
+      className={cn(
+        base,
+        'focus-visible:outline-gold-700 focus-visible:outline-2 focus-visible:outline-offset-1',
+        selected
+          ? 'bg-surface-100 text-foreground font-medium'
+          : 'text-foreground-muted hover:bg-surface-50 hover:text-foreground',
+      )}
+    >
+      {content}
     </Link>
   );
 }
@@ -338,6 +357,11 @@ function ChoiceFilter<T extends string>({
                 label={option.label}
                 count={option.count}
                 selected={isSelected}
+                // Same rule the multi-select groups apply: a value that would
+                // yield nothing stays visible so the list does not jump, but it
+                // is not a live link to an empty grid. The current selection is
+                // always clickable, because it is the way back out.
+                disabled={option.count === 0 && !isSelected}
               />
             </li>
           );
@@ -388,7 +412,7 @@ function BoxAndPapersFilter({ params, facets }: { params: CatalogueParams; facet
       params={params}
       current={params.boxAndPapers === null ? 'any' : params.boxAndPapers ? 'true' : 'false'}
       options={[
-        { value: 'any', label: 'Either', count: facets.total },
+        { value: 'any', label: 'Any', count: facets.total },
         { value: 'true', label: 'Box & papers', count: byValue.get('true') ?? 0 },
         { value: 'false', label: 'No box & papers', count: byValue.get('false') ?? 0 },
       ]}
@@ -528,19 +552,26 @@ export function CatalogueFilters({
 
       <PriceModeFilter params={params} facets={facets} />
 
-      <RangeFilter
-        id="filter-price"
-        title="Price"
-        params={params}
-        fieldMin="priceMin"
-        fieldMax="priceMax"
-        range={{
-          min: facets.priceRange.min === null ? null : facets.priceRange.min / 100,
-          max: facets.priceRange.max === null ? null : facets.priceRange.max / 100,
-        }}
-        exclude={['priceMin', 'priceMax', 'page']}
-        hint="Prices are shown in the catalogue's own currency. Leave a box empty to ignore that bound."
-      />
+      {/* The numeric price bound is only meaningful when something is priced.
+          The seed — and, until an administrator sets a figure, the real
+          catalogue — is entirely price-on-request, so the control could only
+          ever empty the grid. `PriceModeFilter` already hides itself on the same
+          condition; this is the other half of that rule. */}
+      {facets.priceRange.pricedCount > 0 ? (
+        <RangeFilter
+          id="filter-price"
+          title="Price"
+          params={params}
+          fieldMin="priceMin"
+          fieldMax="priceMax"
+          range={{
+            min: facets.priceRange.min === null ? null : facets.priceRange.min / 100,
+            max: facets.priceRange.max === null ? null : facets.priceRange.max / 100,
+          }}
+          exclude={['priceMin', 'priceMax', 'page']}
+          hint="Prices are shown in the catalogue's own currency. Leave a box empty to ignore that bound."
+        />
+      ) : null}
 
       <RangeFilter
         id="filter-year"

@@ -142,6 +142,8 @@ export async function fetchActiveBrandSummary(slug: string): Promise<{
   name: string;
   slug: string;
   description: string | null;
+  /** Editorial hero image for this brand's page, or `null` when none is set. */
+  heroImageUrl: string | null;
   productCount: number;
   models: { name: string; slug: string; productCount: number }[];
 } | null> {
@@ -150,7 +152,11 @@ export async function fetchActiveBrandSummary(slug: string): Promise<{
   // RLS already restricts this to active rows, so an inactive slug returns no
   // row and the caller 404s.
   const [brandResult, countsResult, modelsResult, modelCountsResult] = await Promise.all([
-    supabase.from('brands').select('id, name, slug, description').eq('slug', slug).maybeSingle(),
+    supabase
+      .from('brands')
+      .select('id, name, slug, description, hero_image_url')
+      .eq('slug', slug)
+      .maybeSingle(),
     supabase.rpc('published_product_counts'),
     supabase.from('models').select('id, brand_id, name, slug').order('sort_order').order('name'),
     supabase.rpc('published_model_counts'),
@@ -180,7 +186,8 @@ export async function fetchActiveBrandSummary(slug: string): Promise<{
     }))
     .filter((model) => model.productCount > 0);
 
-  return { ...brand, productCount: row ? Number(row.product_count) : 0, models };
+  const { hero_image_url: heroImageUrl, ...identity } = brand;
+  return { ...identity, heroImageUrl, productCount: row ? Number(row.product_count) : 0, models };
 }
 
 /** An active collection's identity, or `null` when the slug is not active. */
@@ -188,12 +195,18 @@ export async function fetchActiveCollectionSummary(slug: string): Promise<{
   id: string;
   title: string;
   description: string | null;
+  /** Editorial hero image for this collection's page, or `null` when none is set. */
+  heroImageUrl: string | null;
   productCount: number;
 } | null> {
   const supabase = await createSupabaseServerClient();
 
   const [collectionResult, countsResult] = await Promise.all([
-    supabase.from('collections').select('id, title, description').eq('slug', slug).maybeSingle(),
+    supabase
+      .from('collections')
+      .select('id, title, description, hero_image_url')
+      .eq('slug', slug)
+      .maybeSingle(),
     supabase.rpc('published_collection_counts'),
   ]);
 
@@ -204,7 +217,8 @@ export async function fetchActiveCollectionSummary(slug: string): Promise<{
   if (!collection) return null;
 
   const row = (countsResult.data ?? []).find((entry) => entry.collection_id === collection.id);
-  return { ...collection, productCount: row ? Number(row.product_count) : 0 };
+  const { hero_image_url: heroImageUrl, ...identity } = collection;
+  return { ...identity, heroImageUrl, productCount: row ? Number(row.product_count) : 0 };
 }
 
 /**
@@ -229,13 +243,15 @@ export async function fetchActiveModelSummary(
   description: string | null;
   brandName: string;
   brandSlug: string;
+  /** Editorial hero image for this model's page, or `null` when none is set. */
+  heroImageUrl: string | null;
   productCount: number;
 } | null> {
   const supabase = await createSupabaseServerClient();
 
   const brandResult = await supabase
     .from('brands')
-    .select('id, name, slug')
+    .select('id, name, slug, hero_image_url')
     .eq('slug', brandSlug)
     .maybeSingle();
 
@@ -246,7 +262,7 @@ export async function fetchActiveModelSummary(
 
   const modelResult = await supabase
     .from('models')
-    .select('id, name, description')
+    .select('id, name, description, hero_image_url')
     .eq('brand_id', brand.id)
     .eq('slug', modelSlug)
     .maybeSingle();
@@ -267,6 +283,10 @@ export async function fetchActiveModelSummary(
 
   return {
     ...model,
+    // A model has no picture of its own in the seed, so it borrows the brand's.
+    // The model's own column wins when an administrator sets one, which keeps
+    // the hierarchy honest: the more specific page is the one that can differ.
+    heroImageUrl: model.hero_image_url ?? brand.hero_image_url,
     brandName: brand.name,
     brandSlug: brand.slug,
     productCount: row ? Number(row.product_count) : 0,

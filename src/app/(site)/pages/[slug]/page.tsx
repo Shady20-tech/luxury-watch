@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { PageBlocks } from '@/components/content/page-blocks';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { ErrorState } from '@/components/ui/states';
 import { buildMetadata, noIndexMetadata } from '@/lib/seo/metadata';
 import { fetchPublishedPageSlugs } from '@/server/repositories/content-repository';
@@ -82,12 +83,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     // Not a 404. The page may well exist; we could not reach the database to
     // find out, and a 404 would state otherwise to the visitor and to a crawler.
     return (
-      <main id="main-content" className="container-page py-16 lg:py-24">
+      <div className="container-page py-16 lg:py-24">
         <ErrorState
           title="This page is temporarily unavailable"
           description="We could not reach our content just now. This is a problem at our end, not a missing page — please try again shortly."
         />
-      </main>
+      </div>
     );
   }
 
@@ -96,8 +97,13 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const page = result.page;
 
   return (
-    <main id="main-content">
-      <PageHero title={page.title} intro={page.excerpt} />
+    <div>
+      <PageHero
+        title={page.title}
+        intro={page.excerpt}
+        photograph={SITE_PHOTOGRAPHY.watchmakerBench}
+        eyebrowTone="emerald"
+      />
 
       <div className="container-page max-w-3xl py-10 lg:py-14">
         {page.blocks.length > 0 ? (
@@ -106,6 +112,6 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <p className="text-foreground-muted text-base">This page has no content yet.</p>
         )}
       </div>
-    </main>
+    </div>
   );
 }

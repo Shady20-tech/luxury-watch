@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { unstable_rethrow } from 'next/navigation';
 import { cache } from 'react';
 
 import { getPublicEnv, isSupabaseConfigured } from '@/lib/env';
@@ -63,6 +64,14 @@ async function loadChrome(): Promise<ChromeData> {
       source: 'database',
     });
   } catch (error) {
+    // Next signals "this route is dynamic" by throwing a control-flow error, not
+    // by returning a value. Swallowing it and serving the fixture would hide the
+    // signal, and the route would then be cached as static — which is exactly
+    // the static-to-dynamic failure described in AGENTS.md. Rethrowing anything
+    // Next owns (a redirect, a not-found, that dynamic marker) lets the framework
+    // handle it; only a genuine data error reaches the fallback below.
+    unstable_rethrow(error);
+
     logger.warn('chrome.load_failed', {
       // The message only; a Supabase error can carry the query and row data.
       message: error instanceof Error ? error.message : 'unknown error',

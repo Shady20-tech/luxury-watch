@@ -4,6 +4,7 @@ import { ShoppingBag } from 'lucide-react';
 
 import { CheckoutForm } from '@/components/checkout/checkout-form';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { OrderSummary } from '@/components/checkout/order-summary';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/states';
@@ -50,7 +51,7 @@ export default async function Page() {
   // exactly as on the cart page.
   if (cart.source === 'unavailable') {
     return (
-      <main id="main-content" className="container-page py-10 lg:py-14">
+      <div className="container-page py-10 lg:py-14">
         <ErrorState
           title="We could not load your order"
           description="Your cart has not been lost. The store is briefly unavailable — please try again in a moment."
@@ -60,13 +61,13 @@ export default async function Page() {
             </Button>
           }
         />
-      </main>
+      </div>
     );
   }
 
   if (cart.isEmpty) {
     return (
-      <main id="main-content" className="container-page py-10 lg:py-14">
+      <div className="container-page py-10 lg:py-14">
         <EmptyState
           icon={ShoppingBag}
           title="There is nothing to request yet"
@@ -77,13 +78,19 @@ export default async function Page() {
             </Button>
           }
         />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main id="main-content">
-      <PageHero eyebrow="Shop" title={ORDER_COPY.pageTitle} intro={ORDER_COPY.intro} />
+    <div>
+      <PageHero
+        eyebrow="Shop"
+        title={ORDER_COPY.pageTitle}
+        intro={ORDER_COPY.intro}
+        photograph={SITE_PHOTOGRAPHY.rolexSubmarinerSultan}
+        eyebrowTone="gold"
+      />
 
       <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:py-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <CheckoutForm checkout={checkout} />
@@ -95,6 +102,6 @@ export default async function Page() {
           signedIn={checkout.signedIn}
         />
       </div>
-    </main>
+    </div>
   );
 }

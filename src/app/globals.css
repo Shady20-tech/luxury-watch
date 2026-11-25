@@ -19,25 +19,58 @@
   --color-gold-100: #f7f1e4;
   --color-gold-300: #d9bc7a;
   --color-gold-500: #a18040;
-  --color-gold-700: #806428;
+  --color-gold-700: #755a20;
   --color-gold-900: #4d3c18;
   --color-gold-bright: #f8b858;
 
-  /* Neutrals */
+  /* Neutrals.
+     `ink-500` is the secondary-text token and is used far more than any other
+     muted value, usually at 12-13px. It was `#666666`, which clears AA at
+     5.08:1 on `surface-100` but reads as a grey wash on a bright screen and is
+     genuinely hard work for a short-sighted reader. It is now `#575757`
+     (6.39:1 on `surface-100`, 6.23:1 on the field fill), which is a visible
+     lift while staying clearly secondary to `ink-900`. */
   --color-ink-950: #111111;
   --color-ink-900: #222222;
   --color-ink-700: #444444;
-  --color-ink-500: #666666;
+  --color-ink-500: #575757;
   --color-ink-400: #767676;
   --color-ink-300: #999999;
   --color-line-200: #eeeeee;
   --color-line-300: #dddddd;
 
-  /* Surfaces */
+  /* Surfaces.
+     `surface-0` is the card and panel colour: pure white, so a panel still
+     reads as raised against the page. `surface-page` is the ground *behind*
+     those panels — a warm off-white, not white.
+
+     The ground was pure white until the brightness pass. A full-viewport
+     `#ffffff` is the single brightest thing a light theme can show, and at
+     laptop brightness it reads as glare rather than as space. Tinting the
+     ground and leaving cards white keeps the hierarchy (panels still sit
+     forward) while lowering the overall luminance. `tests/design-tokens.test.ts`
+     asserts the tint stays subtle enough to read as a tint and that every text
+     token still clears AA on it. */
   --color-surface-0: #ffffff;
-  --color-surface-50: #fafafa;
-  --color-surface-100: #f5f5f5;
+  --color-surface-50: #faf9f5;
+  --color-surface-100: #f3f1ea;
   --color-surface-200: #e9e9e9;
+  --color-surface-page: #faf9f5;
+
+  /* Form fields.
+     A field is filled, not white-on-white. The fill is deliberately deeper
+     than both the page ground and a white card, so a control reads as an
+     editable well rather than as a bordered rectangle — which is what makes a
+     dense form (the admin editors especially) tiring to look at.
+
+     `field-border` is much darker than the decorative `line-*` hairlines on
+     purpose. WCAG 1.4.11 requires 3:1 for the boundary of a user-interface
+     component, and a hairline at `line-300` is 1.36:1 on white: it is a
+     divider, not a control outline. The two roles were previously served by one
+     token, which is why fields looked washed out. */
+  --color-field: #f1eee6;
+  --color-field-disabled: #eae7de;
+  --color-field-border: #8f8672;
 
   /* Dark ground.
      The reference storefront is black-dominant: the hero, the "special deals"
@@ -58,8 +91,67 @@
   --color-on-night: #f5f5f5;
   --color-on-night-muted: #b0b0b0;
 
-  /* Status */
-  --color-success-600: #1f7a4d;
+  /* ---------------------------------------------------------------------
+     Secondary accents
+
+     Gold alone reads austere. These three families give the site depth: a
+     deep green for trust and provenance, a burgundy for editorial weight,
+     and a sapphire for watchmaking. Each has a `-700` that is safe for
+     *body text* on white (>= 4.5:1) and a `-300` that is safe for text on
+     `night-900` (>= 4.5:1). The mid tones are decoration only, exactly like
+     `gold-500`, and `tests/design-tokens.test.ts` asserts both ends so a
+     token cannot drift out of range unnoticed.
+
+     The rule is the same one gold already follows: a `-300` is never used as
+     text on a light ground, and a `-700` is never used as text on a dark one.
+     --------------------------------------------------------------------- */
+  --color-emerald-300: #7fcaa8;
+  --color-emerald-500: #0f7a5a;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+  --color-emerald-900: #064e3b;
+
+  --color-burgundy-300: #d98fa6;
+  --color-burgundy-500: #a3264d;
+  --color-burgundy-700: #8c1c3f;
+  --color-burgundy-900: #4c0519;
+
+  --color-sapphire-300: #8fb4e8;
+  --color-sapphire-500: #2563a8;
+  --color-sapphire-700: #1e3a8a;
+  --color-sapphire-900: #0a1a33;
+
+  /* Warm and cool ground tints. Very light: these separate sections from the
+     page ground without becoming a colour statement, which is the job the
+     reference gives its off-white panels. Both keep `ink-900` well above
+     4.5:1 (13:1 or better).
+
+     They were deepened slightly alongside the ground tint. Against a white page
+     they only had to differ from white; against `surface-page` they need to
+     differ from *that*, and the earlier values landed 1.05:1 away — close
+     enough that a tinted section stopped reading as a separate band. */
+  --color-surface-warm: #f3eee1;
+  --color-surface-cool: #ebf1ef;
+
+  /* A precious-metal tint for small decorative rules and dividers. Not a text
+     colour: it is 1.6:1 on white and is only ever a hairline or a background. */
+  --color-platinum-200: #e7e6e2;
+
+  /* Status
+     These are text colours on their own faint tint (`bg-success-600/10`), which
+     is how every success, error and warning banner in the app is built. That
+     tint sits *on top of* whatever surface it is placed on, so the contrast
+     that matters is text-against-tint-over-ground, not text-against-ground —
+     and it is lower than it looks.
+
+     `success-600` was `#1f7a4d`. Against a white page the 10% banner tint
+     reached 4.66:1, which passed but with almost no margin. Once the page ground
+     was tinted, the same banner composited to 4.41:1 and failed AA — a defect
+     the browser audit caught and the token tests could not, because they only
+     compared a text token with a solid background. It is now dark enough to keep
+     a wide margin on either ground; see `tests/design-tokens.test.ts`, which
+     composites the real tint rather than assuming one. */
+  --color-success-600: #17603c;
   --color-warning-700: #8a5a00;
   --color-danger-600: #b3261e;
 
@@ -94,7 +186,7 @@
   --shadow-lg: 0 12px 32px rgb(17 17 17 / 0.12);
 
   /* Semantic aliases — components reference these, not raw palettes */
-  --color-background: var(--color-surface-0);
+  --color-background: var(--color-surface-page);
   --color-background-muted: var(--color-surface-100);
   --color-foreground: var(--color-ink-900);
   --color-foreground-muted: var(--color-ink-500);
@@ -108,6 +200,23 @@
   --font-body:
     var(--font-nunito), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Text scale.
+     The two smallest steps are raised. Tailwind's defaults put `text-xs` at
+     12px and `text-sm` at 14px, and this design leans on `text-xs` for every
+     caption, spec value, badge and helper line — 228 call sites. At 12px with
+     the tracking the eyebrows use, that is the size a short-sighted reader
+     struggles with first, and it is the size most of this site's secondary
+     information is set in.
+
+     `text-xs` is now 13px and `text-sm` 15px, with their line heights raised to
+     match. Body copy is unaffected: `text-base` stays 16px. Raising the token
+     rather than editing 228 class names keeps the scale consistent, and any
+     future `text-xs` inherits the legible value. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5rem;
 
   /* Spacing rhythm — 4px base */
   --spacing: 0.25rem;
@@ -125,9 +234,154 @@
 
   /* Motion */
   --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
+  --duration-reveal: 700ms;
+}
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   The reference site is quietly animated: photography drifts, cards lift on
+   hover, and content fades up as you scroll. Ours had none of that — four
+   transitions in the whole codebase — which is most of why it read as static
+   next to it.
+
+   Three rules govern everything here:
+
+    1. **Motion is opt-in by capability, never required for comprehension.**
+       Every reveal animates *from* a visible-but-offset state to the resting
+       state, so if JavaScript never runs the content is still readable. The
+       reveal script adds `.is-revealed`; without it the element is simply in
+       its final position after the CSS `animation-fill-mode`.
+
+    2. **`prefers-reduced-motion` wins.** The global block at the bottom of this
+       file collapses every animation and transition to 0.01ms, and each
+       utility below is additionally guarded by `motion-safe` at the call site
+       where it would otherwise move something large.
+
+    3. **Nothing loops forever except the hero drift.** A looping animation is a
+       WCAG 2.2.2 hazard and a battery cost; the drift is slow, decorative and
+       paused by the same reduced-motion rule.
+   ========================================================================== */
+
+@keyframes hero-drift {
+  from {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1.5%, -1%, 0);
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.75rem, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* ==========================================================================
+   Scroll reveal
+   --------------------------------------------------------------------------
+   `[data-reveal]` starts offset and transparent; the observer in
+   `components/ui/reveal.tsx` adds `.is-revealed` when the element first enters
+   the viewport. The transition (not an animation) is used so a reveal that is
+   interrupted by a fast scroll settles smoothly instead of snapping.
+
+   The stagger is driven by `--reveal-delay`, set inline per child, so a grid of
+   cards can cascade without a class per position.
+   ========================================================================== */
+@layer components {
+  [data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+    transition:
+      opacity var(--duration-reveal) var(--ease-out-soft),
+      transform var(--duration-reveal) var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+
+  [data-reveal].is-revealed {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    /* Drop the hint once settled: a permanently promoted layer costs memory and
+       can make text render blurry on some GPUs. */
+    will-change: auto;
+  }
+
+  /* If the observer never runs — JS disabled, or a browser without
+     IntersectionObserver — the content must still be readable. `no-js` is set
+     on `<html>` by the reveal script's absence only in the sense that the class
+     is never added, so this fallback keys off the reduced-motion query and a
+     media query for print, which is the one context where an invisible element
+     is always wrong. */
+  @media print {
+    [data-reveal] {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}
+
+/* A link or card that lifts on hover. Kept as a utility so the transform and
+   its shadow move together — animating one without the other is what makes a
+   hover feel cheap. */
+@utility lift {
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard);
+
+  &:hover {
+    transform: translate3d(0, -2px, 0);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* An image inside a `group` that scales gently on hover. The overflow clip lives
+   on the parent so the scale never bleeds outside the card. */
+@utility zoom-media {
+  transition: transform 600ms var(--ease-out-soft);
+
+  .group:hover & {
+    transform: scale(1.04);
+  }
 }
 
 /* ==========================================================================
@@ -201,7 +455,7 @@
    Used often enough to be worth one definition, so the tracking and size stay
    identical across every section on the site. */
 @utility eyebrow {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;

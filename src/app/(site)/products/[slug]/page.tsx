@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/product/breadcrumbs';
 import { EnquiryForm } from '@/components/product/enquiry-form';
 import { OfferForm } from '@/components/service/offer-form';
-import { PriceBlock } from '@/components/product/price-block';
+import { PriceBlock, priceBlockRows } from '@/components/product/price-block';
 import { ProductGallery } from '@/components/product/product-gallery';
 import { PurchaseActions } from '@/components/product/purchase-actions';
 import { SpecTable } from '@/components/product/spec-table';
@@ -212,12 +212,12 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
   if (result.status === 'unavailable') {
     return (
-      <main id="main-content" className="container-page py-16 lg:py-24">
+      <div className="container-page py-16 lg:py-24">
         <ErrorState
           title="The catalogue is temporarily unavailable"
           description="We could not reach the catalogue just now, so this watch cannot be shown. This is a problem at our end, not a missing page — please try again shortly."
         />
-      </main>
+      </div>
     );
   }
 
@@ -236,7 +236,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   ]);
 
   return (
-    <main id="main-content" className="container-page py-8 lg:py-12">
+    <div className="container-page py-8 lg:py-12">
       <Breadcrumbs entries={breadcrumbs} className="mb-6" />
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
@@ -324,7 +324,11 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <h2 id="specification-heading" className="text-xl">
             Specification
           </h2>
-          <SpecTable specs={product.specs} className="mt-4" />
+          <SpecTable
+            specs={product.specs}
+            omit={priceBlockRows(product).map((row) => row.label)}
+            className="mt-4"
+          />
         </section>
       </div>
 
@@ -359,7 +363,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
             title="Related timepieces"
             description="Selected from our catalogue because they share a model, a maker or a specification with this piece."
           />
-          <CatalogueGrid products={related} className="mt-8" />
+          <CatalogueGrid products={related} className="mt-8" headingId={null} />
         </section>
       ) : null}
 
@@ -388,6 +392,6 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           breadcrumbSchema(breadcrumbs),
         ]}
       />
-    </main>
+    </div>
   );
 }

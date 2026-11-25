@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { MediaFrame } from '@/components/ui/media-frame';
@@ -75,7 +76,7 @@ export function ProductCard({
 
       <div className="border-line-200 flex flex-1 flex-col border-t pt-4">
         {product.brandName ? (
-          <p className="text-ink-500 text-[0.6875rem] font-semibold tracking-[0.16em] uppercase">
+          <p className="text-ink-500 text-[0.75rem] font-semibold tracking-[0.16em] uppercase">
             {product.brandName}
           </p>
         ) : null}
@@ -132,7 +133,12 @@ export function ProductGrid({
       // A list of products is a list; the announcement is left to the section.
     >
       {products.map((product, index) => (
-        <li key={product.id} className="flex">
+        <li
+          key={product.id}
+          className="flex"
+          data-reveal
+          style={{ '--reveal-delay': `${Math.min(index, 4) * 80}ms` } as CSSProperties}
+        >
           <ProductCard
             product={product}
             // Only the very first card is prioritised, and only within the

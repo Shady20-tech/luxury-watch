@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { RepairForm } from '@/components/service/repair-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 
@@ -35,11 +36,13 @@ const STEPS = [
 
 export default function Page() {
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Services"
         title="Repair &amp; restoration"
         intro="Servicing, repair and restoration by our watchmakers. Send us the details and we will inspect the watch and send you an estimate before any work begins."
+        photograph={SITE_PHOTOGRAPHY.watchmakerBench}
+        eyebrowTone="sapphire"
       />
 
       <div className="container-page py-10 lg:py-14">
@@ -73,6 +76,6 @@ export default function Page() {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

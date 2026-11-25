@@ -404,6 +404,79 @@ and add-to-cart on the card (Phases 7 and 9), and the product detail template
 (Phase 6). A card control that looked live but discarded the click would be worse
 than its absence, so the whole card is one link to the product.
 
+**Third pass (2026-11-19) re-audited the phase against a live database rather than
+a fixture, and found no functional gap.** Every route was exercised through the
+real `supabase-js` → PostgREST → Postgres path on the preview server:
+
+- `/shop` renders 12 published pieces; `/shop?brand=rolex&sort=price_asc` narrows
+  to 8 in the database's order; `?pageSize=9999` and `?minPrice=abc` are clamped
+  and dropped rather than forwarded; `?page=999` renders the honest past-the-end
+  state.
+- `/collections` is a real index linking all three published collections, and
+  `/brands/rolex/models/milgauss` resolves through the
+  brand → model → product hierarchy.
+- `/search` matches on title and reference: `milgauss` and `royal oak` return 8,
+  `cubitus` 6. A term with no match (`submariner`, which is genuinely absent from
+  the published set) returns the empty state, not an error — worth stating,
+  because an earlier reading of "0 results" looked like a search defect until the
+  published titles were listed.
+- Canonical/robots behaviour matches the documented policy exactly:
+  `/shop` → `index, follow` self-canonical; `?brand=rolex` → `noindex, follow`
+  canonicalised to `/shop`; `?sort=price_asc` → indexable, canonical drops the
+  sort; `/search?q=…` → `noindex, follow`; `/brands/rolex` → indexable.
+- Draft products 404 (4098 drafts, 12 published). Card states render honestly:
+  "Request pricing & availability" for the 12 unpriced pieces, "Reserved" for the
+  unavailable ones, and box-and-papers text from the recorded value.
+
+`npm run audit:a11y` is green across 33 pages × 4 viewports including the mobile
+filter drawer, and `npm run verify` is green at 1068 tests. The card now also
+carries the site-wide scroll-reveal treatment and a hover lift, added in the same
+pass that introduced the motion layer (see CHANGELOG).
+
+The one thing this pass could not widen is the *quantity* of pagination evidence:
+with only 12 published rows and a 24-per-page default there is a single page, so
+the multi-page path is covered by the SQL suites and the canonical tests rather
+than by a live second page. That is a property of the current seed, not of the
+code, and it resolves as soon as the catalogue is published.
+
+**Fourth pass (2026-11-19) re-verified the phase on the seeded 20-piece
+catalogue and found one facet defect.** The catalogue now publishes 20 pieces, so
+the multi-page path the third pass could not reach is exercised live:
+`?pageSize=12` returns 12, `?pageSize=12&page=2` returns the remaining 8 with a
+self-canonical in the 24-per-page series, and `?pageSize=12&page=3` is
+`noindex, follow` canonicalised onto `/shop`. Sort was checked against the
+database's own ordering rather than the rendered labels: `title_asc`/`title_desc`
+are exact reverses of each other, and `newest`/`oldest` follow `published_at`
+(`2026-11-23` down to `2026-10-16`), not production year — which is the correct
+key and the one the sort is named for.
+
+The defect was in the data, not the query. The bracelet/strap facet listed
+`Stainless Steel (5)` and `Stainless steel (5)` as two filters, each returning
+half of the ten stainless pieces. `catalogue_normalise_facet_value` (0027) mapped
+that lowercase spelling for `case_material` but had no row for
+`bracelet_material`, because no product held it when 0027 was written; the
+extended catalogue then introduced one. `0038_bracelet_facet_normalisation.sql`
+adds the pair and backfills, and `28_facet_values.sql` — which asserts the
+invariant rather than a list of expected strings — goes from red to green. Live
+after the fix: one `Stainless Steel` row with 10, and `?bracelet=Stainless+Steel`
+returns `Showing 1–10 of 10`. Recorded as G100.
+
+Everything else the brief asks for was already in place and was confirmed rather
+than rebuilt: the combobox on `/search` returns product, model and brand
+suggestions and is fully keyboard-driven (`aria-activedescendant` moves with the
+arrow keys and `Enter` navigates); the mobile drawer is a real dialog named
+"Filter" that closes on navigation and has no horizontal overflow at 390px;
+clear-all returns to `/shop` with all 20; cards carry image, brand, name,
+reference, year, case size, movement, condition, box/papers, price or the honest
+on-request state, availability and the wishlist control; the sitemap carries 19
+brands, 3 collections, 11 model pages and 20 products and no filtered, sorted or
+search URL; and `/search` is `noindex` while clean listings are indexable and
+self-canonical. Drafts are excluded everywhere: the draft slug 404s, and a
+draft-only title matches nothing in `catalogue_search`. `npm run verify` green at
+1084 tests across 68 files; `db-verify.sh` green on a reset database (all
+migrations, including 0038, and every suite).
+
+
 ---
 
 ## Phase 6 — Product detail page

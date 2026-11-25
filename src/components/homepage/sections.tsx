@@ -1,9 +1,10 @@
 import { ArrowRight, Gem, PackageCheck, ShieldCheck, Wallet } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/section';
-import { MediaFrame } from '@/components/ui/media-frame';
 import type {
   BrandTile,
   CopySection,
@@ -213,8 +214,13 @@ function slugifyBrand(name: string): string {
 export function BrandShowcase({ brands }: { brands: BrandTile[] }) {
   return (
     <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-md bg-line-200 sm:grid-cols-3 lg:grid-cols-4">
-      {brands.map((brand) => (
-        <li key={brand.id} className="bg-surface-0">
+      {brands.map((brand, index) => (
+        <li
+          key={brand.id}
+          className="bg-surface-0"
+          data-reveal
+          style={{ '--reveal-delay': `${Math.min(index, 7) * 70}ms` } as CSSProperties}
+        >
           <Link
             href={brand.href}
             className="focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-700 flex h-full flex-col items-center justify-center px-6 py-10 text-center transition-colors hover:bg-surface-50"
@@ -228,7 +234,7 @@ export function BrandShowcase({ brands }: { brands: BrandTile[] }) {
               </span>
             ) : null}
             {brand.productCount !== null ? (
-              <span className="text-ink-500 mt-4 text-[0.6875rem] font-semibold tracking-[0.14em] uppercase">
+              <span className="text-ink-500 mt-4 text-[0.75rem] font-semibold tracking-[0.14em] uppercase">
                 {brand.productCount === 1
                   ? '1 watch'
                   : `${brand.productCount.toLocaleString('en-US')} watches`}
@@ -260,19 +266,28 @@ const TRUST_ICON = {
  * The reference centres each item with the icon above the heading, on the light
  * ground directly beneath the dark hero. `tone` follows the section convention
  * so the row can also sit on a dark panel.
+ *
+ * Each item is an `h2`: the row sits directly beneath the page `h1` with no
+ * intervening section heading, so an `h3` skipped a level. axe only checks this
+ * in a browser, which is why jsdom stayed green while the audit failed.
  */
 export function TrustRow({ items, tone = 'light' }: { items: TrustItem[]; tone?: Tone }) {
   const t = TONE[tone];
 
   return (
     <ul className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const Icon =
           (item.label && TRUST_ICON[item.label as keyof typeof TRUST_ICON]) || ShieldCheck;
         return (
-          <li key={item.id} className="flex flex-col items-center text-center">
+          <li
+            key={item.id}
+            className="flex flex-col items-center text-center"
+            data-reveal
+            style={{ '--reveal-delay': `${Math.min(index, 3) * 90}ms` } as CSSProperties}
+          >
             <Icon aria-hidden="true" className="text-gold-700 h-7 w-7" />
-            <h3 className={cn('mt-5 text-base font-semibold', t.heading)}>{item.title}</h3>
+            <h2 className={cn('mt-5 text-base font-semibold', t.heading)}>{item.title}</h2>
             {item.body ? <p className={cn('mt-2.5 text-sm', t.body)}>{item.body}</p> : null}
           </li>
         );
@@ -333,7 +348,20 @@ export function EditorialSplit({
       </div>
       {section.imageUrl ? (
         <div className={cn(imageFirst && 'lg:order-1')}>
-          <MediaFrame src={section.imageUrl} alt="" ratio="4/5" />
+          {/* `cover`, not `MediaFrame`: an editorial photograph is atmosphere and
+              should fill its frame edge to edge. `MediaFrame` letterboxes on a
+              white panel to keep a whole watch visible, which would leave an
+              editorial crop floating in a white box. */}
+          <div className="bg-night-800 relative aspect-4/5 overflow-hidden rounded-sm">
+            <Image
+              src={section.imageUrl}
+              alt=""
+              aria-hidden="true"
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover"
+            />
+          </div>
         </div>
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { AuthShell } from '@/components/auth/auth-shell';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 import { buildMetadata } from '@/lib/seo/metadata';
 
@@ -20,8 +21,10 @@ export const metadata: Metadata = buildMetadata({
  */
 export default function ForgotPasswordPage() {
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
-      <ForgotPasswordForm />
-    </div>
+    <AuthShell>
+      <div className="w-full">
+        <ForgotPasswordForm />
+      </div>
+    </AuthShell>
   );
 }

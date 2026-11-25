@@ -280,7 +280,7 @@ export function CheckoutForm({ checkout }: { checkout: CheckoutView }) {
               aria-describedby={
                 fieldErrors.paymentMethodCode ? 'checkout-payment-error' : undefined
               }
-              className="border-line-300 bg-surface-0 text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 h-11 rounded-sm border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
+              className="border-field-border bg-field text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 h-11 rounded-sm border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
             >
               {options.paymentMethods.map((method) => (
                 <option key={method.code} value={method.code}>
@@ -318,7 +318,7 @@ export function CheckoutForm({ checkout }: { checkout: CheckoutView }) {
               id="checkout-delivery-option"
               name="deliveryOptionCode"
               defaultValue={options.deliveryOptions[0]?.code ?? ''}
-              className="border-line-300 bg-surface-0 text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 h-11 rounded-sm border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
+              className="border-field-border bg-field text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 h-11 rounded-sm border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
             >
               {options.deliveryOptions.map((option) => (
                 <option key={option.code} value={option.code}>
@@ -347,7 +347,7 @@ export function CheckoutForm({ checkout }: { checkout: CheckoutView }) {
           rows={4}
           aria-invalid={fieldErrors.customerNote ? true : undefined}
           aria-describedby={fieldErrors.customerNote ? 'checkout-note-error' : undefined}
-          className="border-line-300 bg-surface-0 text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
+          className="border-field-border bg-field text-foreground focus-visible:border-gold-700 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
           placeholder="Delivery timing, a question about the piece, or anything we should know."
         />
         {fieldErrors.customerNote ? (

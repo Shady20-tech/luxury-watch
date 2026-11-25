@@ -71,7 +71,7 @@ export default async function AdminInventoryPage({
             type="search"
             defaultValue={params.q ?? ''}
             placeholder="Title or reference"
-            className="border-line-300 focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
           />
         </div>
         <div>
@@ -82,7 +82,7 @@ export default async function AdminInventoryPage({
             id="inventory-filter"
             name="filter"
             defaultValue={params.filter ?? ''}
-            className="border-line-300 focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
+            className="border-field-border bg-field text-foreground focus-visible:outline-gold-700 rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1"
           >
             <option value="">All stock</option>
             <option value="low">Low stock only</option>

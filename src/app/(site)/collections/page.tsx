@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { unstable_rethrow } from 'next/navigation';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -54,6 +56,11 @@ async function loadDirectory(): Promise<DirectoryState> {
   try {
     return { status: 'ok', collections: await fetchCollectionDirectory() };
   } catch (error) {
+    // Next throws to signal "this route is dynamic", and to implement
+    // notFound()/redirect(). Handling those as a data failure would replace
+    // the framework's control flow with an error state.
+    unstable_rethrow(error);
+
     logger.warn('collections.index_load_failed', {
       message: error instanceof Error ? error.message : 'unknown error',
     });
@@ -70,6 +77,8 @@ export default async function CollectionsIndexPage() {
         eyebrow="Shop"
         title="Collections"
         intro="Curated selections from the catalogue, put together by our specialists."
+        photograph={SITE_PHOTOGRAPHY.rolexStellaDials}
+        eyebrowTone="burgundy"
       />
 
       <div className="container-page py-10 sm:py-14">

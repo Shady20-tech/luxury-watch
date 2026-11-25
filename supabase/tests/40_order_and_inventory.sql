@@ -77,13 +77,17 @@ values
   ('40000000-0000-0000-0000-000000000003', 'SKU-SCARCE', 'scarce-watch', 'Scarce Watch',
    'published', now(), false, 500000, 'USD'),
   ('40000000-0000-0000-0000-000000000004', 'SKU-DRAFTORD', 'draft-order-watch', 'Draft Order Watch',
-   'draft', null, false, 100000, 'USD');
+   'draft', null, false, 100000, 'USD'),
+  -- Used only by the reference-uniqueness assertion, which must submit twice.
+  ('40000000-0000-0000-0000-000000000005', 'SKU-UNIQ', 'unique-ref-watch', 'Unique Reference Watch',
+   'published', now(), false, 300000, 'USD');
 
 insert into public.inventory (product_id, quantity) values
   ('40000000-0000-0000-0000-000000000001', 2),
   ('40000000-0000-0000-0000-000000000002', 1),
   ('40000000-0000-0000-0000-000000000003', 1),
-  ('40000000-0000-0000-0000-000000000004', 5);
+  ('40000000-0000-0000-0000-000000000004', 5),
+  ('40000000-0000-0000-0000-000000000005', 5);
 
 -- The offline method, and a disabled one the rejection case needs. Seeded here so
 -- the suite does not depend on another suite having run first.
@@ -258,6 +262,62 @@ select pg_temp.assert_count(
   'the price-on-request line has a null unit price',
   'select count(*) from public.order_request_items where unit_price_cents is null', 1);
 reset role;
+
+-- =============================================================================
+-- 3b. Two submissions in the same instant get different references
+--
+-- The service reference was once `extract(epoch from now()) % 1000000`, which
+-- looks unique and is not: two submissions inside one second collide. A single
+-- submission can never reveal that, which is why this asserts several — the
+-- uniqueness claim needs a loop (AGENTS.md, "Things that will bite you").
+--
+-- `now()` is fixed within a transaction, so both calls below see the *same*
+-- clock value. That makes this a harder test than production timing: if the
+-- reference were clock-derived these two would be identical by construction.
+-- =============================================================================
+
+set role anon;
+set request.jwt.claims = '{"role":"anon"}';
+
+do $$
+declare
+  v_first  public.order_requests;
+  v_second public.order_requests;
+begin
+  v_first := public.submit_order_request(
+    p_items               => '[{"product_id":"40000000-0000-0000-0000-000000000005","quantity":1}]'::jsonb,
+    p_customer_name       => 'Same Second A',
+    p_customer_email      => 'same-second-a@example.test',
+    p_customer_phone      => null,
+    p_fulfilment_type     => 'pickup',
+    p_payment_method_code => 'bank_transfer',
+    p_terms_acknowledged  => true
+  );
+
+  v_second := public.submit_order_request(
+    p_items               => '[{"product_id":"40000000-0000-0000-0000-000000000005","quantity":1}]'::jsonb,
+    p_customer_name       => 'Same Second B',
+    p_customer_email      => 'same-second-b@example.test',
+    p_customer_phone      => null,
+    p_fulfilment_type     => 'pickup',
+    p_payment_method_code => 'bank_transfer',
+    p_terms_acknowledged  => true
+  );
+
+  if v_first.reference = v_second.reference then
+    raise exception 'FAIL: two submissions at the same instant shared the reference %',
+      v_first.reference;
+  end if;
+  raise notice 'pass [two submissions at the same instant get distinct references]';
+end
+$$;
+
+reset role;
+
+select pg_temp.assert_count(
+  'the two same-instant submissions are two rows',
+  'select count(*) from public.order_requests
+    where customer_email in (''same-second-a@example.test'', ''same-second-b@example.test'')', 2);
 
 -- =============================================================================
 -- 4. Disabled and unknown payment methods are rejected

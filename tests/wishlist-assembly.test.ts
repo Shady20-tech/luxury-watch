@@ -48,6 +48,9 @@ function row(id: string, slug: string): WishlistProductRow {
     image_storage_path: null,
     image_external_url: null,
     image_alt: null,
+    image_credit: null,
+    image_licence: null,
+    image_licence_url: null,
   };
 }
 

@@ -14,6 +14,13 @@
 # Usage:
 #   scripts/seed-preview-admin.sh                 # default address
 #   scripts/seed-preview-admin.sh me@example.test # choose the address
+#   scripts/seed-preview-admin.sh me@example.test ADMIN "Me Myself"
+#
+# The second argument is a `staff_role`; the third is the display name. Both are
+# optional so the original single-argument use still works. Seeding several
+# roles is how the permission differences between them are demonstrated: a
+# CONTENT_MANAGER genuinely cannot reach inventory, and that is worth seeing
+# rather than describing.
 #
 # Then sign in at /login with the password printed at the end.
 # =============================================================================
@@ -23,6 +30,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 EMAIL="${1:-admin@preview.test}"
+ROLE="${2:-SUPER_ADMIN}"
+FULL_NAME="${3:-Preview Admin}"
+# Derived from the address so several accounts can coexist. A single hardcoded
+# id would collide on the primary key the second time this script ran.
+USER_ID_SQL="md5('lw-preview:' || '${EMAIL}')::uuid"
 PASSWORD="${LW_PREVIEW_ADMIN_PASSWORD:-preview-admin-password}"
 
 PG_HOST="${PGHOST:-127.0.0.1}"
@@ -46,20 +58,20 @@ fi
 psql_run <<SQL
 insert into auth.users (id, email, encrypted_password, raw_user_meta_data)
 values (
-  'a0000000-0000-4000-8000-00000000ad11',
+  ${USER_ID_SQL},
   '${EMAIL}',
   extensions.crypt('${PASSWORD}', extensions.gen_salt('bf')),
-  '{"full_name":"Preview Admin"}'::jsonb
+  jsonb_build_object('full_name', '${FULL_NAME}')
 )
 on conflict (email) do update
   set encrypted_password = excluded.encrypted_password;
 
 insert into public.profiles (id, email, full_name)
-select id, email, 'Preview Admin' from auth.users where email = '${EMAIL}'
+select id, email, '${FULL_NAME}' from auth.users where email = '${EMAIL}'
 on conflict (id) do update set email = excluded.email;
 
 insert into public.user_roles (user_id, role)
-select id, 'SUPER_ADMIN'::public.staff_role from auth.users where email = '${EMAIL}'
+select id, '${ROLE}'::public.staff_role from auth.users where email = '${EMAIL}'
 on conflict (user_id, role) do nothing;
 SQL
 
@@ -74,7 +86,7 @@ Preview staff account ready.
 
   Email:    ${EMAIL}
   Password: ${PASSWORD}
-  Role:     SUPER_ADMIN
+  Role:     ${ROLE}
 
 Start the preview with:  npm run preview
 Sign in at:              /login

@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { unstable_rethrow } from 'next/navigation';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -61,6 +63,11 @@ async function loadDirectory(): Promise<DirectoryState> {
   try {
     return { status: 'ok', brands: await fetchBrandDirectory() };
   } catch (error) {
+    // Next throws to signal "this route is dynamic", and to implement
+    // notFound()/redirect(). Handling those as a data failure would replace
+    // the framework's control flow with an error state.
+    unstable_rethrow(error);
+
     // A database outage must not take the page down. Log the message only: a
     // Supabase error can carry the query and row data.
     logger.warn('brands.index_load_failed', {
@@ -79,6 +86,8 @@ export default async function BrandsIndexPage() {
         eyebrow="Shop"
         title="Brands"
         intro="The houses we carry, and the model families within each. Every piece is sourced and inspected by us."
+        photograph={SITE_PHOTOGRAPHY.patekDisplay}
+        eyebrowTone="sapphire"
       />
 
       <div className="container-page py-10 sm:py-14">

@@ -45,15 +45,47 @@ export function Wordmark({
       )}
     >
       {identity.logoUrl ? (
-        // A plain <img> is used rather than next/image: the logo is an operator
-        // upload whose dimensions are unknown at build time, and the header
-        // needs it at a fixed height without a layout shift.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={identity.logoUrl}
-          alt={identity.businessName}
-          className={size === 'lg' ? 'h-9 w-auto' : 'h-8 w-auto'}
-        />
+        // The crest sits *beside* the business name rather than replacing it.
+        // A lone 32px mark in the header leaves a storefront unnamed, and the
+        // name is what a visitor uses to confirm they are where they meant to
+        // be. The image carries empty `alt` because the name is right next to
+        // it: giving the image `alt={businessName}` too would announce the name
+        // twice, and `aria-label` on the link would drop the visible text and
+        // fail WCAG 2.5.3.
+        //
+        // A plain <img> rather than next/image: the logo is an operator upload
+        // whose dimensions are unknown at build time, and the header needs it at
+        // a fixed height without a layout shift.
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={identity.logoUrl}
+            alt=""
+            aria-hidden="true"
+            className={cn('w-auto shrink-0', size === 'lg' ? 'h-10 sm:h-11' : 'h-8 sm:h-9')}
+          />
+          <span className="flex min-w-0 flex-col leading-none pl-3">
+            <span
+              className={cn(
+                'font-display truncate tracking-[0.02em]',
+                isLight ? 'text-on-night' : 'text-ink-950',
+                textClass,
+              )}
+            >
+              {identity.businessName}
+            </span>
+            {identity.tagline ? (
+              <span
+                className={cn(
+                  'mt-1 truncate text-[0.75rem] tracking-[0.18em] uppercase',
+                  isLight ? 'text-on-night-muted' : 'text-ink-500',
+                )}
+              >
+                {identity.tagline}
+              </span>
+            ) : null}
+          </span>
+        </>
       ) : (
         <span className="flex min-w-0 flex-col leading-none">
           <span
@@ -68,7 +100,7 @@ export function Wordmark({
           {identity.tagline ? (
             <span
               className={cn(
-                'mt-1 truncate text-[0.625rem] tracking-[0.18em] uppercase',
+                'mt-1 truncate text-[0.75rem] tracking-[0.18em] uppercase',
                 isLight ? 'text-on-night-muted' : 'text-ink-500',
               )}
             >

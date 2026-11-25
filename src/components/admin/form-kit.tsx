@@ -21,7 +21,7 @@ import { IDLE_ADMIN_STATE } from '@/lib/admin/validation';
  */
 
 export const inputClass =
-  'border-line-300 focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1';
+  'border-field-border bg-field text-foreground placeholder:text-ink-500 focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1';
 
 export const labelClass = 'text-ink-700 mb-1 block text-xs font-medium';
 
@@ -88,7 +88,7 @@ export function TextField({
   error?: string;
   required?: boolean;
   maxLength?: number;
-  type?: 'text' | 'email' | 'url' | 'datetime-local' | 'number';
+  type?: 'text' | 'email' | 'url' | 'datetime-local' | 'number' | 'date';
   placeholder?: string;
 }) {
   // Always call the hook, then choose: `error ?? useFieldError(name)` would call

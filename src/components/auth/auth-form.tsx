@@ -134,7 +134,7 @@ export function AuthField({
   );
 }
 
-/** The bordered panel every auth page is built on. */
+/** The panel every auth page is built on. */
 export function AuthPanel({
   title,
   description,
@@ -147,11 +147,19 @@ export function AuthPanel({
   footer?: ReactNode;
 }) {
   return (
-    <div className="border-line-300 bg-surface-0 rounded-sm border p-6 sm:p-8">
-      <h1 className="text-2xl">{title}</h1>
-      {description ? <p className="text-foreground-muted mt-3 text-sm">{description}</p> : null}
-      <div className="mt-6">{children}</div>
-      {footer ? <div className="border-line-300 mt-6 border-t pt-6 text-sm">{footer}</div> : null}
+    <div className="border-line-200 bg-surface-0 relative overflow-hidden rounded-lg border p-7 shadow-[0_1px_2px_rgb(17_17_17/0.04),0_16px_48px_-24px_rgb(17_17_17/0.18)] sm:p-10">
+      {/* A gold hairline across the top edge: the one accent the panel carries,
+          and the piece that ties it to the page heroes without a photograph. */}
+      <div
+        aria-hidden="true"
+        className="via-gold-300 absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent"
+      />
+      <h1 className="text-3xl leading-tight">{title}</h1>
+      {description ? (
+        <p className="text-foreground-muted mt-3 text-sm leading-relaxed">{description}</p>
+      ) : null}
+      <div className="mt-7">{children}</div>
+      {footer ? <div className="border-line-200 mt-7 border-t pt-6 text-sm">{footer}</div> : null}
     </div>
   );
 }

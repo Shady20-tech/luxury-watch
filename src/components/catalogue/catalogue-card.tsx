@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { AddToCartButton } from '@/components/cart/add-to-cart-button';
 import { WishlistToggle } from '@/components/product/wishlist-toggle';
@@ -93,7 +94,7 @@ export function CatalogueCard({
   return (
     <article
       className={cn(
-        'group border-line-200 bg-surface-0 hover:border-ink-300 relative flex h-full flex-col rounded-md border transition-[border-color,box-shadow] duration-200 focus-within:border-ink-300 hover:shadow-sm',
+        'group border-line-200 bg-surface-0 hover:border-ink-300 relative flex h-full flex-col rounded-md border transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-standard)] focus-within:border-ink-300 hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-y-0',
         className,
       )}
     >
@@ -128,6 +129,22 @@ export function CatalogueCard({
             <Badge variant="neutral">Price on request</Badge>
           ) : null}
         </div>
+
+        {/* Attribution for the photograph above.
+            CC BY and CC BY-SA require the author and the licence to be named
+            wherever the work is shown, and a listing card is a display — a grid
+            of 48 cards is 48 displays. It is plain text rather than a link on
+            purpose: the alternative is one outbound link per card in the tab
+            order, and the licences require attribution, not a clickable one. The
+            product page carries the same credit linked to its source.
+            `text-ink-500` on solid `surface-0`, not a translucent overlay: a
+            caption over a photograph cannot promise a contrast ratio, and this
+            must clear 4.5:1 whatever the photo behind it shows. */}
+        {product.imageCredit && product.imageUrl ? (
+          <p className="text-ink-500 border-line-200 bg-surface-0 border-t px-3 py-1.5 text-[0.75rem] leading-snug">
+            Photo: {product.imageCredit.credit} ({product.imageCredit.licence})
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col p-5">
@@ -210,6 +227,8 @@ export function CatalogueGrid({
   signedIn = false,
   savedProductIds = [],
   className,
+  headingId,
+  label = 'Watches',
 }: {
   products: CatalogueProduct[];
   /** Whether the visitor is signed in, so a card's save toggle knows its store. */
@@ -217,22 +236,51 @@ export function CatalogueGrid({
   /** The ids the visitor has already saved, so a card's toggle starts correct. */
   savedProductIds?: string[];
   className?: string;
+  /**
+   * The id of the grid's own `h2`. Pass `null` when the caller already renders a
+   * heading directly above the grid — the product page's "Related timepieces"
+   * does — so a second heading is not stacked on top of it.
+   */
+  headingId?: string | null;
+  label?: string;
 }) {
+  const resolvedHeadingId = headingId === undefined ? 'catalogue-grid-heading' : headingId;
+
   return (
-    <ul className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
-      {products.map((product, index) => (
-        <li key={product.id} className="flex">
-          <CatalogueCard
-            product={product}
-            // Only the first row is prioritised; everything below the fold is
-            // lazy-loaded by default.
-            priority={index < 4}
-            signedIn={signedIn}
-            saved={savedProductIds.includes(product.id)}
-            className="w-full"
-          />
-        </li>
-      ))}
-    </ul>
+    <section aria-labelledby={resolvedHeadingId ?? undefined}>
+      {/*
+        The grid needs its own `h2`. Without it every card's `h3` follows the
+        page `h1` directly on a narrow screen, because the sidebar's "Filter"
+        `h2` is `hidden` below `lg` and a `display:none` heading is absent from
+        the accessibility tree. The browser audit flagged the jump as
+        `heading-order` on mobile only, which is exactly that mechanism: the
+        same markup passed on a wide screen where the sidebar is visible.
+      */}
+      {resolvedHeadingId ? (
+        <h2 id={resolvedHeadingId} className="sr-only">
+          {label}
+        </h2>
+      ) : null}
+      <ul className={cn('grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
+        {products.map((product, index) => (
+          <li
+            key={product.id}
+            className="flex"
+            data-reveal
+            style={{ '--reveal-delay': `${Math.min(index, 5) * 70}ms` } as CSSProperties}
+          >
+            <CatalogueCard
+              product={product}
+              // Only the first row is prioritised; everything below the fold is
+              // lazy-loaded by default.
+              priority={index < 4}
+              signedIn={signedIn}
+              saved={savedProductIds.includes(product.id)}
+              className="w-full"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

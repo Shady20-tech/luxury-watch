@@ -1,11 +1,11 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { MediaFrame } from '@/components/ui/media-frame';
 import type { HeroSlide } from '@/lib/homepage/types';
 import { cn } from '@/lib/utils';
 
@@ -157,7 +157,7 @@ export function HeroCarousel({
       ref={regionRef}
       aria-roledescription="carousel"
       aria-labelledby={headingId}
-      className={cn('bg-night-950', className)}
+      className={cn('relative isolate overflow-hidden bg-night-950', className)}
       onKeyDown={onKeyDown}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -166,10 +166,67 @@ export function HeroCarousel({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <div className="container-page grid gap-12 py-16 lg:grid-cols-2 lg:items-center lg:py-24">
+      {/* The wallpaper.
+
+          The photograph is the band itself rather than a panel beside the copy:
+          at this size a 4/5 box beside the headline reads as a product card, and
+          the brief for the homepage opening is a wall of watch photography you
+          land on. It is `aria-hidden` and `alt=""` because it is atmosphere — the
+          slide states its own subject in the heading, and announcing "a steel
+          Rolex GMT-Master II" before every headline is noise.
+
+          Two scrims, not one, and this is the load-bearing part:
+
+          - a left-to-right `night-950` → transparent gradient, so the column the
+            copy occupies is measured against near-black whatever the picture is;
+          - a bottom-up fade, so the body copy and the controls never sit on a
+            bright dial.
+
+          Between them the contrast of every text node is a property of the
+          gradients, not of the photograph an administrator happens to pick. The
+          browser audit measures the composed result at four viewports rather than
+          trusting that claim. */}
+      {slide.imageUrl ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          {/* `scale-105` with a slow Ken Burns drift: the photograph is a wall,
+              and a still wall behind moving copy reads as a background image
+              rather than as a photograph someone chose. The scale is applied to
+              the wrapper, not the `<img>`, so `object-cover` still does its
+              cropping work. It is disabled under `prefers-reduced-motion` by the
+              global rule in `globals.css`. */}
+          <div className="absolute inset-0 scale-105 motion-safe:animate-[hero-drift_28s_ease-in-out_infinite_alternate]">
+            <Image
+              src={slide.imageUrl}
+              alt=""
+              fill
+              sizes="100vw"
+              priority={isFirst}
+              loading={isFirst ? undefined : 'lazy'}
+              className="object-cover object-center"
+            />
+          </div>
+          {/* Two scrims, and their weights are the whole legibility argument.
+
+              The photograph has to be *visible* — a hero nobody can see is the
+              defect this replaced — so the middle of the band is left close to
+              clear and the darkness is pushed to the left edge, under the copy
+              column, and to the bottom edge, under the body text and controls.
+              `from-night-950` at the left is opaque where the headline starts and
+              falls to 10% by 70% across, which keeps the dials readable on the
+              right of a wide viewport.
+
+              Contrast is a property of these gradients at the widths the copy
+              occupies, not of whichever picture an administrator picks, and the
+              browser audit measures the composed result at four viewports. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/70 to-night-950/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/25 to-transparent" />
+        </div>
+      ) : null}
+
+      <div className="container-page relative grid gap-12 py-20 lg:grid-cols-[minmax(0,34rem)_1fr] lg:items-center lg:py-32">
         <div>
           {slide.eyebrow ? (
-            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
               {slide.eyebrow}
             </p>
           ) : null}
@@ -275,14 +332,6 @@ export function HeroCarousel({
             </div>
           ) : null}
         </div>
-
-        <MediaFrame
-          src={slide.imageUrl}
-          alt={slide.imageUrl ? slide.imageAlt : ''}
-          ratio="4/5"
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          priority
-        />
       </div>
     </section>
   );

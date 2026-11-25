@@ -142,6 +142,7 @@ function productRow(values: ReturnType<typeof productFormSchema.parse>) {
     price_cents: values.priceOnRequest ? null : (values.priceCents ?? null),
     compare_at_cents: values.priceOnRequest ? null : (values.compareAtCents ?? null),
     cost_cents: values.costCents ?? null,
+    currency: values.currency ?? 'USD',
     price_on_request: values.priceOnRequest,
     is_featured: values.isFeatured,
     sort_order: values.sortOrder ?? 0,
@@ -426,6 +427,46 @@ export async function adjustStockAction(
   revalidatePath('/admin/products');
   revalidatePath('/shop');
   return { status: 'success', message: 'Stock adjusted.' };
+}
+
+/**
+ * Remove a product from sale.
+ *
+ * A soft delete: the row is archived, not deleted. `order_request_items`,
+ * `wishlist_items`, `cart_items` and the inventory ledger all reference it, and a
+ * customer's past order must keep the line describing what they asked for. The
+ * database function refuses nothing that an archive would allow and records the
+ * change as `product.removed` rather than an ordinary status edit, so the trail
+ * answers "what was taken off the site" directly.
+ */
+export async function removeProductAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  try {
+    await requirePermission('catalog.write');
+  } catch (error) {
+    if (error instanceof AdminPermissionError) return refusal();
+    throw error;
+  }
+
+  const id = String(formData.get('id') ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { status: 'error', message: 'Unknown product.' };
+
+  const supabase = await createSupabaseServerClientWritable();
+  const { data, error } = await supabase.rpc('admin_remove_product', { p_product_id: id });
+
+  if (error) {
+    logger.error('admin.product_remove_failed', { message: error.message, code: error.code });
+    return {
+      status: 'error',
+      message: databaseMessage(error, 'The product could not be removed.'),
+    };
+  }
+
+  revalidateProduct((data as { slug?: string } | null)?.slug);
+  revalidatePath('/admin/products');
+  return { status: 'success', message: 'Product removed from sale and archived.' };
 }
 
 export async function transitionOrderAction(

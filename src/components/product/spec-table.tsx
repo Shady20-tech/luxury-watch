@@ -13,8 +13,28 @@ import type { SpecRow } from '@/lib/product/types';
  * renders a dash. A dash would read as "we checked and it is unknown"; omitting
  * the row says only that the catalogue does not record it.
  */
-export function SpecTable({ specs, className }: { specs: SpecRow[]; className?: string }) {
-  if (specs.length === 0) {
+export function SpecTable({
+  specs,
+  omit = [],
+  className,
+}: {
+  specs: SpecRow[];
+  /**
+   * Labels already printed elsewhere on the page.
+   *
+   * `PriceBlock` states the reference, condition and year next to the price,
+   * because those are the three facts a buyer checks before anything else. The
+   * specification table is the complete record and would otherwise repeat them
+   * a few centimetres lower, so the page showed the same reference twice. One
+   * fact is stated once.
+   */
+  omit?: string[];
+  className?: string;
+}) {
+  const hidden = new Set(omit.map((label) => label.toLowerCase()));
+  const rows = specs.filter((spec) => !hidden.has(spec.label.toLowerCase()));
+
+  if (rows.length === 0) {
     return (
       <p className={cn('text-foreground-muted text-sm', className)}>
         No specification has been recorded for this piece yet. Ask us and we will confirm the
@@ -25,7 +45,7 @@ export function SpecTable({ specs, className }: { specs: SpecRow[]; className?: 
 
   return (
     <dl className={cn('divide-line-200 border-line-200 divide-y border-t', className)}>
-      {specs.map((spec, index) => (
+      {rows.map((spec, index) => (
         <div
           // A label could in principle repeat if two source columns normalise
           // differently but read the same; the index keeps the key stable.

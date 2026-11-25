@@ -1,5 +1,7 @@
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 
+import type { SitePhotograph } from '@/lib/images/site-photography';
 import { cn } from '@/lib/utils';
 
 /**
@@ -18,13 +20,82 @@ import { cn } from '@/lib/utils';
  * The heading is an `h1` because this band carries the page title on every
  * template that uses it. A page that needs a different level should not use this
  * component.
+ *
+ * -----------------------------------------------------------------------------
+ * PHOTOGRAPHY
+ * -----------------------------------------------------------------------------
+ *
+ * A band with no photograph is a black rectangle, and a site where every page
+ * opens with the same black rectangle reads as unfinished. Passing `photograph`
+ * lays an editorial image across the whole band — a wallpaper, not an inset
+ * panel — masked so the column the text occupies stays near-black.
+ *
+ * Three rules make that safe:
+ *
+ *  - The image is `aria-hidden` with empty `alt`. It is decoration; the page
+ *    already names itself in the `h1`, and announcing "a watch" before every
+ *    heading is noise for a screen-reader user.
+ *  - It is masked with gradients rather than dimmed with opacity alone: a
+ *    left-to-right `night-900` wash under the headline and a bottom-up fade
+ *    under the supporting copy. Text contrast is then a property of the
+ *    gradients, not of whichever photograph is passed. The browser audit
+ *    measures the composed result instead of trusting that claim.
+ *  - It is **not** `priority`. The band is the first thing on the page, but the
+ *    LCP element is the `h1` text, and a preloaded 2000px plate competes with
+ *    it. Native lazy loading still fetches it immediately because it is inside
+ *    the initial viewport.
+ *
+ * -----------------------------------------------------------------------------
+ * SECTION COLOUR
+ * -----------------------------------------------------------------------------
+ *
+ * Each section of the site carries its own accent, so a visitor moving between
+ * the catalogue, the journal, service and the account area sees a different
+ * colour temperature on arrival. That identity is the eyebrow colour *and* a
+ * soft radial glow in the same hue behind the band, never a fill: `-500` as a
+ * background under a heading fails contrast on the left where the text sits, and
+ * `-900` as a fill is an unreadable black anyway. The glow is placed to the right
+ * of the headline column for exactly that reason.
+ *
+ * Every accent is a `-300` token for the eyebrow, which is the only end of those
+ * families legible on the night ground, and `tests/design-tokens.test.ts`
+ * already pins every `-300`/`-900` pair.
  */
+export type PageHeroTone = 'gold' | 'emerald' | 'burgundy' | 'sapphire';
+
+/** Accent class fragments, written out so Tailwind can see every literal. */
+const ACCENTS: Record<PageHeroTone, { eyebrow: string; glow: string; rule: string }> = {
+  gold: {
+    eyebrow: 'text-gold-300',
+    glow: 'from-gold-700/35',
+    rule: 'bg-gold-300/30',
+  },
+  emerald: {
+    eyebrow: 'text-emerald-300',
+    glow: 'from-emerald-700/35',
+    rule: 'bg-emerald-300/30',
+  },
+  burgundy: {
+    eyebrow: 'text-burgundy-300',
+    glow: 'from-burgundy-700/35',
+    rule: 'bg-burgundy-300/30',
+  },
+  sapphire: {
+    eyebrow: 'text-sapphire-300',
+    glow: 'from-sapphire-700/35',
+    rule: 'bg-sapphire-300/30',
+  },
+};
+
 export function PageHero({
   eyebrow,
   title,
   intro,
   actions,
   breadcrumbs,
+  photograph,
+  eyebrowTone = 'gold',
+  tone = 'night',
 }: {
   eyebrow?: string | null;
   title: string;
@@ -38,23 +109,87 @@ export function PageHero({
    * light ground.
    */
   breadcrumbs?: ReactNode;
+  /** Editorial image laid across the band. Decorative only. */
+  photograph?: SitePhotograph;
+  /**
+   * The section's accent. `gold` is the default; a brand, collection or section
+   * page carries its own so the site does not open in one colour everywhere.
+   * Each is a `-300` token for the eyebrow and a `-900` for the glow.
+   */
+  eyebrowTone?: PageHeroTone;
+  /** `night` is the standard band. `deep` is a richer near-black. */
+  tone?: 'night' | 'deep';
 }) {
+  const accent = ACCENTS[eyebrowTone];
+
   return (
     <>
-      <section className="bg-night-900">
-        <div className="container-page py-12 sm:py-16 lg:py-20">
+      <section
+        className={cn(
+          'relative isolate overflow-hidden',
+          tone === 'deep' ? 'bg-night-950' : 'bg-night-900',
+        )}
+      >
+        {photograph ? (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <Image
+              src={photograph.src}
+              alt=""
+              fill
+              loading="lazy"
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+            {/* One wash, and only one.
+
+                The photograph is a plain picture; legibility of the `h1` is this
+                component's job, not the picture's. The wash is therefore opaque
+                under the headline column on the left and clears by mid-band so
+                the subject on the right is actually visible.
+
+                Three stacked gradients used to sit here and multiplied to almost
+                black: the photograph was in the DOM and invisible, which is the
+                defect this band exists to avoid. Raising the image's opacity
+                instead would lighten the ground under the `h1` at the same time,
+                so the wash is tuned here and the pictures stay untouched.
+
+                The browser audit measures the composed hero, which is the only
+                check that can see this — jsdom cannot composite a gradient. */}
+            <div className="from-night-900 via-night-900/75 to-night-900/5 absolute inset-0 bg-gradient-to-r" />
+          </div>
+        ) : null}
+
+        {/* The section's colour identity, as a corner glow. Sits above the
+            photograph so the accent survives whatever image is passed, and is
+            kept to the right half so it never reaches the headline. */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            'pointer-events-none absolute inset-0 bg-gradient-to-bl via-transparent to-transparent',
+            accent.glow,
+          )}
+        />
+
+        <div className="container-page relative py-14 sm:py-20 lg:py-28">
           <div
             className={cn(
               'flex flex-col gap-6',
               actions && 'sm:flex-row sm:items-end sm:justify-between',
             )}
           >
-            <div className="max-w-prose">
-              {eyebrow ? <p className="eyebrow text-gold-300">{eyebrow}</p> : null}
-              <h1 className={cn('text-on-night text-3xl sm:text-4xl', eyebrow && 'mt-3')}>
+            <div className={cn('max-w-prose', photograph && 'lg:max-w-2xl')}>
+              {eyebrow ? (
+                <p className={cn('eyebrow flex items-center gap-3', accent.eyebrow)}>
+                  <span aria-hidden="true" className={cn('h-px w-6', accent.rule)} />
+                  {eyebrow}
+                </p>
+              ) : null}
+              <h1 className={cn('text-on-night text-4xl sm:text-5xl', eyebrow && 'mt-3')}>
                 {title}
               </h1>
-              {intro ? <p className="text-on-night-muted mt-4 text-base">{intro}</p> : null}
+              {intro ? (
+                <p className="text-on-night-muted mt-4 max-w-prose text-base">{intro}</p>
+              ) : null}
             </div>
 
             {actions ? <div className="flex shrink-0 gap-3">{actions}</div> : null}

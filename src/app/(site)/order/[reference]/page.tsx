@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { FileQuestion } from 'lucide-react';
 
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { noIndexMetadata } from '@/lib/seo/metadata';
@@ -64,7 +65,7 @@ export default async function Page({
 
   if (unavailable) {
     return (
-      <main id="main-content" className="container-page py-10 lg:py-14">
+      <div className="container-page py-10 lg:py-14">
         <ErrorState
           title="We could not load your order request"
           description="The request has not been lost. The store is briefly unavailable — please try this link again in a moment."
@@ -74,13 +75,13 @@ export default async function Page({
             </Button>
           }
         />
-      </main>
+      </div>
     );
   }
 
   if (!request) {
     return (
-      <main id="main-content" className="container-page py-10 lg:py-14">
+      <div className="container-page py-10 lg:py-14">
         <EmptyState
           icon={FileQuestion}
           title="We could not find that order request"
@@ -91,16 +92,18 @@ export default async function Page({
             </Button>
           }
         />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main id="main-content">
+    <div>
       <PageHero
         eyebrow="Order request"
         title={request.reference}
         intro="This is what we have on record. To change anything, reply to the email address you gave us and quote this reference."
+        photograph={SITE_PHOTOGRAPHY.rolexOysterPerpetual}
+        eyebrowTone="gold"
       />
 
       <div className="container-page grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:py-14 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
@@ -205,7 +208,7 @@ export default async function Page({
           </div>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 

@@ -2,18 +2,15 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { LogOut, ShieldAlert } from 'lucide-react';
+import { LogOut, Search, ShieldAlert } from 'lucide-react';
 
-import { AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
+import { AdminMobileNav, AdminNav, type AdminNavGroup } from '@/components/admin/admin-nav';
 import { UserAvatar } from '@/components/account/user-avatar';
+import { heldBy, landingSectionFor, mayEnterSection, maySeeOverview } from '@/lib/admin/sections';
 import { logoutAction } from '@/server/actions/auth-actions';
 import { fetchAvatarUrl } from '@/server/repositories/auth-repository';
 import { getAccountAccess, loginPathFor } from '@/server/services/authorization-service';
-import {
-  getAdminIdentity,
-  type AdminIdentity,
-  type Permission,
-} from '@/server/services/admin-authorization';
+import { getAdminIdentity, type AdminIdentity } from '@/server/services/admin-authorization';
 
 /**
  * The administration shell, and the guard that protects every route inside it.
@@ -57,34 +54,27 @@ import {
  */
 export const dynamic = 'force-dynamic';
 
-/** Which permission each section requires. A section with no entry needs only staff. */
-const SECTION_PERMISSIONS: Record<string, Permission | undefined> = {
-  '/admin/orders': 'orders.read',
-  '/admin/products': 'catalog.read',
-  '/admin/inventory': 'inventory.read',
-  '/admin/inquiries': 'inquiries.read',
-  '/admin/appointments': 'inquiries.read',
-  '/admin/customers': 'customers.read',
-  '/admin/settings': 'content.read',
-  '/admin/audit': 'audit.read',
-};
-
-/**
- * Build the navigation from what the caller may actually use.
+/** Build the navigation from what the caller may actually use.
  *
  * Counts are deliberately not passed in: this layout renders for every admin
  * page, and running eight count queries on every one of them to put a number
  * beside a link would make every page pay for the dashboard's figures. The
  * dashboard shows the counts; the navigation shows the sections.
+ *
+ * The permission map is imported rather than duplicated, so a link and the guard
+ * that protects its target cannot disagree about who may follow it.
  */
 function buildNav(identity: AdminIdentity): AdminNavGroup[] {
-  const may = (href: string): boolean => {
-    const required = SECTION_PERMISSIONS[href];
-    return required ? identity.permissions.has(required) : true;
-  };
+  const held = heldBy(identity);
+  const may = (href: string): boolean => mayEnterSection(href, held);
 
   const groups: AdminNavGroup[] = [
-    { heading: 'Overview', items: [{ href: '/admin', label: 'Dashboard' }] },
+    // The overview reports across every section, which is an administrator's
+    // page. A single-section manager is offered their own section instead, so the
+    // link is shown only to an administrator — the same rule the page applies.
+    ...(maySeeOverview(identity.isAdmin)
+      ? [{ heading: 'Overview', items: [{ href: '/admin', label: 'Dashboard' }] }]
+      : []),
   ];
 
   const catalogue = [
@@ -105,6 +95,10 @@ function buildNav(identity: AdminIdentity): AdminNavGroup[] {
   const system = [
     { href: '/admin/settings', label: 'Content & settings' },
     { href: '/admin/audit', label: 'Audit trail' },
+    // The staff screen is gated on the SUPER_ADMIN role, not on a permission,
+    // and `may` applies exactly that rule — so the entry appears only for a role
+    // that can use it, with no second copy of the rule here.
+    { href: '/admin/staff', label: 'Staff & roles' },
   ].filter((i) => may(i.href));
 
   if (catalogue.length > 0) groups.push({ heading: 'Catalogue', items: catalogue });
@@ -169,8 +163,40 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // correct fallback.
   const avatarUrl = await fetchAvatarUrl(identity.userId);
 
+  const headerList = await headers();
+  const requestedPath = headerList.get('x-pathname') ?? '';
+
+  // ---------------------------------------------------------------------------
+  // THE SECTION GUARD
+  // ---------------------------------------------------------------------------
+  //
+  // A staff member may hold a role that does not include this section — a
+  // CONTENT_MANAGER has no business in inventory, an INVENTORY_MANAGER none in
+  // the audit trail. Each page asserts its own permission, but that assertion
+  // *throws*, and an uncaught throw in a Server Component becomes the generic
+  // error page with a 500. That is the wrong answer twice over: it is a server
+  // error for a perfectly ordinary refusal, and it tells the caller their
+  // request failed rather than that it was never theirs to make.
+  //
+  // This branch is the *presentation* half of the refusal, not the security
+  // half. Next.js renders a layout and its page segment concurrently, so not
+  // placing `children` in the tree does not stop the page function running — the
+  // page's own `requirePermission` is what actually denies access, and every
+  // admin page checks it before reading any row. What this branch adds is a
+  // clean, in-shell "not available" panel instead of a 500, with the sidebar
+  // still offering the sections the caller can use. A bare error page would
+  // strand them on a dead end.
+  //
+  // The path comes from `x-pathname`, set by our middleware. It is attacker
+  // influenced in principle, so it is only used to *narrow* what is rendered:
+  // an unknown or malformed path matches no section and is treated as open, and
+  // the page's own check still stands behind this one.
+  const held = heldBy(identity);
+  const sectionRefused =
+    requestedPath.startsWith('/admin') && !mayEnterSection(requestedPath, held);
+
   return (
-    <div className="bg-surface-50 min-h-dvh">
+    <div className="bg-surface-page min-h-dvh lg:flex">
       <a
         href="#admin-content"
         className="focus:bg-ink-900 focus:text-surface-0 sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:px-3 focus:py-2"
@@ -178,60 +204,132 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         Skip to content
       </a>
 
-      <header className="border-line-300 bg-surface-0 border-b">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-baseline gap-3">
-            <Link href="/admin" className="text-base font-semibold">
-              Administration
-            </Link>
-            <Link
-              href="/"
-              className="text-foreground-muted hover:text-ink-900 text-xs underline-offset-4 hover:underline"
-            >
-              View store
-            </Link>
-          </div>
+      {/* The rail is the shell's left edge on a wide viewport: full height and
+          sticky, so the section list stays put while a long table scrolls. Below
+          `lg` it collapses to a toggle in the content flow and becomes a drawer.
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin/account"
-              className="focus-visible:outline-gold-700 flex items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
-            >
-              <UserAvatar url={avatarUrl} name={identity.email} size="sm" />
-              <span className="text-foreground-muted hidden text-xs sm:block">
-                {identity.email ?? 'Signed in'}
-                {identity.roles.length > 0 ? (
-                  <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
-                ) : null}
-              </span>
-              <span className="sr-only">Your account</span>
-            </Link>
-            {/* A real form, not a link: signing out is a state change, and a
-                link would be followed by a prefetch or a crawler. */}
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="text-ink-700 hover:text-ink-900 focus-visible:outline-gold-700 inline-flex items-center gap-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+          It is a white card on the page ground rather than a dark slab. The dark
+          rail was the previous design and it made the console read as a separate
+          product from the storefront; a pale rail with a tinted active row keeps
+          the same "you are somewhere else" signal — the admin has its own header
+          and its own navigation — without a second colour scheme to maintain. */}
+      <aside className="hidden w-auto shrink-0 p-3 lg:sticky lg:top-0 lg:block lg:h-dvh lg:w-auto">
+        <AdminNav groups={buildNav(identity)} />
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <header className="border-line-200 bg-surface-0/85 sticky top-0 z-30 border-b backdrop-blur-md">
+          <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+            <div className="flex items-baseline gap-3">
+              <Link
+                href="/admin"
+                className="font-display text-ink-950 text-lg leading-none tracking-tight"
               >
-                <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
-                Sign out
-              </button>
+                Administration
+              </Link>
+              <Link
+                href="/"
+                className="text-ink-500 hover:text-ink-900 hidden text-xs underline-offset-4 hover:underline sm:inline"
+              >
+                View store
+              </Link>
+            </div>
+
+            {/* A GET form, not a client component: the catalogue and order lists
+                already read `?q=`, so the browser can submit this and the result
+                is a real, linkable, shareable URL with no JavaScript involved.
+                It is scoped to the catalogue because that is the only section
+                every staff member can search; a customer search would be an
+                offer to a manager who cannot open that page. */}
+            <form
+              role="search"
+              action="/admin/products"
+              method="get"
+              className="relative order-last w-full sm:order-none sm:ml-6 sm:w-auto sm:max-w-sm sm:flex-1"
+            >
+              <label htmlFor="admin-search" className="sr-only">
+                Search the catalogue
+              </label>
+              <Search
+                aria-hidden="true"
+                className="text-ink-500 pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+              />
+              <input
+                id="admin-search"
+                type="search"
+                name="q"
+                placeholder="Search products by name, reference or SKU"
+                autoComplete="off"
+                className="border-line-300 bg-surface-50 text-ink-900 placeholder:text-ink-500 focus-visible:border-gold-700 focus-visible:outline-gold-700 h-10 w-full rounded-lg border pr-3 pl-9 text-sm focus-visible:outline-2 focus-visible:-outline-offset-2"
+              />
             </form>
+
+            <div className="ml-auto flex items-center gap-3">
+              <Link
+                href="/admin/account"
+                className="border-line-200 hover:border-line-300 hover:bg-surface-50 focus-visible:outline-gold-700 flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <UserAvatar url={avatarUrl} name={identity.email} size="sm" />
+                <span className="text-ink-700 hidden text-xs sm:block">
+                  {identity.email ?? 'Signed in'}
+                  {identity.roles.length > 0 ? (
+                    <span className="text-ink-500"> · {identity.roles.join(', ')}</span>
+                  ) : null}
+                </span>
+                <span className="sr-only">Your account</span>
+              </Link>
+              {/* A real form, not a link: signing out is a state change, and a
+                  link would be followed by a prefetch or a crawler. */}
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="border-line-200 text-ink-700 hover:border-line-300 hover:bg-surface-50 focus-visible:outline-gold-700 inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
+                  Sign out
+                </button>
+              </form>
+            </div>
           </div>
+        </header>
+
+        <div className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {/* The mobile section toggle lives here, above the page content, so it
+              is the first thing above a table on a phone. On desktop the rail is
+              already visible and the component renders nothing at `lg`. */}
+          <div className="mb-5 lg:hidden">
+            <AdminMobileNav groups={buildNav(identity)} />
+          </div>
+
+          {/* `min-w-0` lets the content column shrink below its content width, so
+              a wide table cannot force the page to scroll sideways on a narrow
+              viewport. */}
+          <main id="admin-content" className="min-w-0">
+            {sectionRefused ? (
+              <div className="border-line-300 mx-auto max-w-lg rounded-md border p-8 text-center">
+                <ShieldAlert aria-hidden="true" className="text-ink-300 mx-auto mb-4 h-8 w-8" />
+                <h1 className="text-xl">Not available</h1>
+                <p className="text-foreground-muted mt-3 text-sm">
+                  This section is not part of your role
+                  {identity.roles.length > 0
+                    ? ` (${identity.roles.join(', ').toLowerCase().replace(/_/g, ' ')})`
+                    : ''}
+                  . If you need access, ask a super administrator to review your role.
+                </p>
+                <p className="mt-6">
+                  <Link
+                    href={landingSectionFor(held)}
+                    className="text-accent-text text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    Go to a section you can use
+                  </Link>
+                </p>
+              </div>
+            ) : (
+              children
+            )}
+          </main>
         </div>
-      </header>
-
-      <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-6 lg:grid-cols-[200px_1fr] lg:gap-10 lg:py-10">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <AdminNav groups={buildNav(identity)} />
-        </aside>
-
-        {/* `min-w-0` lets the content column shrink below its content width, so a
-            wide table cannot force the page to scroll sideways on a narrow
-            viewport. */}
-        <main id="admin-content" className="min-w-0">
-          {children}
-        </main>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { CatalogueListingView } from '@/components/catalogue/catalogue-listing-view';
 import { PageHero } from '@/components/layout/page-hero';
+import { SITE_PHOTOGRAPHY } from '@/lib/images/site-photography';
 import { SearchForm } from '@/components/catalogue/search-form';
 import { SearchLanding } from '@/components/catalogue/search-landing';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -48,7 +49,10 @@ export async function generateMetadata({
 }: {
   searchParams: Promise<RawSearchParams>;
 }): Promise<Metadata> {
-  const params = parseCatalogueParams(await searchParams);
+  // `basePath` pins every link this listing generates — facets, sort, page
+  // links and the canonical — to `/search`. The scope is `all`, so without it
+  // they all pointed at `/shop` and filtering a search silently left the page.
+  const params = parseCatalogueParams(await searchParams, 'all', null, '/search');
 
   return buildMetadata({
     title: params.query !== '' ? `Search: ${params.query}` : 'Search',
@@ -78,7 +82,7 @@ async function loadSearchLanding() {
 }
 
 export default async function Page({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
-  const params = parseCatalogueParams(await searchParams);
+  const params = parseCatalogueParams(await searchParams, 'all', null, '/search');
   const isBlankSearch = params.query === '' && !hasActiveFilters(params);
 
   const [viewer, landing] = await Promise.all([
@@ -92,6 +96,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
         eyebrow="Search"
         title={params.query !== '' ? `Results for “${params.query}”` : 'Search the catalogue'}
         intro="Search by brand, model, reference number or keyword. Every result is a real, published piece."
+        photograph={SITE_PHOTOGRAPHY.omegaCalibre1861}
+        eyebrowTone="emerald"
       />
 
       <div className="container-page py-10 sm:py-14">

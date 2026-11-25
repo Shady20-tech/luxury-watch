@@ -3,6 +3,7 @@
 import { getCartCount } from '@/server/services/cart-service';
 import { getWishlistCount } from '@/server/services/wishlist-service';
 import { getCurrentUserId } from '@/server/repositories/cart-repository';
+import { isStaff } from '@/server/services/authorization-service';
 
 /**
  * Counts for the header badges.
@@ -39,12 +40,28 @@ export type HeaderCounts = {
   /** The database count. Meaningful only when `signedIn` is true. */
   wishlistCount: number;
   signedIn: boolean;
+  /**
+   * Whether the visitor may reach `/admin`.
+   *
+   * The header uses this to offer a route back to the dashboard, so staff who
+   * wander onto the public site do not have to remember the URL. It is derived
+   * from the same `is_staff()` helper the `/admin` guard uses, so the link and
+   * the guard cannot disagree, and it is never a claim of authority: the guard
+   * re-checks on the server when the link is followed.
+   */
+  staff: boolean;
 };
 
 export async function readHeaderCounts(): Promise<HeaderCounts> {
   const userId = await getCurrentUserId();
 
-  const [cartCount, wishlistCount] = await Promise.all([getCartCount(), getWishlistCount(userId)]);
+  const [cartCount, wishlistCount, staff] = await Promise.all([
+    getCartCount(),
+    getWishlistCount(userId),
+    // Skipped entirely for an anonymous visitor: the RPC would return `false`
+    // anyway, and this keeps a public pageview to two queries rather than three.
+    userId === null ? Promise.resolve(false) : isStaff(),
+  ]);
 
-  return { cartCount, wishlistCount, signedIn: userId !== null };
+  return { cartCount, wishlistCount, signedIn: userId !== null, staff };
 }

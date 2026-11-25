@@ -1,7 +1,9 @@
 import { ArrowRight, AtSign } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
+import { resolveSitePhotograph } from '@/lib/images/site-photography';
 import type { CopySection } from '@/lib/homepage/types';
 
 /**
@@ -27,14 +29,55 @@ import type { CopySection } from '@/lib/homepage/types';
  *
  * `eyebrow` and `title` come from the row's `subtitle` and `title`, so the
  * wording is the owner's, not ours.
+ *
+ * -----------------------------------------------------------------------------
+ * WHY THE PHOTOGRAPH IS BEHIND THE COPY, NOT BESIDE IT
+ * -----------------------------------------------------------------------------
+ *
+ * The row has carried an `image_url` since the photography migration, but this
+ * component used to ignore it, so the darkest, most prominent strip on the
+ * homepage was a black rectangle with text on it. Rendering it beside the copy
+ * would fight the two-column layout; washing it in behind the whole band is what
+ * makes the strip read as a lit object rather than a text block on black.
+ *
+ * Two rules keep that legible rather than merely atmospheric:
+ *
+ *  - The image is `aria-hidden` with empty `alt`. It is decoration; the banner
+ *    already names itself in its `h2`.
+ *  - A vertical and horizontal gradient is laid over it, heaviest at the left
+ *    where the headline sits and at the bottom where the copy sits. The measured
+ *    `night-950` in those corners is what keeps the contrast ratio of the text
+ *    independent of which photograph an administrator chose — the audit checks
+ *    the result rather than trusting the gradient.
  */
 export function PromoBanner({ section }: { section: CopySection }) {
+  const photograph = resolveSitePhotograph(section.imageUrl);
+
   return (
-    <section className="bg-night-950">
-      <div className="container-page grid gap-10 py-16 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-24">
+    <section className="relative isolate overflow-hidden bg-night-950">
+      {photograph ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <Image
+            src={photograph.src}
+            alt=""
+            fill
+            sizes="100vw"
+            loading="lazy"
+            className="object-cover object-center opacity-60"
+          />
+          {/* Left-to-right, so the headline column is the darkest part of the
+              band. The two stops near `night-950` are what the contrast audit
+              measures against. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/85 to-night-950/30" />
+          {/* Bottom fade, so the supporting copy never sits on a bright dial. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-night-950/40 to-transparent" />
+        </div>
+      ) : null}
+
+      <div className="container-page relative grid gap-10 py-16 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-24">
         <div>
           {section.eyebrow ? (
-            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
               {section.eyebrow}
             </p>
           ) : null}
@@ -86,7 +129,7 @@ export function CommunityPanel({ section }: { section: CopySection }) {
       <div className="container-page grid gap-10 py-16 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-20">
         <div>
           {section.eyebrow ? (
-            <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+            <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
               {section.eyebrow}
             </p>
           ) : null}
@@ -158,7 +201,7 @@ export function SocialPanel({
     <section className="bg-night-950">
       <div className="container-page py-16 text-center lg:py-20">
         {section.eyebrow ? (
-          <p className="text-gold-300 text-[0.6875rem] font-semibold tracking-[0.28em] uppercase">
+          <p className="text-gold-300 text-[0.75rem] font-semibold tracking-[0.28em] uppercase">
             {section.eyebrow}
           </p>
         ) : null}

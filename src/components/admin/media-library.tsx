@@ -251,7 +251,7 @@ function MediaCard({
           {CATEGORY_LABELS[asset.category]}
           {asset.sizeBytes ? ` · ${Math.round(asset.sizeBytes / 1024)} KB` : ''}
         </p>
-        <p className="text-ink-500 break-all font-mono text-[11px]">{asset.storagePath}</p>
+        <p className="text-ink-500 break-all font-mono text-[0.75rem]">{asset.storagePath}</p>
 
         <form action={formAction}>
           <input type="hidden" name="id" value={asset.id} />

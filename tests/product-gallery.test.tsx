@@ -34,6 +34,11 @@ function image(id: string, alt: string): ProductImage {
     alt,
     width: 800,
     height: 1000,
+    credit: null,
+    licence: null,
+    licenceUrl: null,
+    sourceUrl: null,
+    isRepresentative: false,
   };
 }
 

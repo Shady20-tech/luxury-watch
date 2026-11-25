@@ -105,7 +105,7 @@ export function AddToCartButton({
               id={`quantity-${productId}`}
               name="quantity"
               defaultValue="1"
-              className="border-line-300 bg-surface-0 focus-visible:border-gold-700 focus-visible:outline-gold-700 h-11 rounded-sm border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
+              className="border-field-border bg-field focus-visible:border-gold-700 focus-visible:outline-gold-700 h-11 rounded-sm border px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-1"
             >
               {Array.from({ length: 9 }, (_, index) => index + 1).map((value) => (
                 <option key={value} value={value}>

@@ -86,6 +86,13 @@ export type ProductImageRow = {
   height: number | null;
   is_primary: boolean;
   sort_order: number;
+  /** Photographer or rights holder. Null for the dealer's own photography. */
+  credit: string | null;
+  licence: string | null;
+  licence_url: string | null;
+  source_url: string | null;
+  /** True when the photograph shows a model example, not the piece in stock. */
+  is_representative: boolean;
 };
 
 /** A `product_specs` row. */
@@ -228,6 +235,13 @@ function buildSpecs(row: ProductRow, specs: ProductSpecRow[]): SpecRow[] {
  * image in the gallery. `alt_text` is `not null` in the schema, but a row is
  * only as good as what came back, so the product title is the fallback: an empty
  * alt tells a screen-reader user nothing about the image.
+ *
+ * `credit` and `licence` are passed through only when both are present. A
+ * licence line without an attribution is not a credit, and an attribution
+ * without a licence does not tell a reader what they may do — CC BY-SA requires
+ * both, so half of one is rendered as neither rather than as a misleading
+ * fragment. `isRepresentative` travels separately because it is a statement
+ * about the picture's subject, not about its ownership.
  */
 function buildImages(
   row: ProductRow,
@@ -240,14 +254,24 @@ function buildImages(
       if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     })
-    .map((image) => ({
-      id: image.id,
-      category: image.category ?? 'gallery',
-      url: resolveImage(image.storage_path, image.external_url),
-      alt: image.alt_text?.trim() || row.title,
-      width: toNumber(image.width),
-      height: toNumber(image.height),
-    }));
+    .map((image) => {
+      const credit = image.credit?.trim() || null;
+      const licence = image.licence?.trim() || null;
+      const hasCredit = Boolean(credit && licence);
+      return {
+        id: image.id,
+        category: image.category ?? 'gallery',
+        url: resolveImage(image.storage_path, image.external_url),
+        alt: image.alt_text?.trim() || row.title,
+        width: toNumber(image.width),
+        height: toNumber(image.height),
+        credit: hasCredit ? credit : null,
+        licence: hasCredit ? licence : null,
+        licenceUrl: hasCredit ? image.licence_url?.trim() || null : null,
+        sourceUrl: hasCredit ? image.source_url?.trim() || null : null,
+        isRepresentative: image.is_representative === true,
+      };
+    });
 }
 
 /**

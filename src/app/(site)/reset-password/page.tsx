@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { AuthShell } from '@/components/auth/auth-shell';
 import { ResetPasswordForm } from '@/components/auth/reset-password-form';
 import { AuthPanel } from '@/components/auth/auth-form';
 import { buildMetadata } from '@/lib/seo/metadata';
@@ -42,30 +43,34 @@ export default async function ResetPasswordPage() {
 
   if (!user) {
     return (
-      <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
-        <AuthPanel
-          title="This link is not valid"
-          description="A password reset link can only be used once, and it expires. Request a new one to continue."
-        >
-          <div className="flex flex-col gap-3 text-sm">
-            <Link
-              href="/forgot-password"
-              className="text-accent-text font-medium underline-offset-4 hover:underline"
-            >
-              Request a new reset link
-            </Link>
-            <Link href="/login" className="text-accent-text underline-offset-4 hover:underline">
-              Back to sign in
-            </Link>
-          </div>
-        </AuthPanel>
-      </div>
+      <AuthShell>
+        <div className="w-full">
+          <AuthPanel
+            title="This link is not valid"
+            description="A password reset link can only be used once, and it expires. Request a new one to continue."
+          >
+            <div className="flex flex-col gap-3 text-sm">
+              <Link
+                href="/forgot-password"
+                className="text-accent-text font-medium underline-offset-4 hover:underline"
+              >
+                Request a new reset link
+              </Link>
+              <Link href="/login" className="text-accent-text underline-offset-4 hover:underline">
+                Back to sign in
+              </Link>
+            </div>
+          </AuthPanel>
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-16 sm:py-24">
-      <ResetPasswordForm />
-    </div>
+    <AuthShell>
+      <div className="w-full">
+        <ResetPasswordForm />
+      </div>
+    </AuthShell>
   );
 }

@@ -41,7 +41,32 @@ CHROMIUM_PATH=/path/to/chrome npm run audit:a11y   # reuse a local Chromium
 # Serve a preview against the real local database (PostgREST + proxy + app):
 npm run preview          # public URL printed on success
 npm run preview:stop
+
+# End-to-end browser suite. Needs the preview listening on 12000.
+./scripts/e2e-seed-checkout-fixtures.sh   # required after db-reset.sh, see below
+npx playwright test
 ```
+
+### The E2E suite needs fixtures that `db-reset.sh` deletes
+
+`./scripts/db-reset.sh` returns the database to the seed, and the seed leaves
+`payment_methods` and `delivery_options` **empty** on purpose (F1: which manual
+methods the owner wants at launch is a business decision). With both empty,
+`/checkout` cannot reach its submit path, so
+`e2e/commerce.spec.ts › order request is saved as pending review` fails on a
+disabled button. That is a missing fixture, not a regression.
+
+Run `./scripts/e2e-seed-checkout-fixtures.sh` after any `db-reset.sh` and before
+`npx playwright test`. It is idempotent, and it also releases stock held by
+earlier runs — the suite places real order requests, and each reserves a piece,
+so without the release the twelve published seed pieces are exhausted after a
+dozen runs and the suite starts failing for a reason unrelated to the code.
+
+The suite itself runs against the preview on port 12000, not `next start`: the
+catalogue tests need real rows through PostgREST (see "A preview needs PostgREST,
+not just `next start`"), and several assert on the rendered order of real
+products. `playwright.config.ts` defaults `baseURL` to `http://127.0.0.1:12000`
+and honours `LW_BASE_URL` if the preview is somewhere else.
 
 `npm run verify` runs the same steps in the same order as CI. If you add a check
 to CI, add it to `verify` in the same commit — these diverging is exactly what
@@ -72,6 +97,17 @@ a local artefact, check `npm ls axe-core` against the lockfile: if the detector
 versions differ, the "passing" run is the one to distrust. A green audit is only
 as trustworthy as the version of the tool that produced it.
 
+**The audit only measures what it opens.** A control that is hidden at the
+viewport being audited is not in the document axe sees, so a pass over that page
+proves nothing about it. The mobile filter drawer is `lg:hidden`: every audit at
+320px and 390px rendered the catalogue and never opened the drawer, so the filter
+panel went unmeasured for as long as it existed. The audit now clicks the real
+trigger and asserts the dialog appeared before running axe, the same way the age
+gate pass does — a trigger that stops opening must fail, not pass silently. When
+you add an interactive surface that is only reachable by an interaction (a drawer,
+a tab panel, a popover, a step in a wizard), it needs its own pass; the page-level
+pass will not see it.
+
 **Never let an `aria-label` drop visible text.** An `aria-label` _replaces_ the
 name computed from an element's contents. If the element also shows text, the
 accessible name must still contain that text or WCAG 2.5.3 fails — a
@@ -90,6 +126,48 @@ disabled controls and the lower contrast is the signal.
 `tests/design-tokens.test.ts` asserts this and scans `src/` for
 `text-ink-400`, so the class cannot be reintroduced by copy-paste. If that test
 fails, change the class rather than the test.
+
+## The ground is a tint, and a field is a well
+
+Three surface roles, and they are not interchangeable:
+
+| Role               | Token          | Value     |
+| ------------------ | -------------- | --------- |
+| Page ground (body) | `surface-page` | `#faf9f5` |
+| Card / panel       | `surface-0`    | `#ffffff` |
+| Form field fill    | `field`        | `#f1eee6` |
+
+The page ground was pure white until the brightness pass, which made the whole
+viewport the brightest value a light theme can render. It is now a warm off-white
+while cards stay white, so a panel still reads as raised. **Do not set a page
+background to `surface-0`** — that collapses the hierarchy back to one value.
+
+`--color-border` is `line-200`, a decorative hairline (about 1.1:1). It is a
+divider, never a control outline: WCAG 1.4.11 requires 3:1 for the boundary of a
+UI component. Fields use `field-border` (`#8f8672`, 3.1:1 on the fill). A field
+was previously `border-line-300 bg-surface-0`, which is a 1.36:1 outline around a
+white box on a white page — that is why the forms looked washed out.
+
+Both field primitives carry this and everything else inherits it:
+`src/components/ui/input.tsx` for storefront forms and `inputClass` in
+`src/components/admin/form-kit.tsx` for the admin. A hand-written `<select>` or
+number input must copy the same pair. `tests/form-field-tokens.test.tsx` renders
+both primitives and asserts it. **Do not rebuild that guard as a source scan** —
+the first attempt did, and it passed vacuously, because a regex cannot tell a
+class on an `<input>` from the same class on a panel. Render the component.
+
+## Status text is measured against its own tint, not the page
+
+Every success, danger and warning banner is `bg-<status>-600/10 text-<status>-600`
+— the text sits on a 10% tint of itself, composited over whatever surface it is
+on. The contrast that matters is text-against-tint, and it is lower than
+text-against-page. `success-600` passed at 5.05:1 on the page and still failed at
+4.41:1 inside its own banner once the ground was tinted.
+
+`tests/design-tokens.test.ts` composites the real tint for success, danger and
+warning. When adding a status colour, assert it the same way; comparing the text
+colour with a solid background will pass while the banner fails. The browser
+audit catches what that misses, which is why a token change needs both.
 
 ## Product detail page
 
@@ -305,6 +383,34 @@ a column to `products` or any publicly-readable table, decide explicitly whether
 it belongs in the public surface, then update the grant list **and**
 `supabase/tests/17_product_detail.sql`. Test it through the real client path, not
 only in SQL — a policy that reads correctly can still leak a column.
+
+### An image credit belongs on every surface that shows the image
+
+The seed photography is CC BY 4.0 and CC BY-SA 4.0. Both require the author to be
+credited wherever the work is displayed, and CC BY-SA also requires the licence to
+be named. The `credit`, `licence` and `licence_url` columns exist for that, and
+`product_images_licence_complete_check` refuses a row that claims a licence without
+them, so the data could not be incomplete.
+
+The display still was. Phase 5 found that only the product detail gallery returned
+those columns: `catalogue_search`, `catalogue_by_ids` and `catalogue_similar` — the
+three functions behind every `CatalogueCard` — returned just the image path and alt
+text. So the busiest surfaces (`/shop`, every collection, brand and model page,
+`/search`, `/wishlist`, and the product page's own related rail) showed Commons
+photographs with nobody credited. Nothing failed, because the columns existed and
+one surface read them.
+
+**The standing obligation:** a card is a display. Any new RPC that feeds a card
+must return the credit columns from the _same_ lateral that picks the image it
+shows — not from a separate join, or the card credits one photograph and displays
+another. Render the credit only when both author and licence are present; half an
+attribution does not satisfy CC BY-SA. `supabase/tests/65_catalogue_image_attribution.sql`
+and `tests/catalogue-card-attribution.test.ts` guard this, and both were
+mutation-tested.
+
+Do not put the card credit in a link. It would add one outbound tab stop per card
+on a 48-card grid, and the licence requires attribution, not a clickable one. The
+product page links it to the source.
 
 ### A cookie-reading page must be explicitly dynamic, or production 500s
 
@@ -550,8 +656,89 @@ and silently dropped. The homepage editor warns when a section key is not one th
 because such a section would render nothing. Do not "fix" either by accepting anything: a saved
 block that does not appear is worse than a refusal that explains itself.
 
+### A migration in the tree is not a migration in the database
+
+The homepage hero, brand tiles and promo band all read their picture from
+`site_photography.image_url`. They rendered blank, and the components were
+correct — every row of that table was `null`. Two causes stacked:
+
+1. **Migrations 0031–0034 had never run against the preview database.** They
+   were authored after the last migrate run. Applying them seeded all seven
+   photography slots and the brand/collection hero images. Before blaming a
+   component for a blank field, check the data:
+   `select key, image_url from site_photography;`
+2. **The seed then wiped them.** `supabase/seed/03_homepage_demo.sql` had
+   `image_url = excluded.image_url` in its `on conflict` clause and the demo
+   value is `NULL`, so every re-seed reset the column. The clause now preserves
+   an existing `image_url`. A seed that re-asserts a nullable column will
+   silently erase whatever a migration or an editor put there.
+
+The general rule: an `on conflict do update` that sets a column to
+`excluded.<column>` overwrites _every_ row on every seed. Only re-assert columns
+the seed genuinely owns; preserve the ones another process may have set.
+
+### Motion is one layer, not per-component animation
+
+`globals.css` defines `[data-reveal]` / `is-revealed`, the `--ease-out-soft`
+token and the hero drift keyframes. `src/components/ui/reveal.tsx` mounts once in
+the root layout and observes every `[data-reveal]` element.
+
+To animate something on scroll, add `data-reveal` to the element and, for a
+stagger, a `--reveal-delay` custom property. Do not write a second
+IntersectionObserver or a per-component `useEffect` — the whole layer is disabled
+under `prefers-reduced-motion` in one place, and a bespoke observer would not be.
+
+### The admin rail is the shell's left edge, and it is dark on purpose
+
+`AdminNav` is a dark gradient rail inside a light admin shell. The active row is
+marked by a gold rule at **every** width, not only when collapsed — on a dark
+surface the 5%-white fill is not enough on its own to read as "you are here".
+`navLinkClass` owns that treatment. The collapsed width is persisted in
+`localStorage` and read after mount, never during render, or the first client
+render disagrees with the server's and hydration fails.
+
+### A migration that updates a seeded row runs before the row exists
+
+`db-verify.sh` applies **every migration, then every seed**. So a migration
+shaped like
+
+```sql
+update public.brands set hero_image_url = '/site-photography/brand-rolex.webp'
+ where slug = 'rolex';
+```
+
+matches **zero rows** on a fresh database, because the seed that creates `rolex`
+has not run yet. SQL does not treat an update that matched nothing as an error,
+so the migration suite stays green and the site ships with the column null. This
+is how every hero band on the site — homepage carousel, all nine brand pages, all
+three collection pages — came to be a black rectangle while every check passed.
+
+**A value that belongs to a seeded row belongs in the seed**, in the `insert`
+that creates the row. Migrations are for schema and for data that must be
+corrected on databases that already exist, not for pointing at rows another file
+will create later. A follow-up migration cannot fix it either: it runs in the same
+empty window.
+
+The conflict clause needs care. `on conflict (slug) do update set x = excluded.x`
+overwrites an administrator's edit every time the seed re-runs, which is why the
+seed used to omit such columns entirely — and omitting them is what left a fresh
+database blank. Use `coalesce(public.t.col, excluded.col)` so a stored value wins
+and the seed value only fills an empty one. That satisfies both properties at
+once.
+
+Test it against an empty database, not the one you have been working in: `db-reset`
+then `db-verify`, and assert the column is populated _from the seed alone_. A
+populated value on a long-lived database may be left over from a manual `update`
+that no fresh install would ever run. `supabase/tests/68_hero_photography.sql` is
+the standing check for the hero columns.
+
 ### Things that will bite you
 
+- **A `not-found.tsx` or `error.tsx` inside a route group renders _inside_ that group's layout.** So it must not render the layout's own chrome. `src/app/(site)/not-found.tsx` first rendered `SiteHeader`/`SiteFooter` — which `(site)/layout.tsx` already provides — and used its own `<main>` inside the layout's `<main>`. The result was two headers, two footers and two `main` landmarks on every unmatched public route. No unit test sees this (it is a property of the composed page, not of the component) and reading the file in isolation looks right. Drive a browser across a real 404 and count `header`, `footer`, `main` and `h1`; the expected answer is one of each. The root `src/app/not-found.tsx` is different — it sits _outside_ the group, replaces the whole layout, and therefore _must_ render the chrome itself.
+- **`catch` in a data layer must not swallow Next's control-flow errors.** Next signals "this route is dynamic" by throwing, and it signals `notFound()`/`redirect()` the same way. `getChrome()`'s catch treated all of them as a data failure, logged `chrome.load_failed` and returned the fallback fixture — which hid the signal and would let the route be cached as static, the same static-to-dynamic failure documented above for the product page. Call `unstable_rethrow(error)` from `next/navigation` **first** in any catch that degrades to a fallback, then handle the genuine error. The symptom was a build warning that `/_not-found` could not be prerendered; the warning was honest and the catch was the fault. **Fixing one such catch does not fix the class**: the same swallow was present in `catalogue-service`, `homepage-service` and the `brands`/`collections` index pages, where it was invisible because the rethrow from `getChrome()` upstream now reached _those_ catches instead. A build that prints `Dynamic server usage` for a route is telling you the route escaped the static/dynamic classification — read every catch on that route's path, not just the innermost one.
+- **A facet is only as good as the distinct values in its column.** `catalogue_facets` groups by the raw stored value, so one material spelled two ways becomes two filter rows that each hide the other's pieces. `catalogue_normalise_facet_value` (0027, extended in 0038) is the single map that decides what a value is called, and it runs on write via a trigger. When you add a new value to the seed or the admin, check whether it folds to an existing one: `supabase/tests/28_facet_values.sql` asserts the invariant ("no column holds two spellings that fold to the same key") rather than a list of expected strings, so it fails for a duplicate nobody anticipated. Fix the **map**, not the seed — a corrected seed fixes one database and leaves the next writer free to reintroduce the duplicate.
+- **A sort branch that falls through to the default is a sort that is not applied.** `catalogue_search` builds one `row_number()` that switches on `p_sort`, and the featured branch is a `case` that applies whenever the sort is _not_ in an explicit list. `'newest'` was left off that list, so it fell into the featured branch and the editor's unique `sort_order` decided the order ahead of `published_at desc`. "Newest first" returned the catalogue oldest-first for as long as the seed's `sort_order` happened to match its dates — which it did, so every test and every manual check agreed with the bug. When you add a sort option, add it to **both** the explicit-ordering `case` terms and the direction term it needs; a `case` that returns `null` for the other branches silently yields to whatever comes next. Test sorts against a fixture where the competing orderings disagree, or the test proves only that the seed is sorted.
+- **A card that shows the brand twice passes every test that checks one field at a time.** The catalogue and homepage cards render `brandName` as their own line and then print `title`, and every seeded title already begins with the brand — so each card read "Patek Philippe / Patek Philippe Cubitus …" on every listing. Both components were individually correct, the seed was correct, and the tests asserted each field in isolation. It survived a visual pass because it reads like a deliberate caption-plus-title design. `titleWithoutBrand` (`src/lib/product/title.ts`) strips the prefix at a word boundary only, so `Rolexford 100` keeps its name, and both mappers call it. When a component prints two fields that can overlap, assert on the rendered text as a whole, not on each field.
 - **A validated parameter is not a stored value.** `submit_sell_trade_request`
   checked `p_transaction_type` against `('sell','trade')` and then inserted
   without it, and the table had no column for it either. A customer who chose
@@ -614,6 +801,19 @@ block that does not appear is worse than a refusal that explains itself.
   the defect above survived to the browser stage while `50_service_flows.sql` was
   green. When you assert that something is unique, produce several of them in the
   smallest interval the system can distinguish, not one.
+- **A test that asserts a URL round-trips is testing the router, not the
+  feature.** The catalogue's only sort test navigated to `?sort=price-asc` and
+  checked the URL still said `price-asc`. The enum value is `price_asc` (an
+  underscore), so the parser rejected it and fell back to `featured` — the page
+  rendered the default order and the assertion passed anyway, because a URL
+  echoes whatever it was given. Sorting had never been exercised at all, and the
+  phase's claim that it worked rested on that test. When you test a control that
+  changes what is rendered, assert the rendered consequence (the selected value
+  read back, the order of the rows), and confirm the test fails when the feature
+  is broken. A silent fallback is what makes this class of test vacuous, and
+  every parser here has one: an unknown sort, page or facet value must render
+  the default rather than error, which is right for a visitor and invisible to a
+  test that only looks at the URL.
 - **A migration that skips its own body is a migration nothing tests.** `0015`,
   `0022` and `0023` all guard their bucket and storage-policy blocks on
   `information_schema.schemata` containing `storage`, so the migrations still
@@ -661,6 +861,24 @@ block that does not appear is worse than a refusal that explains itself.
 - **`admin_audit_logs` has no write policy at all.** Not even `SUPER_ADMIN` can
   insert through the API. Writes are expected to go through a `SECURITY DEFINER`
   function. If a feature needs to write an audit row, write that function.
+- **A role change is a function call, never a table write.** `user_roles` has an
+  `ALL` policy for `SUPER_ADMIN`, so a direct insert would pass RLS and still be
+  wrong: a row policy cannot set `granted_by` to the real actor, cannot re-check
+  that the actor still holds `SUPER_ADMIN` at the moment of the write, cannot
+  write the audit row, and cannot refuse the two things that must be refused —
+  self-elevation and removing the last unexpired `SUPER_ADMIN`.
+  `admin_grant_role`/`admin_revoke_role` (migration `0033`) are the only paths.
+- **Write the audit row before a destructive step that changes the actor's own
+  authority.** `admin_write_audit_log` refuses a non-staff caller, so a super
+  administrator revoking their own last staff role ceases to be staff the instant
+  the row is deleted. `admin_revoke_role` therefore writes the audit row first;
+  the transaction makes the pair atomic either way. This was caught by the test,
+  not by review — the ordering looked harmless.
+- **Product removal is an archive, not a delete.** `products` is referenced by
+  `order_request_items`, `cart_items`, `wishlist_items`, `inventory` and the
+  service tables, so `DELETE` cascades order history away. `admin_remove_product`
+  sets `status = 'archived'`, which every public query and the sitemap already
+  exclude. Do not "clean up" archived rows.
 - **Role helper functions are `SECURITY DEFINER` with `set search_path = ''`.**
   Keep fully qualified references inside them; an unqualified name there is
   redirectable by a hostile `search_path`.
@@ -688,6 +906,46 @@ block that does not appear is worse than a refusal that explains itself.
   navigate. Use `aria-current` for "the current item in a set of links", and
   `aria-pressed` only on a real `<button>`. jsdom does not run this rule, so the
   audit is what catches it.
+- **`pointer-events-none` is not a disabled control.** A zero-count facet row
+  rendered as an `<a class="pointer-events-none">` cannot be clicked, but it stays
+  in the tab order and still navigates on `Enter` — so a keyboard user reaches an
+  empty grid a mouse user cannot. Render a `<span aria-disabled="true">` instead:
+  not focusable, announced as unavailable, and still in place so the panel does
+  not jump as counts change. Keep the current selection clickable; it is the way
+  back out of a filter.
+- **A validating parser's allowlist must contain everything the database can
+  produce, or the filter silently does nothing.** The facet-value pattern once
+  excluded apostrophes and underscores, which dropped `gender=Men's` and
+  `condition=pre_owned` — the two most useful facets on a pre-owned catalogue. A
+  dropped value is not an error, so the page rendered all twelve products and
+  looked like a filter that matched everything. `tests/catalogue-params.test.ts`
+  now parses every value the seed stores.
+- **A listing's address is not always derivable from its scope.** `/search` has
+  scope `all`, and scope `all` means `/shop`, so every facet link, sort
+  submission, pagination link and its canonical pointed into the shop.
+  `CatalogueParams.basePath` carries the listing's own path where the scope does
+  not imply it, and is `null` on the scope-derived routes. A new listing route
+  with its own URL must set it, or it will link into `/shop`.
+- **A green browser audit against a nearly empty database is evidence about the
+  empty states, not about the pages.** `/brands/[slug]/models/[model]` failed
+  WCAG 1.4.1 (`link-in-text-block`) on a hand-rolled breadcrumb that used bare
+  `/` separators, and the audit had never seen it because no seeded product
+  belonged to a model page. Publishing 72 rows to exercise pagination made the
+  cards render and the defect appeared at once. Use the shared `Breadcrumbs`
+  component — it renders an `<ol>`, so no link shares a text block with prose.
+- **A heading that is `display:none` is not in the accessibility tree, so it
+  cannot carry heading order.** The catalogue's cards are `h3`, and the only
+  `h2` above them was the filter sidebar's "Filter" — which is `hidden lg:block`.
+  On a wide screen the order was `h1 → h2 → h3` and the audit passed; on a
+  narrow screen the sidebar is gone, so the cards followed the `h1` directly and
+  `heading-order` failed **on mobile only**. The grid now owns its own `sr-only`
+  `h2` (`CatalogueGrid`, opt out with `headingId={null}` where a caller already
+  renders a heading above it, as the product page's related-products section
+  does). `TrustRow` had the same skip and its items are now `h2`.
+  `tests/catalogue-heading-order.test.tsx` asserts the level and the document
+  order directly, because jsdom can check _that_ even though it cannot check the
+  rule. When a heading passes on desktop and fails on mobile, look for a
+  responsive `hidden` on the heading itself or on an ancestor.
 - **A guest cart is server-side only.** `carts` and `cart_items` have no policy
   that can prove a guest owns a row, so an anonymous caller cannot touch them
   through the API. Guest carts go through the service-role client with the token
@@ -703,6 +961,18 @@ block that does not appear is worse than a refusal that explains itself.
 - **The browser audit needs a fresh build and a free port.** Rebuild before
   auditing, and never audit while a second server for this repo is still
   listening; the results are meaningless and inconsistent between runs.
+- **A running server and `npm run build` cannot share `.next`.** `npm run verify`
+  ends in `next build`, which rewrites `.next` while a preview is serving it. The
+  server keeps its in-memory route manifest, so it answers the _old_ hashed asset
+  URLs while the files on disk are the new ones — `/_next/static/css/<old>.css`
+  returns the HTML 404 page, the browser refuses it as a stylesheet, and the
+  audit reports a page with no CSS. The symptoms are convincing and wrong: every
+  page suddenly fails `target-size` and `errors-in-console`, accessibility drops
+  from 100 to 96, and it looks like a layout regression in the last commit. The
+  console entry `Refused to apply style … MIME type ('text/html')` is the tell.
+  Restart the preview (`npm run preview` rebuilds and rebinds) before trusting any
+  audit that follows a `verify`, and confirm one `/_next/static/css/*.css` request
+  returns `text/css` before reading the scores.
 
 - **A green audit of a `404` proves nothing, so a route is discovered, not
   hardcoded.** `axe` audits whatever document it is given, and the not-found
@@ -741,6 +1011,41 @@ protocol-relative `//host` (a single-leading-slash check accepts this, which is 
 classic way the guard is written wrongly), backslash variants browsers normalise
 to a slash, and non-http schemes. It always returns a usable path, never `null`, so
 a caller cannot mistake "rejected" for "no redirect".
+
+**One map decides who may enter a section, and it lives in `src/lib/admin/sections.ts`.**
+The admin layout (to refuse), the sidebar (to decide which links to render) and
+the overview (to choose where a role lands) all ask the same pure module. When
+each held its own copy the drift was invisible: a link that renders but refuses,
+or a route that opens with no link to it. Three things in that map are easy to
+get wrong:
+
+- **A section requirement is a permission _or_ a role, not always a permission.**
+  `/admin/staff` is the screen that _grants_ permissions, so gating it on
+  `customers.read` would let an `ADMIN` promote themselves by editing roles — the
+  check would be circular. It requires `SUPER_ADMIN`, exactly as its page does.
+  A permission-only map admitted a plain `ADMIN` to the layout and then let the
+  page throw behind it: a 500 for an ordinary refusal.
+- **Match on a path boundary, never a bare prefix.** `/admin/ordersomething` must
+  not be read as `/admin/orders`.
+- **The refusal is presentation, not the security boundary.** Next.js renders a
+  layout and its page segment _concurrently_, so returning a panel instead of
+  `children` does not stop the page function running — it still executed and threw
+  in the log even while the panel was shown. What actually denies access is each
+  page's own `requirePermission`, which every admin page calls **before reading a
+  row**. The layout's refusal exists so the caller gets a clean in-shell "not
+  available" panel with their own navigation, instead of the generic 500.
+
+**A single-section manager has no dashboard, and must not be sent to one.** The
+overview at `/admin` reports across every section — orders, enquiries, stock, the
+audit trail — which is an administrator's page. A manager is redirected from it
+to their own section by `landingSectionFor`, which prefers the section's _write_
+permission so an inventory manager lands on Inventory rather than on the order
+queue they may merely read. `maySeeOverview` is `identity.isAdmin`, not "holds
+any permission": holding a permission to read a figure is not the same as the
+overview being that person's page, and letting a manager sit on it is exactly the
+"another person's dashboard" the role split exists to prevent. The Dashboard nav
+entry and the dashboard's own counts are scoped by the same rule, so a manager
+never sees a figure from a section they do not run.
 
 **Roles are read through functions, never a column.** `authorization-service.ts`
 calls the `SECURITY DEFINER` helpers `is_staff()`/`is_admin()`/`has_permission()`,
@@ -781,11 +1086,22 @@ page, add it there, and confirm the pass still fails when pointed at a public pa
 
 ### One rule decides what may be indexed, and the sitemap applies the same one
 
-`src/lib/catalogue/params.ts` owns the decision: `isIndexableListing()` and
-`canonicalListingPath()`. A clean listing is indexable with a self-canonical; a
-filtered, searched or sorted one is `noindex, follow` and canonicalises onto the
-clean listing. The full table is in `docs/SEO.md`, and
-`tests/catalogue-params.test.ts` pins it.
+`src/lib/catalogue/params.ts` owns the decision, and **one function answers both
+halves of it**: `listingSeo(params, total, scopeIsEligible)` returns the canonical
+path and whether the page may be indexed. Every listing route — `/shop`, a brand,
+a collection, a model — calls it, so they cannot drift apart. A clean listing is
+indexable with a self-canonical; a filtered, searched or sorted one is
+`noindex, follow` and canonicalises onto the clean listing. The full table is in
+`docs/SEO.md`, and `tests/catalogue-params.test.ts` pins it.
+
+**Indexability is not a function of the query string alone.** `isIndexableListing()`
+reads only the parameters, so it said "pagination is a genuine series" and
+indexed `?page=999` on a one-page listing — a soft 404, self-canonical, and one of
+ten thousand possible addresses competing with the real page. The answer needed a
+fact the query string does not carry: whether the requested page exists, which
+only the loaded listing knows. If you add a rule about a listing's crawlability,
+pass it the result count too, and go through `listingSeo` rather than composing
+`isIndexableListing` and `canonicalListingPath` at the call site.
 
 The scoped half is separate because it needs a database number rather than only
 the query string: a brand or collection page holding **zero published pieces** is
@@ -855,6 +1171,48 @@ Two mechanics to remember when changing seeded copy:
   contains stray CR characters in a handful of spec strings; a naive read/write in
   Python strips them and turns a four-line change into an unrelated multi-line
   diff. Use `git diff` on the seed and expect only your own lines.
+
+## Site photography
+
+The editorial photography — the pictures in `PageHero`, the homepage carousel and
+the mid-page bands — is not the product catalogue. It is licensed stock chosen
+for a dark, editorial register, and it lives under `public/site-photography/`.
+
+`src/lib/images/site-photography.ts` is the **single registry**. Every file has
+its recorded dimensions, author, licence and licence URL there, and
+`tests/site-photography.test.ts` verifies the dimensions against the real files
+on disk. `SITE_PHOTOGRAPHY` is for components that know which picture they want;
+`resolveSitePhotograph()` is for a path that came out of the database and returns
+`null` for anything not in the registry, so an administrator's upload falls
+through untouched rather than being forced into the seed's catalogue.
+
+**The licence rule is a test, not a convention.** `tests/seed-photography.test.ts`
+requires a licence matching `^CC BY(-SA)? [0-9.]+$` — so `CC BY-SA 4.0` and
+`CC BY 2.0` pass, while `CC0` (wrong shape entirely) and `CC BY-SA 3.0 fr` (a
+locale suffix the pattern does not allow) are rejected. Both were hit in
+practice; one picture was dropped rather than the pattern widened. When a new
+picture is rejected, pick another — do not loosen the test to make it pass.
+
+**A `priority` image is downloaded even when CSS hides it.** `priority` emits
+`<link rel="preload">`, and a preload ignores `display: none`. `PageHero` hides
+its photograph below `lg`, so marking that image `priority` made every interior
+page download a hero it never painted — 14.7 KB per pageview at 320px, competing
+with the `h1`, which is the real LCP element. The image is `loading="lazy"` with
+no preload instead: a hidden lazy image is never fetched, and on desktop it is in
+the initial viewport so the loader fetches it immediately. `tests/page-hero.test.tsx`
+pins this. The general rule: **never put `priority` on an image a breakpoint can
+hide.**
+
+**`MediaFrame` is for products, not for atmosphere.** It letterboxes on a white
+panel with `object-contain`, because a watch is tall and `cover` would crop the
+lugs. An editorial hero wants the opposite — `object-cover`, filling its frame.
+Reaching for `MediaFrame` out of habit is how an editorial photograph ends up
+floating in a white box.
+
+**A static file added after the dev server starts is a 404.** Next.js serves
+`public/` from the build manifest, so adding a webp and refreshing the running dev
+server shows a broken image. Restart the server, and rebuild before auditing a
+production build.
 
 ## Payments
 

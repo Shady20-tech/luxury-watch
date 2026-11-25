@@ -44,12 +44,35 @@ const inputClass =
   'border-line-300 focus-visible:outline-gold-700 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:-outline-offset-1';
 const labelClass = 'text-ink-700 mb-1 block text-xs font-medium';
 
+/**
+ * The currencies an administrator can price in, with the symbol shown beside the
+ * amount. A free-text code would let a typo reach `formatMoney` and render
+ * `NaN` to a customer, so the list is closed. It covers the majors a watch
+ * retailer quotes in; adding one is a one-line change.
+ */
+const CURRENCIES = [
+  { code: 'USD', label: 'US dollar', symbol: '$' },
+  { code: 'GBP', label: 'Pound sterling', symbol: '£' },
+  { code: 'EUR', label: 'Euro', symbol: '€' },
+  { code: 'CHF', label: 'Swiss franc', symbol: 'CHF' },
+  { code: 'AED', label: 'UAE dirham', symbol: 'AED' },
+  { code: 'SGD', label: 'Singapore dollar', symbol: 'S$' },
+  { code: 'HKD', label: 'Hong Kong dollar', symbol: 'HK$' },
+  { code: 'AUD', label: 'Australian dollar', symbol: 'A$' },
+] as const;
+
+function currencySymbolFor(code: string | null | undefined): string {
+  return CURRENCIES.find((entry) => entry.code === code)?.symbol ?? '$';
+}
+
 export function ProductForm({ action, product, brands, models }: Props) {
   const [state, formAction, pending] = useActionState(action, IDLE_ADMIN_STATE);
   const errors = state.fieldErrors ?? {};
 
   const money = (cents: number | null | undefined) =>
-    cents === null || cents === undefined ? '' : String(cents);
+    cents === null || cents === undefined ? '' : (cents / 100).toFixed(2);
+
+  const currencySymbol = currencySymbolFor(product?.currency);
 
   return (
     <form action={formAction} className="space-y-8">
@@ -177,31 +200,66 @@ export function ProductForm({ action, product, brands, models }: Props) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="priceCents" className={labelClass}>
-              Price (minor units, e.g. cents)
+              Price
             </label>
-            <input
-              id="priceCents"
-              name="priceCents"
-              inputMode="numeric"
-              defaultValue={money(product?.priceCents)}
-              className={inputClass}
-              aria-invalid={Boolean(errors.priceCents)}
-              aria-describedby="price-help"
-            />
+            <div className="flex items-stretch gap-2">
+              <span
+                aria-hidden="true"
+                className="text-ink-500 border-line-300 bg-surface-100 flex items-center rounded-sm border border-r-0 px-3 text-sm"
+              >
+                {currencySymbol}
+              </span>
+              <input
+                id="priceCents"
+                name="priceCents"
+                inputMode="decimal"
+                placeholder="12500.00"
+                defaultValue={money(product?.priceCents)}
+                className={inputClass}
+                aria-invalid={Boolean(errors.priceCents)}
+                aria-describedby="price-help"
+              />
+            </div>
             <p id="price-help" className="text-foreground-muted mt-1 text-xs">
-              Leave blank and tick “sold by enquiry” for a price-on-request piece.
+              The amount a customer pays, for example <span className="font-semibold">12500</span>{' '}
+              or <span className="font-semibold">12500.50</span>. Leave it blank and tick “sold by
+              enquiry” for a price-on-request piece.
             </p>
             <FieldError message={errors.priceCents} />
           </div>
 
           <div>
+            <label htmlFor="currency" className={labelClass}>
+              Currency
+            </label>
+            <select
+              id="currency"
+              name="currency"
+              defaultValue={product?.currency ?? 'USD'}
+              className={inputClass}
+              aria-describedby="currency-help"
+            >
+              {CURRENCIES.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.code} — {option.label}
+                </option>
+              ))}
+            </select>
+            <p id="currency-help" className="text-foreground-muted mt-1 text-xs">
+              Every price on this listing is shown in this currency.
+            </p>
+            <FieldError message={errors.currency} />
+          </div>
+
+          <div>
             <label htmlFor="compareAtCents" className={labelClass}>
-              Compare-at price (minor units)
+              Compare-at price
             </label>
             <input
               id="compareAtCents"
               name="compareAtCents"
-              inputMode="numeric"
+              inputMode="decimal"
+              placeholder="Optional"
               defaultValue={money(product?.compareAtCents)}
               className={inputClass}
             />
@@ -210,18 +268,17 @@ export function ProductForm({ action, product, brands, models }: Props) {
 
           <div>
             <label htmlFor="costCents" className={labelClass}>
-              Cost (minor units, internal only)
+              Cost (internal only)
             </label>
             <input
               id="costCents"
               name="costCents"
-              inputMode="numeric"
+              inputMode="decimal"
+              placeholder="Never shown to customers"
               defaultValue={money(product?.costCents)}
               className={inputClass}
             />
-            <p className="text-foreground-muted mt-1 text-xs">
-              Never shown to customers. Withheld from the public API by a column grant.
-            </p>
+            <FieldError message={errors.costCents} />
           </div>
 
           <div className="flex flex-col justify-end gap-2">

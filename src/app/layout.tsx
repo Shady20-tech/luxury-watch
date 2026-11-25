@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Cardo, Nunito } from 'next/font/google';
 
 import { JsonLd } from '@/components/seo/json-ld';
+import { RevealOnScroll } from '@/components/ui/reveal';
 import { getPublicEnv } from '@/lib/env';
 import { organizationSchema, websiteSchema } from '@/lib/seo/schema';
 
@@ -39,7 +40,10 @@ export const metadata: Metadata = {
   },
   applicationName: getPublicEnv().siteName,
   formatDetection: { telephone: true, address: true, email: true },
-  icons: { icon: '/icon.svg' },
+  // The file convention in `src/app/` supplies the icon and apple-touch icon, so
+  // this only needs to name the browser-tab asset for clients that ask for it
+  // explicitly. Replacing the crest means replacing those two PNGs, not this.
+  icons: { icon: '/icon.png', apple: '/apple-icon.png' },
 };
 
 export const viewport: Viewport = {
@@ -62,6 +66,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           Skip to main content
         </a>
         {children}
+        {/* Watches for `[data-reveal]` and reveals it on scroll. Mounted once
+            here so any Server Component can opt in with an attribute, without
+            turning its children into client components. */}
+        <RevealOnScroll />
         {/* Site-wide identity. Emitted once here rather than repeated on every
             page; individual pages reference these nodes by `@id`. */}
         <JsonLd nodes={[organizationSchema(), websiteSchema()]} />
