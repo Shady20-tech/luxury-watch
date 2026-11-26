@@ -88,6 +88,35 @@ describe('parsePageBlocks', () => {
     expect(parsePageBlocks(['a paragraph', 42, null])).toEqual([]);
   });
 
+  it('keeps a figure and normalises an absent caption to nothing', () => {
+    const path = '/site-photography/watchmaker-bench.webp';
+    expect(parsePageBlocks([{ type: 'figure', src: path }])).toEqual([
+      { type: 'figure', src: path, caption: undefined },
+    ]);
+    expect(parsePageBlocks([{ type: 'figure', src: path, caption: 'At the bench' }])).toEqual([
+      { type: 'figure', src: path, caption: 'At the bench' },
+    ]);
+    expect(parsePageBlocks([{ type: 'figure', src: path, caption: '  ' }])).toEqual([
+      { type: 'figure', src: path, caption: undefined },
+    ]);
+  });
+
+  it('drops a figure with no src', () => {
+    expect(parsePageBlocks([{ type: 'figure' }])).toEqual([]);
+    expect(parsePageBlocks([{ type: 'figure', src: '   ' }])).toEqual([]);
+  });
+
+  it('parses a figure without checking that the path is registered', () => {
+    // Parsing is not the gate: the registry is. A path is kept so the renderer
+    // can drop it, which is where the credit and licence would live. Pinning
+    // the split stops someone "fixing" this by validating paths here, which
+    // would couple the content parser to a presentation registry.
+    const unknown = parsePageBlocks([{ type: 'figure', src: 'https://example.com/x.jpg' }]);
+    expect(unknown).toEqual([
+      { type: 'figure', src: 'https://example.com/x.jpg', caption: undefined },
+    ]);
+  });
+
   it('keeps the known blocks in order and drops only the bad ones', () => {
     const blocks = parsePageBlocks([
       { type: 'heading', text: 'Title' },

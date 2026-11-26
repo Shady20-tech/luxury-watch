@@ -8,6 +8,77 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### The policy pages were one paragraph each, and they now carry the trade
+
+**Date:** 2026-11-19
+
+**Scope:** Content and presentation of the six informational pages, plus one new
+CMS block type. No routing, catalogue or pricing change.
+
+Footer links have pointed at `/pages/about`, `/pages/faq`, `/pages/shipping`,
+`/pages/warranty`, `/pages/terms` and `/pages/privacy` since Phase 11, and every
+one of them rendered a title, a hero and — where the database had a row — a
+handful of paragraphs. About was 4 blocks. Privacy was empty. A visitor who
+wanted to know what the business does, or what happens if a parcel goes missing,
+had nothing to read. The pages existed to satisfy a footer link rather than to
+answer anything.
+
+All six now carry original prose written for this store:
+
+| Page | Blocks | What it covers |
+| --- | --- | --- |
+| About | 28 | How a watch moves from intake to listing, what we record and why, what we look for, buying, selling, servicing, and where we stand on authorised-dealer status |
+| FAQ | 26 Q&A | Eight groups: account, authentication, buying, payment, returns, selling, servicing, shipping |
+| Terms | 42 | Contract formation, prices and availability, delivery and risk, liability, governing law |
+| Privacy | 35 | What is held and why, the one cookie the site sets, the processors, retention, rights |
+| Shipping | 21 | Dispatch, insurance, customs, damaged and lost parcels, collection |
+| Warranty | 23 | 14-day returns, how a refund works, the 12-month movement warranty |
+
+Three things are deliberate about the prose. It never claims a payment was taken,
+because this site takes no payment — every policy that touches money says so in
+the same words the rest of the site uses. It never claims authorised-dealer
+status. And it does not invent facts the business has not confirmed: the governing
+law is described as the place the business is established rather than named,
+because naming one would fabricate a jurisdiction.
+
+**A `figure` block, gated by the photography registry.** The pages needed
+photography, and `PageBlock` had no way to carry an image. The new block stores a
+path into `src/lib/images/site-photography.ts` and nothing else — not a URL, not
+alt text, not a credit. `parsePageBlocks` resolves the path against the registry
+and drops the block when it is unknown, so a figure cannot put an uncredited
+photograph on a page: the alt text, photographer, licence and dimensions all come
+from the registry entry. Six plates are used across the six pages, each sourced
+from that registry and each rendering its credit line.
+
+Captions describe the photograph, never the stock. These are editorial plates of
+watches and tools; a caption claiming a plate shows "our stock" would misdescribe
+it, and the seed asserts no caption makes that claim.
+
+**A contents list on the long documents.** Terms runs to 42 blocks and Privacy to
+35. On a telephone that is several screens of prose with no way to reach the
+paragraph you came for, so `PageBlocks` now emits a jump list of the level-2
+headings — but only from four sections up, because on a short page a table of
+contents costs more than it saves. Heading anchors are keyed by block index, which
+is stable and unique in a way heading text is not (two sections can share a
+title). All 15 anchors on Terms were clicked in Chromium and each landed on its
+heading.
+
+One defect found while verifying: the links measured 20px tall, under the 24px
+minimum in WCAG 2.5.8, which the axe run does not check. They are now 36px, and
+`tests/page-blocks.test.tsx` asserts the classes that supply the height, since
+jsdom lays nothing out and cannot measure it.
+
+**The seed is idempotent on `slug`, not `id`.** Migration `0006` already created
+draft rows at the `shipping` and `warranty` slugs, so keying the upsert on `id`
+would collide on the unique slug index instead of updating in place. Verified by
+running the file three times: 6 pages and 26 FAQs, unchanged, with no duplicate
+slugs. The migration's longer-named drafts (`about-us`, `privacy-policy`, …) are
+left untouched.
+
+Verified: `npm run verify` green at 1120 tests, `npm run audit:a11y` green across
+33 pages × 4 viewports with no contrast failure or horizontal overflow on any of
+the six pages at 1440, 390 and 320, and every figure image fetched with no 4xx.
+
 ### The hero became a cover, and the licensed plates finally got credited
 
 **Date:** 2026-11-19
