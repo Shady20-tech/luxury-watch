@@ -233,7 +233,7 @@ const pageBodySchema = z
       if (rendered.length !== parsed.length) {
         ctx.addIssue({
           code: 'custom',
-          message: `${parsed.length - rendered.length} block(s) are not a recognised type and would not be displayed. Allowed: heading, paragraph, list, callout, faq.`,
+          message: `${parsed.length - rendered.length} block(s) are not a recognised type and would not be displayed. Allowed: heading, paragraph, list, callout, figure, faq.`,
         });
         return z.NEVER;
       }

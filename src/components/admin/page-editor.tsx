@@ -85,7 +85,7 @@ function DeletePageForm({ page }: { page: AdminPageRow }) {
  * The page editor.
  *
  * The body is JSON because `pages.content` is a `jsonb` array of typed blocks and
- * the renderer understands five block types. The textarea is a deliberate choice
+ * the renderer understands six block types. The textarea is a deliberate choice
  * for this phase: a block builder is a larger piece of work, and a half-built one
  * that can produce a block the renderer drops would be worse than an honest JSON
  * editor with a documented shape. The shape is shown above the textarea and
@@ -205,8 +205,12 @@ export function PageForm({
         <p className="text-ink-500 mb-1 text-xs">
           A JSON array of blocks. Recognised types: <code className="font-mono">heading</code>,{' '}
           <code className="font-mono">paragraph</code>, <code className="font-mono">list</code>,{' '}
-          <code className="font-mono">callout</code>, <code className="font-mono">faq</code>. An
-          unrecognised block is rejected rather than saved and dropped.
+          <code className="font-mono">callout</code>, <code className="font-mono">faq</code>,{' '}
+          <code className="font-mono">figure</code>. An unrecognised block is rejected rather than
+          saved and dropped. A <code className="font-mono">figure</code> names a path from{' '}
+          <code className="font-mono">src/lib/images/site-photography.ts</code>, not a URL: the alt
+          text, credit and licence come from that registry, so a path it does not know renders
+          nothing.
         </p>
         <textarea
           id="body"

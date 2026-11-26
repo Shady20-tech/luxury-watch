@@ -382,6 +382,22 @@ into a separate `extensions` schema, not `public`.
 fails the cast inside the RPC, which is how every settings save went unrecorded
 until `0025`.
 
+**`pages.content` is a `jsonb` array of typed blocks, not HTML.** The renderer
+decides which element each block becomes, so stored content cannot choose a tag
+or add an attribute, and text is emitted as React children rather than through
+`dangerouslySetInnerHTML`. The six recognised shapes are in
+`src/lib/content/types.ts`; a block of any other type is dropped by
+`parsePageBlocks` on read and rejected by the admin form on save, using the same
+parser so the two cannot drift.
+
+The `figure` block is the one shape that names an asset, and it names a **path
+into `src/lib/images/site-photography.ts`**, not a URL. Alt text, photographer,
+licence and dimensions are read from that registry entry; a path the registry does
+not know renders nothing. That is what makes it impossible to publish a page with
+an uncredited photograph: the block has nowhere to store a credit that could
+disagree with the one displayed. Any new table or column that carries a
+public-readable image path inherits the same obligation.
+
 **`email_settings`** — `id` (boolean primary key, always `true`), `from_name`,
 `reply_to`, `updated_at`, `updated_by`. One row, enforced by
 `check (id)`. RLS is enabled and there is no public grant: `is_admin()` may read,

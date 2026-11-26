@@ -25,6 +25,7 @@ export type PageBlock =
   | { type: 'paragraph'; text: string }
   | { type: 'list'; items: string[]; ordered?: boolean }
   | { type: 'callout'; text: string; tone?: 'info' | 'warning' }
+  | { type: 'figure'; src: string; caption?: string }
   | { type: 'faq'; items: { question: string; answer: string }[] };
 
 export type PageContent = {
@@ -76,6 +77,17 @@ function parseBlock(raw: unknown): PageBlock | null {
     const text = asString(raw.text);
     if (!text) return null;
     return { type: 'callout', text, tone: raw.tone === 'warning' ? 'warning' : 'info' };
+  }
+
+  if (type === 'figure') {
+    // Only the path is stored. The alt text, credit, licence and dimensions
+    // live in the site-photography registry and are resolved at render time, so
+    // a figure block cannot carry an unattributed image: a path the registry
+    // does not know renders nothing at all.
+    const src = asString(raw.src);
+    if (!src) return null;
+    const caption = asString(raw.caption) ?? undefined;
+    return { type: 'figure', src, caption };
   }
 
   if (type === 'faq') {
